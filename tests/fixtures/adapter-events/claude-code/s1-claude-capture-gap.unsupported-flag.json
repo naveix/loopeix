@@ -1,0 +1,9 @@
+{
+  "engine": "claude_code_cli",
+  "capability": "token_context_usage",
+  "level": "partial",
+  "observed": "Token/cost usage is exposed ONLY in the final `result` event (cumulative for the run). There are NO per-event or per-step usage figures in the stream.",
+  "implication": "LoopSpec must NOT make per-step live-context claims for Claude runs. Only a run-level usage summary is available, and its values are volatile (redacted in fixtures).",
+  "also": "Shell command execution and file changes are `partial` for Claude — inferred from assistant `tool_use` blocks (Bash/Edit/Write) and PostToolUse hooks, not from first-class events. Strong command/file claims require independent filesystem evidence.",
+  "source": "Real s1 capture 2026-07-02 (claude 2.1.198) + code.claude.com/docs stream-json; see adapter-events/README.md."
+}

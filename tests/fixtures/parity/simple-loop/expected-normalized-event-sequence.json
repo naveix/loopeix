@@ -1,0 +1,12 @@
+{
+  "note": "The same trivial loop, normalized by each engine adapter. Both reach run.completed; the sequences differ in fidelity, which is expected and preserved (see capture-gap-expectations.json).",
+  "prompt": "Reply with exactly the word: ok",
+  "codex_cli": {
+    "kinds": { "run.started": 1, "notice": 1, "message": 1, "run.completed": 1, "usage": 1 },
+    "unmapped_raw_types": []
+  },
+  "claude_code_cli": {
+    "kinds": { "run.started": 1, "hook": 22, "message": 1, "run.completed": 1, "usage": 1 },
+    "unmapped_raw_types": []
+  }
+}

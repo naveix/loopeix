@@ -1,0 +1,28 @@
+{
+  "note": "Per-capability capture fidelity per engine. LoopSpec must preserve these differences and NOT report Claude command/file evidence as if it were as direct as Codex's.",
+  "codex_cli": {
+    "noninteractive_run": "full",
+    "streamed_json_events": "full",
+    "final_structured_output": "full",
+    "shell_command_execution": "full",
+    "file_changes": "full",
+    "mcp_activity": "full",
+    "tool_approvals": "partial",
+    "browser_actions": "partial",
+    "subagent_lifecycle": "partial",
+    "token_context_usage": "full"
+  },
+  "claude_code_cli": {
+    "noninteractive_run": "full",
+    "streamed_json_events": "full",
+    "final_structured_output": "full",
+    "shell_command_execution": "partial",
+    "file_changes": "partial",
+    "mcp_activity": "partial",
+    "tool_approvals": "partial",
+    "browser_actions": "partial",
+    "subagent_lifecycle": "partial",
+    "token_context_usage": "full"
+  },
+  "key_difference": "Codex exposes command_execution / file_change / mcp_tool_call as first-class items (full); Claude only infers command/file/mcp from assistant tool_use blocks + hooks (partial). Strong command/file claims require filesystem evidence regardless of engine."
+}

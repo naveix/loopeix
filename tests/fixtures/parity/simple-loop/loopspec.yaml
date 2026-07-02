@@ -1,0 +1,85 @@
+schema_version: "0.1"
+loop_family: "parity-simple-loop"
+version: "v001"
+
+outcome:
+  summary: "Run the same trivial prompt through both engine adapters and compare normalized evidence."
+  success_criteria:
+    - "Both engines produce a normalized run.completed."
+    - "Capture-gap differences between engines are preserved, not faked equal."
+
+inputs:
+  - id: "prompt"
+    description: "The benign parity prompt."
+    required: true
+
+context_contract:
+  required:
+    - "The captured redacted event streams"
+  forbidden:
+    - "Raw unredacted engine output"
+  untrusted_sources: []
+
+workflow_pattern:
+  type: "parallel-specialists"
+  phases:
+    - "capture-codex"
+    - "capture-claude"
+    - "normalize-and-compare"
+
+roles:
+  - id: "parity-runner"
+    owns:
+      - "capture"
+      - "normalization"
+      - "comparison"
+    must_not:
+      - "store unredacted engine output"
+    allowed_tools:
+      - "shell"
+    handoff: "Report normalized sequences and the capture-gap differences per engine."
+
+tasks:
+  - id: "compare-engines"
+    role: "parity-runner"
+    artifacts:
+      - "parity-report"
+    depends_on: []
+    acceptance_checks:
+      - "Both adapters normalize with zero unmapped event types."
+
+tool_grants:
+  - id: "workspace-shell"
+    tool: "shell"
+    scope: "read redacted event fixtures"
+    risk_tier: "T1"
+    requires_approval: false
+
+artifacts:
+  - id: "parity-report"
+    path: "artifacts/parity-report.md"
+    type: "markdown"
+    required: true
+    producer_task: "compare-engines"
+    acceptance_checks:
+      - "States per-engine capture-gap levels."
+
+gates:
+  - id: "capture-honesty"
+    blocking: true
+    inputs_required:
+      - "parity-report"
+    evidence_rule: "Each engine's capture-gap levels come from its adapter, not assumed parity."
+    pass_condition: "Capture gaps are engine-specific and evidence-backed."
+    hold_condition: "Any capture gap is missing or assumed."
+    fail_condition: "Claude command/file evidence is reported as full."
+    waiver_allowed: false
+
+evaluations: []
+
+risk_controls:
+  max_tier_without_approval: "T1"
+  t5_allowed: false
+
+retro:
+  creates: "SpecChangeProposal"

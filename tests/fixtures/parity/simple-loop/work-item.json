@@ -1,0 +1,11 @@
+{
+  "schema_version": "0.1",
+  "_provisional": "WorkItem field-level shape is not enumerated in S3; minimal reasonable shape.",
+  "work_item_id": "wi_parity_simple",
+  "loop_family": "parity-simple-loop",
+  "title": "Cross-engine parity probe",
+  "description": "Run the same trivial prompt through the Codex and Claude adapters; compare normalized output and capture gaps.",
+  "submitted_by": "user",
+  "approved": true,
+  "created_at": "2026-01-01T00:00:00Z"
+}
