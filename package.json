@@ -43,10 +43,14 @@
       },
       "report": {
         "description": "Build and open local run reports."
+      },
+      "run": {
+        "description": "Inspect and recover local runs."
       }
     }
   },
   "scripts": {
+    "prebuild": "node scripts/prebuild-clean.mjs",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
