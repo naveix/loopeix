@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.1",
+  "manifest_version": "0.1",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "_note": "PROVISIONAL SHAPE — template-manifest fields are not enumerated in the S3 contracts. S6 finalizes. Known-good minimal example for pre-CLI authoring validation.",
+  "templates": [
+    {
+      "id": "minimal-bugfix",
+      "title": "Minimal bugfix loop",
+      "description": "Smallest complete execution loop: diagnose then verify with evidence.",
+      "path": "templates/minimal-bugfix.loop.yaml",
+      "loop_family_hint": "minimal-bugfix",
+      "workflow_pattern": "orchestrator-workers"
+    },
+    {
+      "id": "expert-sprint",
+      "title": "Expert sprint loop",
+      "description": "Multi-role sprint with specialist review and two blocking gates.",
+      "path": "templates/expert-sprint.loop.yaml",
+      "loop_family_hint": "expert-sprint",
+      "workflow_pattern": "orchestrator-workers"
+    }
+  ]
+}

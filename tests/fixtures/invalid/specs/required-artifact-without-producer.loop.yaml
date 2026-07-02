@@ -1,0 +1,97 @@
+# INVALID FIXTURE — expected to FAIL validation.
+# Sole defect: required artifact "orphan-report" names producer_task "no-such-task",
+# which is not defined in tasks[]. Every required artifact must have a producer task.
+# The "diagnosis-note" artifact is correctly produced, isolating the single defect.
+schema_version: "0.1"
+loop_family: "invalid-required-artifact-without-producer"
+version: "v001"
+
+outcome:
+  summary: "Invalid example: a required artifact has no producing task."
+  success_criteria:
+    - "This fixture must fail validation because a required artifact lacks a producer task."
+
+inputs: []
+
+context_contract:
+  required:
+    - "Relevant files"
+  forbidden:
+    - ".env contents unless explicitly approved"
+  untrusted_sources: []
+
+workflow_pattern:
+  type: "orchestrator-workers"
+  phases:
+    - "inspect"
+    - "fix"
+    - "verify"
+
+roles:
+  - id: "fix-owner"
+    owns:
+      - "diagnosis"
+      - "fix"
+      - "verification"
+    must_not:
+      - "change unrelated files"
+    allowed_tools:
+      - "shell"
+    handoff: "Summarize changes and evidence."
+
+tasks:
+  - id: "diagnose"
+    role: "fix-owner"
+    artifacts:
+      - "diagnosis-note"
+    depends_on: []
+    acceptance_checks:
+      - "Root cause recorded."
+
+tool_grants:
+  - id: "workspace-shell"
+    tool: "shell"
+    scope: "read and write inside approved workspace"
+    risk_tier: "T2"
+    requires_approval: false
+
+artifacts:
+  - id: "diagnosis-note"
+    path: "artifacts/diagnosis.md"
+    type: "markdown"
+    required: true
+    producer_task: "diagnose"
+    acceptance_checks:
+      - "States evidence used."
+  - id: "orphan-report"
+    path: "artifacts/orphan-report.md"
+    type: "markdown"
+    required: true
+    producer_task: "no-such-task"
+    acceptance_checks:
+      - "This required artifact has no producing task."
+
+gates:
+  - id: "claim-support"
+    blocking: true
+    inputs_required:
+      - "diagnosis-note"
+    evidence_rule: "Strong claims require command, file, citation, browser, or manual-review evidence."
+    pass_condition: "All strong claims are supported."
+    hold_condition: "Any strong claim is unsupported."
+    fail_condition: "A claim is contradicted by evidence."
+    waiver_allowed: false
+
+evaluations:
+  - id: "best-available-check"
+    type: "command"
+    required: true
+    command: "project-specific"
+    success_condition: "The selected check exits successfully or a limitation is recorded."
+
+risk_controls:
+  max_tier_without_approval: "T2"
+  t5_allowed: false
+
+retro:
+  creates: "SpecChangeProposal"

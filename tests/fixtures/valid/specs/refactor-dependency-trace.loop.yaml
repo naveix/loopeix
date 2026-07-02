@@ -1,0 +1,177 @@
+schema_version: "0.1"
+loop_family: "refactor-dependency-trace"
+version: "v001"
+
+outcome:
+  summary: "Refactor a module only after tracing everything that depends on it."
+  success_criteria:
+    - "All readers, writers, and callers of the target are enumerated before edits."
+    - "The refactor preserves observable behavior."
+    - "A build-and-test check passes or a limitation is recorded."
+
+inputs:
+  - id: "refactor-target"
+    description: "The module, symbol, or interface to refactor."
+    required: true
+  - id: "dependency-graph"
+    description: "Optional dependency graph or index if one exists."
+    required: false
+
+context_contract:
+  required:
+    - "Target source files"
+    - "Direct and transitive dependents"
+    - "Project instructions"
+  forbidden:
+    - "Unrelated user changes"
+    - ".env contents unless explicitly approved"
+  untrusted_sources:
+    - "issues"
+
+workflow_pattern:
+  type: "prompt-chaining"
+  phases:
+    - "trace-dependencies"
+    - "plan-refactor"
+    - "apply-refactor"
+    - "verify-refactor"
+
+roles:
+  - id: "refactor-owner"
+    owns:
+      - "dependency trace"
+      - "refactor plan"
+      - "implementation"
+    must_not:
+      - "change behavior without a passing check"
+    allowed_tools:
+      - "shell"
+    handoff: "List traced dependents, the plan, files changed, and checks run."
+  - id: "change-reviewer"
+    owns:
+      - "read-only diff review"
+    must_not:
+      - "edit implementation files"
+    allowed_tools:
+      - "shell"
+    handoff: "List risk findings and whether the blast radius was fully traced."
+
+tasks:
+  - id: "trace-dependencies"
+    role: "refactor-owner"
+    artifacts:
+      - "dependency-map"
+    depends_on: []
+    acceptance_checks:
+      - "Every direct dependent of the target is listed with a file reference."
+  - id: "plan-refactor"
+    role: "refactor-owner"
+    artifacts:
+      - "refactor-plan"
+    depends_on:
+      - "trace-dependencies"
+    acceptance_checks:
+      - "The plan names each file it will change and why."
+  - id: "apply-refactor"
+    role: "refactor-owner"
+    artifacts:
+      - "change-summary"
+    depends_on:
+      - "plan-refactor"
+    acceptance_checks:
+      - "Changes stay inside the planned files."
+  - id: "verify-refactor"
+    role: "refactor-owner"
+    artifacts:
+      - "verification-result"
+    depends_on:
+      - "apply-refactor"
+    acceptance_checks:
+      - "A build, test, or type check result is recorded."
+  - id: "review-change"
+    role: "change-reviewer"
+    artifacts:
+      - "review-note"
+    depends_on:
+      - "verify-refactor"
+    acceptance_checks:
+      - "Review confirms the traced blast radius matches the actual diff."
+
+tool_grants:
+  - id: "workspace-shell"
+    tool: "shell"
+    scope: "read and write inside approved workspace"
+    risk_tier: "T2"
+    requires_approval: false
+
+artifacts:
+  - id: "dependency-map"
+    path: "artifacts/dependency-map.json"
+    type: "json"
+    required: true
+    producer_task: "trace-dependencies"
+    acceptance_checks:
+      - "Lists dependents with file and symbol references."
+  - id: "refactor-plan"
+    path: "artifacts/refactor-plan.md"
+    type: "markdown"
+    required: true
+    producer_task: "plan-refactor"
+    acceptance_checks:
+      - "Names each planned file change."
+  - id: "change-summary"
+    path: "artifacts/change-summary.md"
+    type: "markdown"
+    required: true
+    producer_task: "apply-refactor"
+    acceptance_checks:
+      - "Lists exact file changes."
+  - id: "verification-result"
+    path: "evaluations/verification.json"
+    type: "json"
+    required: true
+    producer_task: "verify-refactor"
+    acceptance_checks:
+      - "Includes the command and its exit code."
+  - id: "review-note"
+    path: "artifacts/review-note.md"
+    type: "markdown"
+    required: true
+    producer_task: "review-change"
+    acceptance_checks:
+      - "Separates findings from summary."
+
+gates:
+  - id: "evidence-integrity"
+    blocking: true
+    inputs_required:
+      - "verification-result"
+      - "review-note"
+    evidence_rule: "Every behavior-preservation claim has a linked check result."
+    pass_condition: "Evidence exists and hashes match."
+    hold_condition: "Evidence is missing, stale, or mutated."
+    fail_condition: "A check contradicts a behavior-preservation claim."
+    waiver_allowed: false
+  - id: "no-t5"
+    blocking: true
+    inputs_required:
+      - "tool_grants"
+    evidence_rule: "No scheduled, recurring, unattended, or background loop is present."
+    pass_condition: "No T5 behavior is requested or executed."
+    hold_condition: "T5 risk is ambiguous."
+    fail_condition: "T5 behavior is present."
+    waiver_allowed: false
+
+evaluations:
+  - id: "build-and-test"
+    type: "command"
+    required: true
+    command: "project-specific"
+    success_condition: "The selected build-and-test check passes or a limitation is recorded."
+
+risk_controls:
+  max_tier_without_approval: "T2"
+  t5_allowed: false
+
+retro:
+  creates: "SpecChangeProposal"

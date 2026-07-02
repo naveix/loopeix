@@ -1,0 +1,90 @@
+# INVALID FIXTURE — expected to FAIL validation.
+# Sole defect: risk_controls declares T5 as allowed. V1 must reject T5
+# (unattended/recurring/background loops); t5_allowed must be false and no
+# waiver may permit T5.
+schema_version: "0.1"
+loop_family: "invalid-t5-allowed"
+version: "v001"
+
+outcome:
+  summary: "Invalid example: the spec allows T5 unattended recurring execution."
+  success_criteria:
+    - "This fixture must fail validation because V1 blocks T5."
+
+inputs: []
+
+context_contract:
+  required:
+    - "Relevant files"
+  forbidden:
+    - ".env contents unless explicitly approved"
+  untrusted_sources: []
+
+workflow_pattern:
+  type: "orchestrator-workers"
+  phases:
+    - "inspect"
+    - "fix"
+    - "verify"
+
+roles:
+  - id: "fix-owner"
+    owns:
+      - "diagnosis"
+      - "fix"
+      - "verification"
+    must_not:
+      - "change unrelated files"
+    allowed_tools:
+      - "shell"
+    handoff: "Summarize changes and evidence."
+
+tasks:
+  - id: "diagnose"
+    role: "fix-owner"
+    artifacts:
+      - "diagnosis-note"
+    depends_on: []
+    acceptance_checks:
+      - "Root cause recorded."
+
+tool_grants:
+  - id: "workspace-shell"
+    tool: "shell"
+    scope: "read and write inside approved workspace"
+    risk_tier: "T2"
+    requires_approval: false
+
+artifacts:
+  - id: "diagnosis-note"
+    path: "artifacts/diagnosis.md"
+    type: "markdown"
+    required: true
+    producer_task: "diagnose"
+    acceptance_checks:
+      - "States evidence used."
+
+gates:
+  - id: "no-t5"
+    blocking: true
+    inputs_required:
+      - "tool_grants"
+    evidence_rule: "No scheduled, recurring, unattended, or background loop is present."
+    pass_condition: "No T5 behavior is requested or executed."
+    hold_condition: "T5 risk is ambiguous."
+    fail_condition: "T5 behavior is present."
+    waiver_allowed: false
+
+evaluations:
+  - id: "best-available-check"
+    type: "command"
+    required: true
+    command: "project-specific"
+    success_condition: "The selected check exits successfully or a limitation is recorded."
+
+risk_controls:
+  max_tier_without_approval: "T2"
+  t5_allowed: true
+
+retro:
+  creates: "SpecChangeProposal"

@@ -1,0 +1,18 @@
+[
+  {
+    "gate_result_id": "gate_0001",
+    "gate_id": "claim-support",
+    "run_id": "run_minimal_bugfix_success",
+    "status": "PASS",
+    "blocking": true,
+    "evaluated_at": "2026-01-01T00:00:08Z",
+    "evaluator": "actor_fix_owner",
+    "inputs_checked": ["verification-result"],
+    "evidence_used": ["ev_0001", "ev_0002"],
+    "reason": "All strong claims are supported by command and file-hash evidence.",
+    "findings": [],
+    "waiver_id": null,
+    "output_hash": "sha256:0808080808080808080808080808080808080808080808080808080808080808",
+    "limitations": []
+  }
+]

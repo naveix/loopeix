@@ -1,0 +1,11 @@
+{
+  "waiver_id": "wv_0001",
+  "gate_id": "style-advisory",
+  "approver": "operator",
+  "approved_at": "2026-01-01T00:00:00Z",
+  "reason": "Style-advisory gate waived for this run; the finding is cosmetic and does not affect correctness.",
+  "scope": "run:run_minimal_bugfix",
+  "expires_at": "2026-06-01T00:00:00Z",
+  "review_condition": "Re-check when the project style configuration is finalized.",
+  "approval_evidence_id": "ev_0001"
+}

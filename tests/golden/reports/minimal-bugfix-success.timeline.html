@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LoopSpec Timeline — run_minimal_bugfix_success</title>
+  <style>
+    body { font: 14px/1.5 system-ui, sans-serif; margin: 2rem; color: #111; background: #fff; }
+    h1 { font-size: 1.25rem; }
+    .meta { color: #555; margin-bottom: 1rem; }
+    ol { list-style: none; padding-left: 0; border-left: 2px solid #ccc; }
+    li { position: relative; padding: 0.5rem 0 0.5rem 1rem; }
+    li::before { content: ""; position: absolute; left: -0.4rem; top: 0.9rem; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #333; }
+    .seq { color: #888; font-variant-numeric: tabular-nums; }
+    .type { font-weight: 600; }
+    .pass { color: #147a3d; }
+    .ts { color: #888; }
+    footer { margin-top: 1.5rem; color: #888; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>LoopSpec Timeline</h1>
+  <div class="meta">
+    Run <code>run_minimal_bugfix_success</code> &middot; loop family <code>minimal-bugfix</code> &middot;
+    state <strong>completed</strong> &middot; integrity <strong>valid</strong>
+  </div>
+  <ol>
+    <li><span class="seq">01</span> <span class="type">run.started</span> <span class="ts">2026-01-01T00:00:01Z</span></li>
+    <li><span class="seq">02</span> <span class="type">task.started</span> diagnose <span class="ts">2026-01-01T00:00:02Z</span></li>
+    <li><span class="seq">03</span> <span class="type">evidence.captured</span> ev_0002 (file hash) <span class="ts">2026-01-01T00:00:03Z</span></li>
+    <li><span class="seq">04</span> <span class="type">task.completed</span> diagnose <span class="ts">2026-01-01T00:00:04Z</span></li>
+    <li><span class="seq">05</span> <span class="type">task.started</span> verify-fix <span class="ts">2026-01-01T00:00:05Z</span></li>
+    <li><span class="seq">06</span> <span class="type">evaluation.result</span> best-available-check <span class="pass">PASS</span> <span class="ts">2026-01-01T00:00:06Z</span></li>
+    <li><span class="seq">07</span> <span class="type">task.completed</span> verify-fix <span class="ts">2026-01-01T00:00:07Z</span></li>
+    <li><span class="seq">08</span> <span class="type">gate.result</span> claim-support <span class="pass">PASS</span> <span class="ts">2026-01-01T00:00:08Z</span></li>
+    <li><span class="seq">09</span> <span class="type">run.completed</span> <span class="ts">2026-01-01T00:00:09Z</span></li>
+  </ol>
+  <footer>Static timeline. No scripts, no network calls. Golden fixture with normalized identifiers.</footer>
+</body>
+</html>

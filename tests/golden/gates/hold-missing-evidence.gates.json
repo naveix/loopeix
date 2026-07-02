@@ -1,0 +1,28 @@
+[
+  {
+    "gate_result_id": "gr_0001",
+    "gate_id": "evidence-integrity",
+    "run_id": "run_gate_hold",
+    "status": "HOLD",
+    "blocking": true,
+    "evaluated_at": "2026-01-01T00:00:00Z",
+    "evaluator": "gate-evaluator",
+    "inputs_checked": [
+      "ledger:run_gate_hold",
+      "task_run:task_gate_hold_1"
+    ],
+    "evidence_used": [
+      "evidence-manifest"
+    ],
+    "reason": "Required evidence missing: test_output and diff_summary were not present in the evidence manifest.",
+    "findings": [
+      "find_0001",
+      "find_0002"
+    ],
+    "waiver_id": null,
+    "output_hash": "sha256:4a80553935513a70063077b4bf116fc5b8044ef48cb57ea06ba82ed9723337a6",
+    "limitations": [
+      "Gate evaluated only artifacts present in the evidence manifest"
+    ]
+  }
+]

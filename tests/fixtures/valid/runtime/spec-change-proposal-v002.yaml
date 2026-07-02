@@ -1,0 +1,21 @@
+# PROVISIONAL SHAPE — SpecChangeProposal field-level schema is not enumerated in the S3
+# contracts (CONTEXT.md defines it as "a proposed change to future loop behavior; accepted
+# proposals create a new LoopSpecVersion"). Minimal reasonable shape; S14 finalizes.
+schema_version: "0.1"
+proposal_id: "scp_0001"
+loop_family: "minimal-bugfix"
+from_version: "v001"
+to_version: "v002"
+status: "proposed"
+source_retro: "run_minimal_bugfix"
+rationale: >-
+  The project check contains a known-flaky timing test. Declaring it as a known-flaky evaluation
+  is more honest than skipping it ad hoc, and keeps the evidence trail complete.
+changes:
+  - type: "add"
+    target: "evaluations"
+    description: "Add a 'known-flaky-timing' evaluation with required=false and an explicit limitation note."
+  - type: "modify"
+    target: "gates.claim-support.evidence_rule"
+    description: "Clarify that a documented known-flaky check counts as a recorded limitation, not a failure."
+immutability_note: "This proposal introduces v002 and does not modify the immutable v001 version file."

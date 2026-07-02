@@ -1,0 +1,29 @@
+[
+  {
+    "gate_result_id": "gr_0001",
+    "gate_id": "style-advisory",
+    "run_id": "run_waived",
+    "status": "WAIVED",
+    "blocking": false,
+    "evaluated_at": "2026-01-01T00:00:00Z",
+    "evaluator": "gate-evaluator",
+    "inputs_checked": [
+      "ledger:run_waived",
+      "task_run:task_waived_1"
+    ],
+    "evidence_used": [
+      "style-report",
+      "waiver-record"
+    ],
+    "reason": "Style advisory findings present but formally waived under approved waiver wv_0001.",
+    "findings": [
+      "find_0001",
+      "find_0002"
+    ],
+    "waiver_id": "wv_0001",
+    "output_hash": "sha256:197b3c6910d83ceff0c462656ac1bb9acdef2abbdd2c4d62b5c992c5311ed871",
+    "limitations": [
+      "Advisory gate; does not block completion"
+    ]
+  }
+]

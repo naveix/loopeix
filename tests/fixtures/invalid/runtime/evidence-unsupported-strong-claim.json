@@ -1,0 +1,15 @@
+{
+  "run_id": "run_unsupported_claim",
+  "claims": [
+    {
+      "claim_id": "claim_0001",
+      "text": "The security vulnerability is fully fixed and cannot recur.",
+      "strength": "strong",
+      "required_evidence_types": ["test", "command"],
+      "supported_by": [],
+      "status": "verified",
+      "limitations": []
+    }
+  ],
+  "evidence": []
+}

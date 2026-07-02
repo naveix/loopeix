@@ -1,0 +1,44 @@
+{
+  "schema_version": "0.1",
+  "run_id": "run_minimal_bugfix",
+  "loop_family": "minimal-bugfix",
+  "loopspec_version": "v001",
+  "loopspec_version_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "work_item_id": "wi_minimal_bugfix",
+  "intake_brief_id": "ib_minimal_bugfix",
+  "created_at": "2026-01-01T00:00:00Z",
+  "assurance_profile": {"id": "base", "tightens": []},
+  "context_snapshot": {
+    "required": ["Relevant files", "Project instructions"],
+    "forbidden": [".env contents unless explicitly approved"],
+    "untrusted_sources": []
+  },
+  "role_assignments": [
+    {"role": "fix-owner", "actor_id": "actor_fix_owner", "actor_type": "ai_agent"}
+  ],
+  "task_plan": [
+    {"task_id": "diagnose", "role": "fix-owner", "depends_on": [], "artifacts": ["diagnosis-note"]},
+    {"task_id": "verify-fix", "role": "fix-owner", "depends_on": ["diagnose"], "artifacts": ["verification-result"]}
+  ],
+  "tool_grants": [
+    {"id": "workspace-shell", "tool": "shell", "scope": "read and write inside approved workspace", "risk_tier": "T2", "requires_approval": false}
+  ],
+  "workspace_boundary": {
+    "workspace_root": "<WORKSPACE_ROOT>",
+    "read": ["."],
+    "write": ["artifacts", "evaluations"]
+  },
+  "adapter_plan": {
+    "engine": "claude_code_cli",
+    "command": "claude -p --output-format stream-json --include-hook-events",
+    "permission_mode": "default",
+    "known_gaps": ["token and usage counts not captured", "raw transcript not captured as evidence"]
+  },
+  "gate_plan": [
+    {"gate_id": "claim-support", "blocking": true}
+  ],
+  "evaluation_plan": [
+    {"evaluation_id": "best-available-check", "type": "command", "required": true}
+  ],
+  "risk_controls": {"max_tier_without_approval": "T2", "t5_allowed": false}
+}

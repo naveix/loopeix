@@ -1,0 +1,11 @@
+{
+  "schema_version": "0.1",
+  "_provisional": "WorkItem field-level shape is not enumerated in the S3 contracts (CONTEXT.md defines it conceptually as 'the submitted unit of work'). This is a minimal reasonable shape; S6 finalizes.",
+  "work_item_id": "wi_minimal_bugfix",
+  "loop_family": "minimal-bugfix",
+  "title": "Fix crash on empty input",
+  "description": "Users report a crash when submitting an empty form. Reproduce, fix, and verify.",
+  "submitted_by": "user",
+  "approved": true,
+  "created_at": "2026-01-01T00:00:00Z"
+}

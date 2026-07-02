@@ -1,0 +1,17 @@
+{
+  "evaluation_result_id": "eval_0001",
+  "evaluation_id": "best-available-check",
+  "run_id": "run_minimal_bugfix",
+  "type": "command",
+  "status": "PASS",
+  "started_at": "2026-01-01T00:00:00Z",
+  "completed_at": "2026-01-01T00:00:01Z",
+  "cwd": "<WORKSPACE_ROOT>",
+  "command": "npm test",
+  "exit_code": 0,
+  "artifact_path": "evaluations/verification.json",
+  "output_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "evidence_ids": ["ev_0001"],
+  "findings": [],
+  "limitations": []
+}

@@ -1,0 +1,113 @@
+# Immutable LoopSpecVersion snapshot.
+# This is the frozen v001 of the `minimal-bugfix` loop family.
+# Once any LoopRun references a version, that version file is immutable:
+# changes must create a new version (v002, ...), never edit this file.
+# Runtime records store this file's hash as `loopspec_version_hash`.
+schema_version: "0.1"
+loop_family: "minimal-bugfix"
+version: "v001"
+
+outcome:
+  summary: "Fix one small bug with evidence."
+  success_criteria:
+    - "The bug is reproduced or clearly explained."
+    - "The fix is verified with the best available check."
+
+inputs:
+  - id: "user-request"
+    description: "The approved bug report or user request."
+    required: true
+
+context_contract:
+  required:
+    - "Relevant files"
+    - "Project instructions"
+  forbidden:
+    - ".env contents unless explicitly approved"
+  untrusted_sources: []
+
+workflow_pattern:
+  type: "orchestrator-workers"
+  phases:
+    - "inspect"
+    - "plan"
+    - "fix"
+    - "verify"
+    - "report"
+
+roles:
+  - id: "fix-owner"
+    owns:
+      - "bug diagnosis"
+      - "implementation"
+      - "verification"
+    must_not:
+      - "change unrelated files"
+    allowed_tools:
+      - "shell"
+    handoff: "Summarize files changed, checks run, and remaining risk."
+
+tasks:
+  - id: "diagnose"
+    role: "fix-owner"
+    artifacts:
+      - "diagnosis-note"
+    depends_on: []
+    acceptance_checks:
+      - "Root cause or best-known cause is recorded."
+  - id: "verify-fix"
+    role: "fix-owner"
+    artifacts:
+      - "verification-result"
+    depends_on:
+      - "diagnose"
+    acceptance_checks:
+      - "A test, build, lint, reproduction, or manual check is recorded."
+
+tool_grants:
+  - id: "workspace-shell"
+    tool: "shell"
+    scope: "read and write inside approved workspace"
+    risk_tier: "T2"
+    requires_approval: false
+
+artifacts:
+  - id: "diagnosis-note"
+    path: "artifacts/diagnosis.md"
+    type: "markdown"
+    required: true
+    producer_task: "diagnose"
+    acceptance_checks:
+      - "States evidence used for diagnosis."
+  - id: "verification-result"
+    path: "evaluations/verification.json"
+    type: "json"
+    required: true
+    producer_task: "verify-fix"
+    acceptance_checks:
+      - "Includes command or manual review evidence."
+
+gates:
+  - id: "claim-support"
+    blocking: true
+    inputs_required:
+      - "verification-result"
+    evidence_rule: "Strong claims require command, file, citation, browser, or manual-review evidence."
+    pass_condition: "All strong claims are supported."
+    hold_condition: "Any strong claim is unsupported."
+    fail_condition: "A claim is contradicted by evidence."
+    waiver_allowed: false
+
+evaluations:
+  - id: "best-available-check"
+    type: "command"
+    required: true
+    command: "project-specific"
+    success_condition: "The selected check exits successfully or a limitation is recorded."
+
+risk_controls:
+  max_tier_without_approval: "T2"
+  t5_allowed: false
+
+retro:
+  creates: "SpecChangeProposal"

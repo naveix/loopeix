@@ -1,0 +1,16 @@
+{
+  "gate_result_id": "gate_0001",
+  "gate_id": "no-t5",
+  "run_id": "run_waives_no_t5",
+  "status": "WAIVED",
+  "blocking": true,
+  "evaluated_at": "2026-01-01T00:00:00Z",
+  "evaluator": "actor_fix_owner",
+  "inputs_checked": ["risk_controls"],
+  "evidence_used": [],
+  "reason": "Attempted to waive the no-t5 control for an unattended recurring run.",
+  "findings": [],
+  "waiver_id": "wv_0001",
+  "output_hash": "sha256:0808080808080808080808080808080808080808080808080808080808080808",
+  "limitations": []
+}

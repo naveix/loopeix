@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# oclif manifest — generated in prepack, deleted in postpack; must never be committed
+oclif.manifest.json
+
+# test / coverage
+coverage/
+.vitest/
+
+# packaged tarballs
+*.tgz
+
+# LoopSpec local runtime output (runs are local, not committed)
+.loopspec/runs/
+
+# OS / editor noise
+.DS_Store
+*.log

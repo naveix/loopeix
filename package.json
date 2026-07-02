@@ -1,0 +1,71 @@
+{
+  "name": "loopspec",
+  "version": "0.0.0",
+  "description": "Local-first CLI to design, run, verify, and improve repeatable AI work loops.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "packageManager": "pnpm@11.9.0",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.9.0"
+    }
+  },
+  "bin": {
+    "loopspec": "./bin/run.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schemas/*": "./schemas/*"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "schemas",
+    "oclif.manifest.json"
+  ],
+  "oclif": {
+    "bin": "loopspec",
+    "dirname": "loopspec",
+    "commands": "./dist/commands",
+    "topicSeparator": " ",
+    "topics": {
+      "spec": {
+        "description": "Work with LoopSpec files (validate, inspect)."
+      },
+      "report": {
+        "description": "Build and open local run reports."
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "schema:generate": "tsx scripts/generate-schema.ts",
+    "prepack": "pnpm build && pnpm schema:generate && oclif manifest"
+  },
+  "dependencies": {
+    "@oclif/core": "4.11.14",
+    "yaml": "2.9.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "oclif": "4.23.24",
+    "tsx": "4.22.5",
+    "typescript": "6.0.3",
+    "vitest": "4.1.9"
+  }
+}

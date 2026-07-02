@@ -1,0 +1,155 @@
+schema_version: "0.1"
+loop_family: "improvement-proposal"
+version: "v001"
+
+outcome:
+  summary: "Turn a retro and its findings into SpecChangeProposals without mutating any current spec version."
+  success_criteria:
+    - "Each proposal traces to a specific retro finding."
+    - "No current LoopSpecVersion file is modified."
+    - "Every proposal is expressed as a new version, never an in-place edit."
+
+inputs:
+  - id: "retro-record"
+    description: "The retro output from a completed run."
+    required: true
+  - id: "findings"
+    description: "The findings the retro references."
+    required: true
+
+context_contract:
+  required:
+    - "The retro record"
+    - "The referenced findings"
+    - "The current LoopSpecVersion under review"
+  forbidden:
+    - "Write access to any immutable version file"
+  untrusted_sources: []
+
+workflow_pattern:
+  type: "routing"
+  phases:
+    - "read-retro"
+    - "classify-findings"
+    - "draft-proposal"
+    - "review-proposal"
+
+roles:
+  - id: "improvement-analyst"
+    owns:
+      - "retro parsing"
+      - "finding classification"
+      - "proposal drafting"
+    must_not:
+      - "edit any current or immutable spec version"
+    allowed_tools:
+      - "shell"
+    handoff: "List each finding, its routed proposal type, and the drafted proposal id."
+  - id: "proposal-reviewer"
+    owns:
+      - "read-only proposal review"
+    must_not:
+      - "edit implementation files"
+    allowed_tools:
+      - "shell"
+    handoff: "Confirm each proposal traces to a finding and mutates nothing."
+
+tasks:
+  - id: "parse-retro"
+    role: "improvement-analyst"
+    artifacts:
+      - "retro-source"
+    depends_on: []
+    acceptance_checks:
+      - "The retro and its findings are loaded and quoted."
+  - id: "classify-findings"
+    role: "improvement-analyst"
+    artifacts:
+      - "classified-findings"
+    depends_on:
+      - "parse-retro"
+    acceptance_checks:
+      - "Each finding is routed to a proposal type."
+  - id: "draft-proposal"
+    role: "improvement-analyst"
+    artifacts:
+      - "spec-change-proposal"
+    depends_on:
+      - "classify-findings"
+    acceptance_checks:
+      - "The proposal is a new version and edits no current version."
+  - id: "review-proposal"
+    role: "proposal-reviewer"
+    artifacts:
+      - "proposal-review-note"
+    depends_on:
+      - "draft-proposal"
+    acceptance_checks:
+      - "Confirms immutability and finding traceability."
+
+tool_grants:
+  - id: "workspace-shell-readonly"
+    tool: "shell"
+    scope: "read the run folder and write only under spec-change-proposals"
+    risk_tier: "T1"
+    requires_approval: false
+
+artifacts:
+  - id: "retro-source"
+    path: "artifacts/retro-source.md"
+    type: "markdown"
+    required: true
+    producer_task: "parse-retro"
+    acceptance_checks:
+      - "Quotes the retro findings under consideration."
+  - id: "classified-findings"
+    path: "artifacts/classified-findings.json"
+    type: "json"
+    required: true
+    producer_task: "classify-findings"
+    acceptance_checks:
+      - "Maps each finding to a proposal type."
+  - id: "spec-change-proposal"
+    path: "spec-change-proposals/proposal-v002.yaml"
+    type: "yaml"
+    required: true
+    producer_task: "draft-proposal"
+    acceptance_checks:
+      - "Declares a new version and references no in-place edit."
+  - id: "proposal-review-note"
+    path: "artifacts/proposal-review-note.md"
+    type: "markdown"
+    required: true
+    producer_task: "review-proposal"
+    acceptance_checks:
+      - "States that no immutable version was changed."
+
+gates:
+  - id: "proposal-immutability"
+    blocking: true
+    inputs_required:
+      - "spec-change-proposal"
+      - "proposal-review-note"
+    evidence_rule: "The referenced current version file hash is identical before and after the run."
+    pass_condition: "No referenced immutable version file changed."
+    hold_condition: "The before/after hash of a version file is missing or ambiguous."
+    fail_condition: "A referenced immutable version file was modified."
+    waiver_allowed: false
+  - id: "no-t5"
+    blocking: true
+    inputs_required:
+      - "tool_grants"
+    evidence_rule: "No scheduled, recurring, unattended, or background loop is present."
+    pass_condition: "No T5 behavior is requested or executed."
+    hold_condition: "T5 risk is ambiguous."
+    fail_condition: "T5 behavior is present."
+    waiver_allowed: false
+
+evaluations: []
+
+risk_controls:
+  max_tier_without_approval: "T1"
+  t5_allowed: false
+
+retro:
+  creates: "SpecChangeProposal"

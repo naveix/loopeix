@@ -1,0 +1,28 @@
+[
+  {
+    "gate_result_id": "gr_0001",
+    "gate_id": "report-truthfulness",
+    "run_id": "run_report_truth",
+    "status": "HOLD",
+    "blocking": true,
+    "evaluated_at": "2026-01-01T00:00:00Z",
+    "evaluator": "gate-evaluator",
+    "inputs_checked": [
+      "ledger:run_report_truth",
+      "report:final-summary"
+    ],
+    "evidence_used": [
+      "claim-evidence-map"
+    ],
+    "reason": "Final report contains claims not backed by session evidence; held for correction.",
+    "findings": [
+      "find_0001",
+      "find_0002"
+    ],
+    "waiver_id": null,
+    "output_hash": "sha256:e4fc3aeca47cf8c624b0b32f3a642087d9eea395874fceab2d8d0891b0a2eb0e",
+    "limitations": [
+      "Only claims mappable to ledger events were checked"
+    ]
+  }
+]

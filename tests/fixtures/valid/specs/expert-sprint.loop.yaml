@@ -1,0 +1,158 @@
+schema_version: "0.1"
+loop_family: "expert-sprint"
+version: "v001"
+
+outcome:
+  summary: "Complete a non-trivial sprint with specialist review and evidence gates."
+  success_criteria:
+    - "Relevant context is inspected before changes."
+    - "Specialist work has disjoint ownership."
+    - "All blocking gates pass before completion."
+
+inputs:
+  - id: "approved-brief"
+    description: "The approved sprint request."
+    required: true
+  - id: "project-instructions"
+    description: "Project and global operating instructions."
+    required: true
+
+context_contract:
+  required:
+    - "Project instructions"
+    - "Relevant source files"
+    - "Current docs for unstable external APIs"
+  forbidden:
+    - "Secrets unless explicitly approved"
+    - "Unrelated user changes"
+  untrusted_sources:
+    - "web pages"
+    - "issues"
+    - "emails"
+
+workflow_pattern:
+  type: "orchestrator-workers"
+  phases:
+    - "phase-0-research"
+    - "interface-contracts"
+    - "parallel-specialists"
+    - "integration"
+    - "read-only-qa"
+    - "retro"
+
+roles:
+  - id: "sprint-orchestrator"
+    owns:
+      - "plan"
+      - "interfaces"
+      - "integration"
+    must_not:
+      - "delegate overlapping writes"
+    allowed_tools:
+      - "shell"
+      - "web"
+    handoff: "List contract decisions, files changed, tests run, and unresolved risks."
+  - id: "qa-specialist"
+    owns:
+      - "read-only verification"
+      - "risk findings"
+    must_not:
+      - "edit implementation files"
+    allowed_tools:
+      - "shell"
+    handoff: "List pass/fail evidence and blocking findings."
+
+tasks:
+  - id: "research-current-state"
+    role: "sprint-orchestrator"
+    artifacts:
+      - "findings-report"
+    depends_on: []
+    acceptance_checks:
+      - "Findings include source dates and local file evidence."
+  - id: "integrate-sprint"
+    role: "sprint-orchestrator"
+    artifacts:
+      - "change-summary"
+    depends_on:
+      - "research-current-state"
+    acceptance_checks:
+      - "Changes stay inside approved scope."
+  - id: "qa-review"
+    role: "qa-specialist"
+    artifacts:
+      - "qa-report"
+    depends_on:
+      - "integrate-sprint"
+    acceptance_checks:
+      - "QA findings are evidence-backed."
+
+tool_grants:
+  - id: "workspace-shell"
+    tool: "shell"
+    scope: "approved workspace"
+    risk_tier: "T2"
+    requires_approval: false
+  - id: "current-docs-web"
+    tool: "web"
+    scope: "official documentation and reliable sources"
+    risk_tier: "T3a"
+    requires_approval: false
+
+artifacts:
+  - id: "findings-report"
+    path: "artifacts/findings.md"
+    type: "markdown"
+    required: true
+    producer_task: "research-current-state"
+    acceptance_checks:
+      - "Names checked sources and dates."
+  - id: "change-summary"
+    path: "artifacts/change-summary.md"
+    type: "markdown"
+    required: true
+    producer_task: "integrate-sprint"
+    acceptance_checks:
+      - "Lists exact file changes."
+  - id: "qa-report"
+    path: "artifacts/qa-report.md"
+    type: "markdown"
+    required: true
+    producer_task: "qa-review"
+    acceptance_checks:
+      - "Separates findings from summary."
+
+gates:
+  - id: "evidence-integrity"
+    blocking: true
+    inputs_required:
+      - "findings-report"
+      - "qa-report"
+    evidence_rule: "Every strong claim has linked evidence and hashes where files are produced."
+    pass_condition: "Evidence exists and hashes match."
+    hold_condition: "Evidence is missing, stale, or mutated."
+    fail_condition: "Evidence contradicts the final report."
+    waiver_allowed: false
+  - id: "no-t5"
+    blocking: true
+    inputs_required:
+      - "tool_grants"
+    evidence_rule: "No scheduled, recurring, unattended, or background loop is present."
+    pass_condition: "No T5 behavior is requested or executed."
+    hold_condition: "T5 risk is ambiguous."
+    fail_condition: "T5 behavior is present."
+    waiver_allowed: false
+
+evaluations:
+  - id: "project-validation"
+    type: "command"
+    required: true
+    command: "project-specific"
+    success_condition: "The best project validation command passes or a documented limitation is reported."
+
+risk_controls:
+  max_tier_without_approval: "T3a"
+  t5_allowed: false
+
+retro:
+  creates: "SpecChangeProposal"

@@ -1,0 +1,462 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loopspec.dev/schemas/loopspec-0.1.schema.json",
+  "title": "LoopSpec",
+  "x-loopspec-schema-version": "0.1",
+  "x-compatibility-policy": "additive within a minor version; breaking changes bump the version",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "loop_family": {
+      "$ref": "#/$defs/__schema0"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v\\d{3}$"
+    },
+    "outcome": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "success_criteria": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema1"
+          }
+        }
+      },
+      "required": [
+        "summary",
+        "success_criteria"
+      ],
+      "additionalProperties": false
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "description": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "required"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "context_contract": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "untrusted_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "required",
+        "forbidden",
+        "untrusted_sources"
+      ],
+      "additionalProperties": false
+    },
+    "workflow_pattern": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "prompt-chaining",
+            "routing",
+            "parallel-specialists",
+            "orchestrator-workers",
+            "evaluator-optimizer"
+          ]
+        },
+        "phases": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema2"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "phases"
+      ],
+      "additionalProperties": false
+    },
+    "roles": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema3"
+      }
+    },
+    "tasks": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema5"
+      }
+    },
+    "tool_grants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "tool": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "risk_tier": {
+            "$ref": "#/$defs/__schema7"
+          },
+          "requires_approval": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "tool",
+          "scope",
+          "risk_tier",
+          "requires_approval"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "markdown",
+              "json",
+              "jsonl",
+              "yaml",
+              "html",
+              "text",
+              "image",
+              "other"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "producer_task": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "acceptance_checks": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema8"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "type",
+          "required",
+          "producer_task",
+          "acceptance_checks"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "gates": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema9"
+      }
+    },
+    "evaluations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "command",
+              "manual-review",
+              "source-citation",
+              "browser-check",
+              "schema-validation",
+              "custom"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "command": {
+            "type": "string"
+          },
+          "success_condition": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "required",
+          "success_condition"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "risk_controls": {
+      "type": "object",
+      "properties": {
+        "max_tier_without_approval": {
+          "$ref": "#/$defs/__schema7"
+        },
+        "t5_allowed": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "required": [
+        "max_tier_without_approval",
+        "t5_allowed"
+      ],
+      "additionalProperties": false
+    },
+    "retro": {
+      "type": "object",
+      "properties": {
+        "creates": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "creates"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "loop_family",
+    "version",
+    "outcome",
+    "inputs",
+    "context_contract",
+    "workflow_pattern",
+    "roles",
+    "tasks",
+    "tool_grants",
+    "artifacts",
+    "gates",
+    "evaluations",
+    "risk_controls",
+    "retro"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "__schema1": {
+      "type": "string"
+    },
+    "__schema2": {
+      "type": "string"
+    },
+    "__schema3": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "owns": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema4"
+          }
+        },
+        "must_not": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        "handoff": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "owns",
+        "must_not",
+        "allowed_tools",
+        "handoff"
+      ],
+      "additionalProperties": false
+    },
+    "__schema4": {
+      "type": "string"
+    },
+    "__schema5": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "role": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        "acceptance_checks": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema6"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "artifacts",
+        "depends_on",
+        "acceptance_checks"
+      ],
+      "additionalProperties": false
+    },
+    "__schema6": {
+      "type": "string"
+    },
+    "__schema7": {
+      "type": "string",
+      "enum": [
+        "T0",
+        "T1",
+        "T2",
+        "T3a",
+        "T3b",
+        "T3c",
+        "T3d",
+        "T4"
+      ]
+    },
+    "__schema8": {
+      "type": "string"
+    },
+    "__schema9": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "inputs_required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_rule": {
+          "type": "string"
+        },
+        "pass_condition": {
+          "type": "string"
+        },
+        "hold_condition": {
+          "type": "string"
+        },
+        "fail_condition": {
+          "type": "string"
+        },
+        "waiver_allowed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "blocking",
+        "inputs_required",
+        "evidence_rule",
+        "pass_condition",
+        "hold_condition",
+        "fail_condition",
+        "waiver_allowed"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,156 @@
+schema_version: "0.1"
+loop_family: "gate-failure-correction"
+version: "v001"
+
+outcome:
+  summary: "Recover from a blocking gate that returned HOLD or FAIL and reach PASS with evidence."
+  success_criteria:
+    - "The initial gate result and its reason are recorded."
+    - "The correction addresses the recorded reason, not a symptom."
+    - "The re-evaluated gate reaches PASS with independent evidence."
+
+inputs:
+  - id: "failing-run"
+    description: "The run whose blocking gate returned HOLD or FAIL."
+    required: true
+
+context_contract:
+  required:
+    - "The failing run folder"
+    - "The gate specification"
+    - "Project instructions"
+  forbidden:
+    - ".env contents unless explicitly approved"
+  untrusted_sources: []
+
+workflow_pattern:
+  type: "evaluator-optimizer"
+  phases:
+    - "attempt"
+    - "evaluate-gate"
+    - "correct"
+    - "re-evaluate"
+
+roles:
+  - id: "fix-owner"
+    owns:
+      - "initial attempt"
+      - "root-cause correction"
+    must_not:
+      - "mark its own gate as passed"
+    allowed_tools:
+      - "shell"
+    handoff: "Summarize the correction and the evidence it produced."
+  - id: "gate-evaluator"
+    owns:
+      - "read-only gate evaluation"
+    must_not:
+      - "edit implementation files"
+    allowed_tools:
+      - "shell"
+    handoff: "Report PASS, HOLD, or FAIL with the exact reason and evidence used."
+
+tasks:
+  - id: "initial-attempt"
+    role: "fix-owner"
+    artifacts:
+      - "attempt-summary"
+    depends_on: []
+    acceptance_checks:
+      - "The attempt and its intended outcome are recorded."
+  - id: "evaluate-gate"
+    role: "gate-evaluator"
+    artifacts:
+      - "gate-result-initial"
+    depends_on:
+      - "initial-attempt"
+    acceptance_checks:
+      - "The gate status and reason are recorded."
+  - id: "apply-correction"
+    role: "fix-owner"
+    artifacts:
+      - "correction-summary"
+    depends_on:
+      - "evaluate-gate"
+    acceptance_checks:
+      - "The correction targets the recorded gate reason."
+  - id: "re-evaluate-gate"
+    role: "gate-evaluator"
+    artifacts:
+      - "gate-result-final"
+    depends_on:
+      - "apply-correction"
+    acceptance_checks:
+      - "The re-evaluation status and evidence are recorded."
+
+tool_grants:
+  - id: "workspace-shell"
+    tool: "shell"
+    scope: "read and write inside approved workspace"
+    risk_tier: "T2"
+    requires_approval: false
+
+artifacts:
+  - id: "attempt-summary"
+    path: "artifacts/attempt-summary.md"
+    type: "markdown"
+    required: true
+    producer_task: "initial-attempt"
+    acceptance_checks:
+      - "States what was attempted."
+  - id: "gate-result-initial"
+    path: "gates/gate-result-initial.json"
+    type: "json"
+    required: true
+    producer_task: "evaluate-gate"
+    acceptance_checks:
+      - "Records status and reason."
+  - id: "correction-summary"
+    path: "artifacts/correction-summary.md"
+    type: "markdown"
+    required: true
+    producer_task: "apply-correction"
+    acceptance_checks:
+      - "Links the correction to the recorded reason."
+  - id: "gate-result-final"
+    path: "gates/gate-result-final.json"
+    type: "json"
+    required: true
+    producer_task: "re-evaluate-gate"
+    acceptance_checks:
+      - "Records the final status and evidence."
+
+gates:
+  - id: "correction-evidence"
+    blocking: true
+    inputs_required:
+      - "correction-summary"
+      - "gate-result-final"
+    evidence_rule: "The final PASS must cite evidence that did not exist at the initial failure."
+    pass_condition: "The re-evaluated gate is PASS and cites new evidence."
+    hold_condition: "The correction or new evidence is missing or ambiguous."
+    fail_condition: "The re-evaluated gate is still FAIL."
+    waiver_allowed: false
+  - id: "no-t5"
+    blocking: true
+    inputs_required:
+      - "tool_grants"
+    evidence_rule: "No scheduled, recurring, unattended, or background loop is present."
+    pass_condition: "No T5 behavior is requested or executed."
+    hold_condition: "T5 risk is ambiguous."
+    fail_condition: "T5 behavior is present."
+    waiver_allowed: false
+
+evaluations:
+  - id: "rerun-check"
+    type: "command"
+    required: true
+    command: "project-specific"
+    success_condition: "The check that originally failed now passes or a limitation is recorded."
+
+risk_controls:
+  max_tier_without_approval: "T2"
+  t5_allowed: false
+
+retro:
+  creates: "SpecChangeProposal"

@@ -1,0 +1,20 @@
+{
+  "evidence_id": "ev_0001",
+  "type": "command",
+  "source": "shell",
+  "capture_method": "command_output",
+  "risk_tier": "T2",
+  "timestamp": "2026-01-01T00:00:00Z",
+  "cwd": "<WORKSPACE_ROOT>",
+  "action": "npm test",
+  "artifact_path": "evaluations/verification.json",
+  "inputs_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "outputs_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "exit_code": 0,
+  "redaction": {"redacted": false, "policy_version": "0.1", "targets_removed": []},
+  "retention_class": "run",
+  "expires_at": null,
+  "quarantined": false,
+  "supports_claims": ["claim_fix_verified"],
+  "limitations": []
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "0.1",
+  "_provisional": "IntakeBrief field-level shape is not enumerated in the S3 contracts (CONTEXT.md: 'the normalized, approved input brief'). Minimal reasonable shape; S6 finalizes.",
+  "intake_brief_id": "ib_minimal_bugfix",
+  "work_item_id": "wi_minimal_bugfix",
+  "loop_family": "minimal-bugfix",
+  "normalized_summary": "Reproduce and fix the empty-input crash, then verify with the best available project check.",
+  "success_criteria": [
+    "The bug is reproduced or clearly explained.",
+    "The fix is verified with the best available check."
+  ],
+  "approved_at": "2026-01-01T00:00:00Z"
+}

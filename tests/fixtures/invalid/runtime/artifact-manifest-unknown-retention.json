@@ -1,0 +1,25 @@
+{
+  "schema_version": "0.1",
+  "run_id": "run_unknown_retention",
+  "updated_at": "2026-01-01T00:00:10Z",
+  "artifacts": [
+    {
+      "artifact_id": "diagnosis-note",
+      "path": "artifacts/diagnosis.md",
+      "type": "markdown",
+      "producer": "task:diagnose",
+      "created_at": "2026-01-01T00:00:03Z",
+      "media_type": "text/markdown",
+      "size_bytes": 512,
+      "hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "retention_class": "forever",
+      "expires_at": null,
+      "redaction": {"redacted": false, "policy_version": "0.1", "targets_removed": []},
+      "quarantined": false,
+      "exportable": true,
+      "raw_hash": null,
+      "redacted_hash": null,
+      "evidence_ids": ["ev_0002"]
+    }
+  ]
+}

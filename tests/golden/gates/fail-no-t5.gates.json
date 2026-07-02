@@ -1,0 +1,27 @@
+[
+  {
+    "gate_result_id": "gr_0001",
+    "gate_id": "no-t5",
+    "run_id": "run_t5_blocked",
+    "status": "FAIL",
+    "blocking": true,
+    "evaluated_at": "2026-01-01T00:00:00Z",
+    "evaluator": "gate-evaluator",
+    "inputs_checked": [
+      "ledger:run_t5_blocked",
+      "event:ev_0002"
+    ],
+    "evidence_used": [
+      "risk-tier-classification"
+    ],
+    "reason": "Requested behavior classified as risk tier T5 (unattended, recurring); T5 is not permitted.",
+    "findings": [
+      "find_0001"
+    ],
+    "waiver_id": null,
+    "output_hash": "sha256:b78a889d182f80478ce8c99ed1785389f44ebe2461d3b89045b5f9a3ba5ce85e",
+    "limitations": [
+      "Classification based on declared cadence and unattended flag in the request payload"
+    ]
+  }
+]
