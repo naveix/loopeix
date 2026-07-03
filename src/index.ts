@@ -18,3 +18,4 @@ export {
 export { buildRunManifest, type RunManifestInput } from "./manifest.js";
 export * from "./adapters/index.js";
 export * from "./gates.js";
+export * from "./evidence-verifier.js";
