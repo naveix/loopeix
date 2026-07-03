@@ -21,3 +21,5 @@ export * from "./gates.js";
 export * from "./evidence-verifier.js";
 export * from "./report.js";
 export * from "./lock.js";
+export * from "./schema/proposal.js";
+export * from "./retro.js";
