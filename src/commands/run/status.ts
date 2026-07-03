@@ -25,8 +25,8 @@ export default class RunStatus extends Command {
     }
     let recovery: RecoveryResult;
     try {
-      const { events, partialFinalLineDropped } = parseLedgerText(readFileSync(ledgerPath, "utf8"));
-      recovery = recoverLedger(events, { partialFinalLineDropped });
+      const { events, partialFinalLineDropped, corruptLines } = parseLedgerText(readFileSync(ledgerPath, "utf8"));
+      recovery = recoverLedger(events, { partialFinalLineDropped, corruptLines });
     } catch (err) {
       this.error(`corrupt ledger: ${(err as Error).message}`, { exit: 4 });
     }

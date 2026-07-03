@@ -20,3 +20,4 @@ export * from "./adapters/index.js";
 export * from "./gates.js";
 export * from "./evidence-verifier.js";
 export * from "./report.js";
+export * from "./lock.js";

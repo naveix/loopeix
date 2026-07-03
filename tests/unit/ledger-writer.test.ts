@@ -89,8 +89,47 @@ describe("serialize / parse round-trip", () => {
     expect(r.partialFinalLineDropped).toBe(true);
     expect(r.events).toHaveLength(3);
   });
-  it("throws on a corrupt NON-final line", () => {
-    expect(() => parseLedgerText(`{"bad":\n{"ok":1}\n`)).toThrow(/corrupt ledger line/);
+  it("quarantines a corrupt NON-final line (no throw) and reports its 1-based line number", () => {
+    const r = parseLedgerText(`{"bad":\n{"ok":1}\n`);
+    expect(r.corruptLines).toEqual([1]);
+    expect(r.events).toEqual([{ ok: 1 }]);
+  });
+  it("ignores blank interior lines (valid JSONL) without flagging them corrupt", () => {
+    const chain = buildChain();
+    const withBlank = serializeLedger(chain).replace("\n", "\n\n"); // inject a blank line after event 1
+    const r = parseLedgerText(withBlank);
+    expect(r.corruptLines).toEqual([]);
+    expect(r.events).toHaveLength(3);
+  });
+  it("empty / whitespace-only ledger → no events, no corruption", () => {
+    const r = parseLedgerText("\n  \n");
+    expect(r.events).toEqual([]);
+    expect(r.corruptLines).toEqual([]);
+    expect(r.partialFinalLineDropped).toBe(false);
+  });
+});
+
+describe("recoverLedger — corrupt ledger handling (S13)", () => {
+  it("a quarantined corrupt middle line → HOLD, recovers the valid prefix, reports the line", () => {
+    // event 2 of a 3-event chain is replaced with garbage on disk.
+    const chain = buildChain();
+    const text = serializeLedger(chain).split("\n");
+    text[1] = "{ not json";
+    const parsed = parseLedgerText(text.join("\n"));
+    const r = recoverLedger(parsed.events, { corruptLines: parsed.corruptLines });
+    expect(r.integrity_status).toBe("hold");
+    expect(r.findings.some((f) => f.includes("quarantined"))).toBe(true);
+    expect(parsed.corruptLines).toEqual([2]);
+    // derived state must come from the valid prefix (event 1), NOT the post-break event 3
+    expect(r.last_valid_sequence).toBe(1);
+    expect(r.terminated).toBe(false);
+  });
+  it("a torn final append (partial line) → HOLD, valid prefix intact", () => {
+    const chain = buildChain();
+    const parsed = parseLedgerText(`${serializeLedger(chain.slice(0, 2))}{"torn":`);
+    const r = recoverLedger(parsed.events, { partialFinalLineDropped: parsed.partialFinalLineDropped });
+    expect(r.integrity_status).toBe("hold");
+    expect(r.last_valid_sequence).toBe(2);
   });
 });
 

@@ -1,0 +1,161 @@
+schema_version: "0.1"
+loop_family: "loopspec-oss-build"
+version: "v001"
+
+# DOGFOOD (S13-A): LoopSpec describing its own construction. This is the actual loop that built
+# the LoopSpec CLI — sprint by sprint, each sprint written then independently reviewed, findings
+# fixed, and only committed on explicit operator approval. It validates against LoopSpec's own
+# validator (`loopspec spec validate examples/dogfood/loopspec-oss-build.loopspec.yaml`).
+
+outcome:
+  summary: "Build the LoopSpec OSS CLI in sprint order, with every sprint independently reviewed and its findings fixed before commit."
+  success_criteria:
+    - "Each sprint's required output exists, builds, and is covered by tests."
+    - "Every sprint is independently reviewed; no BLOCKING/MAJOR finding is left unresolved before commit."
+    - "No T5 (scheduled/unattended) behavior is introduced."
+    - "Reports never claim more than the evidence verifier verified."
+
+inputs:
+  - id: "sprint-id"
+    description: "The sprint to execute (e.g. S13)."
+    required: true
+  - id: "sprint-plan"
+    description: "The master sprint plan entry defining the sprint's required output."
+    required: true
+
+context_contract:
+  required:
+    - "The master sprint plan and reference contracts for the sprint."
+    - "The current build state (tests, prior commits)."
+  forbidden:
+    - "Secrets, .env contents, credentials, or raw API keys."
+    - "Unredacted engine transcripts."
+  untrusted_sources:
+    - "Model-generated review findings before they are verified against files or command output."
+
+workflow_pattern:
+  type: "evaluator-optimizer"
+  phases:
+    - "implement"
+    - "independent-review"
+    - "fix-findings"
+    - "verify-and-commit"
+
+roles:
+  - id: "sprint-writer"
+    owns:
+      - "implementation"
+      - "tests"
+      - "loop-state"
+    must_not:
+      - "self-certify its own work as reviewed"
+      - "commit without operator approval"
+    allowed_tools:
+      - "shell"
+      - "file-write"
+    handoff: "Hand the diff + tests to the independent reviewer; report build/test status."
+  - id: "independent-reviewer"
+    owns:
+      - "review-findings"
+    must_not:
+      - "edit implementation files"
+    allowed_tools:
+      - "shell"
+    handoff: "Return findings by severity with a SHIP/HOLD verdict; the writer fixes before commit."
+
+tasks:
+  - id: "implement-sprint"
+    role: "sprint-writer"
+    artifacts:
+      - "sprint-implementation"
+    depends_on: []
+    acceptance_checks:
+      - "The sprint's required output builds and its tests pass."
+  - id: "review-sprint"
+    role: "independent-reviewer"
+    artifacts:
+      - "review-findings"
+    depends_on:
+      - "implement-sprint"
+    acceptance_checks:
+      - "Findings are ranked by severity and tied to file:line evidence."
+  - id: "fix-and-verify"
+    role: "sprint-writer"
+    artifacts:
+      - "sprint-implementation"
+    depends_on:
+      - "review-sprint"
+    acceptance_checks:
+      - "Every BLOCKING/MAJOR finding is fixed and re-verified; the full suite passes."
+
+tool_grants:
+  - id: "workspace-shell"
+    tool: "shell"
+    scope: "build, test, and git within the implementation workspace"
+    risk_tier: "T2"
+    requires_approval: false
+  - id: "commit"
+    tool: "shell"
+    scope: "git commit (gated on explicit operator approval)"
+    risk_tier: "T3a"
+    requires_approval: true
+
+artifacts:
+  - id: "sprint-implementation"
+    path: "src/"
+    type: "other"
+    required: true
+    producer_task: "implement-sprint"
+    acceptance_checks:
+      - "Builds clean (tsc noEmitOnError) and passes the test suite."
+  - id: "review-findings"
+    path: "artifacts/review-findings.md"
+    type: "markdown"
+    required: true
+    producer_task: "review-sprint"
+    acceptance_checks:
+      - "Severity-ranked; each finding has a concrete scenario."
+
+gates:
+  - id: "no-t5"
+    blocking: true
+    inputs_required:
+      - "tool_grants"
+    evidence_rule: "No tool grant, task, or control introduces scheduled/recurring/unattended (T5) behavior."
+    pass_condition: "No T5 signal is present."
+    hold_condition: "A T5 signal is ambiguous and unresolved."
+    fail_condition: "Any T5 behavior is requested or executed."
+    waiver_allowed: false
+  - id: "review-before-commit"
+    blocking: true
+    inputs_required:
+      - "review-findings"
+    evidence_rule: "An independent review ran and every BLOCKING/MAJOR finding was fixed and re-verified."
+    pass_condition: "No unresolved BLOCKING/MAJOR finding remains."
+    hold_condition: "A finding is open or unverified."
+    fail_condition: "A commit was made with an unresolved BLOCKING finding."
+    waiver_allowed: false
+  - id: "report-truthfulness"
+    blocking: true
+    inputs_required:
+      - "sprint-implementation"
+    evidence_rule: "Reported outcomes match the evidence verifier's verified set."
+    pass_condition: "No claim is asserted beyond its evidence."
+    hold_condition: "A reported claim lacks independent evidence."
+    fail_condition: "A report over-claims a verified result."
+    waiver_allowed: false
+
+evaluations:
+  - id: "build-and-test"
+    type: "command"
+    required: true
+    description: "pnpm build && pnpm test must pass."
+    command: "pnpm build && pnpm test"
+    success_condition: "pnpm build exits 0 and pnpm test reports all tests passing."
+
+risk_controls:
+  max_tier_without_approval: "T2"
+  t5_allowed: false
+
+retro:
+  creates: "SpecChangeProposal"

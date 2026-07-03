@@ -33,23 +33,33 @@ export function serializeLedger(events: readonly SealedLedgerEvent[]): string {
 }
 
 /**
- * Parse ledger text tolerantly. Only the FINAL line may be a partial write (dropped +
- * flagged); a corrupt non-final line is unrecoverable corruption and throws.
+ * Parse ledger text tolerantly and NEVER throw (a crash on one bad line would make the
+ * whole ledger unreadable). A blank line is ignored (JSONL allows it). A corrupt FINAL
+ * line is treated as a partial write (dropped + flagged). A corrupt NON-final line is
+ * quarantined — its 1-based line number is returned in `corruptLines` — and recovery
+ * folds that into a HOLD (a skipped middle line also breaks the chain, which is caught
+ * downstream). This lets an operator SEE the corruption and recover the valid prefix.
  */
-export function parseLedgerText(text: string): { events: unknown[]; partialFinalLineDropped: boolean } {
+export function parseLedgerText(text: string): {
+  events: unknown[];
+  partialFinalLineDropped: boolean;
+  corruptLines: number[];
+} {
   const lines = text.split("\n");
   while (lines.length > 0 && lines.at(-1) === "") lines.pop();
   const events: unknown[] = [];
+  const corruptLines: number[] = [];
   let partialFinalLineDropped = false;
   lines.forEach((line, idx) => {
+    if (line.trim() === "") return; // JSONL tolerates blank lines
     try {
       events.push(JSON.parse(line));
     } catch {
       if (idx === lines.length - 1) partialFinalLineDropped = true;
-      else throw new Error(`corrupt ledger line ${idx + 1} (only the final line may be a partial write)`);
+      else corruptLines.push(idx + 1);
     }
   });
-  return { events, partialFinalLineDropped };
+  return { events, partialFinalLineDropped, corruptLines };
 }
 
 /**
@@ -140,10 +150,12 @@ export interface RecoveryResult {
  */
 export function recoverLedger(
   rawEvents: readonly unknown[],
-  opts: { partialFinalLineDropped?: boolean; expectedLastSequence?: number } = {},
+  opts: { partialFinalLineDropped?: boolean; expectedLastSequence?: number; corruptLines?: readonly number[] } = {},
 ): RecoveryResult {
   const findings: string[] = [];
   if (opts.partialFinalLineDropped) findings.push("dropped a partial final ledger line during recovery");
+  if (opts.corruptLines && opts.corruptLines.length > 0)
+    findings.push(`quarantined ${opts.corruptLines.length} corrupt ledger line(s) at line(s): ${opts.corruptLines.join(", ")}`);
 
   const chainIssues = validateLedger(rawEvents);
   for (const i of chainIssues) findings.push(`chain: ${i.path}: ${i.message}`);
@@ -157,9 +169,25 @@ export function recoverLedger(
     for (const i of verifyEventHashes(sealed)) findings.push(`integrity: ${i.path}: ${i.message}`);
   }
 
-  const last = sealed.at(-1);
-  const last_valid_sequence = last ? last.sequence : 0;
-  const terminated = last ? TERMINAL_EVENTS.has(last.event_type) : false;
+  // Derive state from the longest VALID PREFIX (contiguous sequence, intact linkage, matching content
+  // hash) — never from post-corruption events, so `last_valid_sequence`/`terminated` cannot point past
+  // a detected break (e.g. a quarantined middle line must not report a later run.completed as reached).
+  let validCount = 0;
+  let prevHash: string | null = null;
+  for (let i = 0; i < sealed.length; i++) {
+    const ev = sealed[i]!;
+    const { event_hash, ...rest } = ev;
+    const ok =
+      ev.sequence === i + 1 &&
+      (i === 0 ? ev.previous_event_hash === null : ev.previous_event_hash === prevHash) &&
+      hashCanonical(rest) === event_hash;
+    if (!ok) break;
+    validCount = i + 1;
+    prevHash = ev.event_hash;
+  }
+  const lastValid = validCount > 0 ? sealed[validCount - 1]! : undefined;
+  const last_valid_sequence = lastValid ? lastValid.sequence : 0;
+  const terminated = lastValid ? TERMINAL_EVENTS.has(lastValid.event_type) : false;
 
   if (opts.expectedLastSequence !== undefined && last_valid_sequence < opts.expectedLastSequence) {
     findings.push(`truncation: expected last sequence ${opts.expectedLastSequence}, found ${last_valid_sequence}`);
@@ -167,7 +195,7 @@ export function recoverLedger(
 
   return {
     integrity_status: findings.length === 0 ? "valid" : "hold",
-    run_state: last ? (RUN_STATE_BY_EVENT[last.event_type] ?? "running") : "planned",
+    run_state: lastValid ? (RUN_STATE_BY_EVENT[lastValid.event_type] ?? "running") : "planned",
     last_valid_sequence,
     terminated,
     findings,
