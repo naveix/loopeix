@@ -1,0 +1,121 @@
+import { readFileSync } from "node:fs";
+import { Args, Command, Flags } from "@oclif/core";
+import { parse as parseYaml } from "yaml";
+import { ClaudeAdapter, CodexAdapter, type EngineId } from "../../adapters/index.js";
+import { parseJsonlEvents, runEngine } from "../../run/engine.js";
+import { assembleRun, type RunInput } from "../../run/orchestrate.js";
+import { RUN_DIR_FILES, writeRunDir } from "../../run/run-dir.js";
+import { validateLoopSpec } from "../../validate.js";
+
+/**
+ * `loopspec run start <spec>` — execute a loop end-to-end into a run directory.
+ * Validates the spec, gets the engine event stream (a live Codex/Claude call, or `--events-file`
+ * replay), normalizes it, seals a ledger, evaluates gates, and writes a truthful report + manifest.
+ * Exit 0 = completed clean; 1 = invalid spec / usage; 4 = a blocking gate held/failed.
+ */
+export default class RunStart extends Command {
+  static summary = "Execute a loop through an engine (or replay captured events) into a run directory.";
+  static args = {
+    spec: Args.string({ description: "path to the LoopSpec YAML", required: true }),
+  };
+  static flags = {
+    engine: Flags.string({ options: ["codex", "claude"], required: true, description: "engine to run" }),
+    prompt: Flags.string({ description: "prompt / work item for the engine (required for a live run)" }),
+    "events-file": Flags.string({ description: "replay a pre-captured JSONL event file instead of a live call" }),
+    workspace: Flags.string({ default: ".", description: "workspace root (run dir = <workspace>/.loopspec/runs/<id>)" }),
+    "max-budget-usd": Flags.string({ description: "Claude budget cap in USD (default 0.10)" }),
+  };
+  static examples = [
+    '<%= config.bin %> run start my-loop.yaml --engine codex --prompt "Reply with ok"',
+    "<%= config.bin %> run start my-loop.yaml --engine claude --events-file captured.jsonl",
+  ];
+
+  public async run(): Promise<void> {
+    const { args, flags } = await this.parse(RunStart);
+    const spec = parseYaml(readFileSync(args.spec, "utf8")) as Record<string, unknown>;
+
+    const validation = validateLoopSpec(spec);
+    if (!validation.ok) {
+      this.log(`INVALID spec (${validation.errors.length} issue(s)) — run aborted:`);
+      for (const e of validation.errors) this.log(`  - ${e.path}: ${e.message}`);
+      process.exitCode = 1;
+      return;
+    }
+
+    const isCodex = flags.engine === "codex";
+    const engine: EngineId = isCodex ? "codex_cli" : "claude_code_cli";
+
+    let maxBudgetUsd: number | undefined;
+    if (flags["max-budget-usd"] !== undefined) {
+      maxBudgetUsd = Number(flags["max-budget-usd"]);
+      if (!Number.isFinite(maxBudgetUsd) || maxBudgetUsd <= 0 || maxBudgetUsd > 100) {
+        this.log(`ERROR: --max-budget-usd must be a positive number ≤ 100 (got '${flags["max-budget-usd"]}').`);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
+    // Events: replay a captured file, or a live engine call.
+    let rawEvents: unknown[];
+    let engineStatus: { exit_code: number; timed_out: boolean } | undefined;
+    if (flags["events-file"]) {
+      rawEvents = parseJsonlEvents(readFileSync(flags["events-file"], "utf8"));
+      this.log(`Replaying ${rawEvents.length} captured event(s) from ${flags["events-file"]}`);
+    } else {
+      if (!flags.prompt) {
+        this.log("ERROR: --prompt is required for a live run (or pass --events-file to replay).");
+        process.exitCode = 1;
+        return;
+      }
+      this.log(`Invoking ${engine} (read-only, empty stdin)...`);
+      const res = runEngine(engine, flags.prompt, { maxBudgetUsd });
+      rawEvents = res.rawEvents;
+      engineStatus = { exit_code: res.exit_code, timed_out: res.timed_out };
+      if (res.exit_code !== 0 || res.timed_out) {
+        this.warn(
+          `engine exited ${res.exit_code}${res.timed_out ? " (timed out)" : ""}; captured ${rawEvents.length} event(s) — the run will seal run.failed, not run.completed.`,
+        );
+      }
+    }
+
+    const normalized = new (isCodex ? CodexAdapter : ClaudeAdapter)().normalize(rawEvents);
+    const run_id = `run_${Date.now().toString(36)}`;
+    const run_dir = `${flags.workspace}/.loopspec/runs/${run_id}`;
+    const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
+    const runInput: RunInput = {
+      run_id,
+      loop_family: String(spec.loop_family),
+      loopspec_version: String(spec.version),
+      started_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+      engine,
+      events: normalized.events,
+      capture_gaps: normalized.capture_gaps,
+      gates: asArray(spec.gates).map((g) => {
+        const gate = g as Record<string, unknown>;
+        return {
+          id: String(gate.id),
+          blocking: gate.blocking === true,
+          inputs_required: asArray(gate.inputs_required).map(String),
+          waiver_allowed: gate.waiver_allowed === true,
+        };
+      }),
+      risk_controls: spec.risk_controls as RunInput["risk_controls"],
+      tool_grant_tiers: asArray(spec.tool_grants).map((t) => String((t as Record<string, unknown>).risk_tier)),
+      workspace_root: flags.workspace,
+      run_dir,
+      engine_status: engineStatus,
+    };
+
+    const assembly = assembleRun(runInput);
+    writeRunDir(run_dir, assembly);
+
+    this.log(`Run ${run_id}: ${assembly.integrity.run_state} (integrity ${assembly.integrity.integrity_status})`);
+    this.log(
+      `Gates: pass=${assembly.gate_report.summary.pass} hold=${assembly.gate_report.summary.hold} fail=${assembly.gate_report.summary.fail}`,
+    );
+    this.log(`Evidence: ${assembly.evidence.length} item(s) from ${normalized.events.length} normalized event(s)`);
+    this.log(`Run dir: ${run_dir}  (${RUN_DIR_FILES.reportMd} / ${RUN_DIR_FILES.reportHtml})`);
+    if (assembly.gate_report.blocking_hold_or_fail) process.exitCode = 4;
+  }
+}

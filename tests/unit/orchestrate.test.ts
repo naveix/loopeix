@@ -94,3 +94,21 @@ describe("assembleRun — T5 is held, not silently completed", () => {
     expect(a.manifest.run_state).toBe("held");
   });
 });
+
+describe("assembleRun — a failed live engine seals run.failed, not completed", () => {
+  const withStatus = (engine_status: { exit_code: number; timed_out: boolean }) =>
+    assembleRun({ ...baseInput, engine: "codex_cli", events: codexEvents.events, capture_gaps: codexEvents.capture_gaps, engine_status });
+
+  it("non-zero exit → run.failed + a blocking engine finding (never completed)", () => {
+    const a = withStatus({ exit_code: 1, timed_out: false });
+    expect(a.integrity.run_state).toBe("failed");
+    expect(a.manifest.run_state).toBe("failed");
+    expect(a.report.markdown).toContain("did not complete cleanly");
+  });
+  it("timeout → run.failed", () => {
+    expect(withStatus({ exit_code: 0, timed_out: true }).integrity.run_state).toBe("failed");
+  });
+  it("clean exit (0, no timeout) → completed as before", () => {
+    expect(withStatus({ exit_code: 0, timed_out: false }).integrity.run_state).toBe("completed");
+  });
+});

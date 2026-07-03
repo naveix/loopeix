@@ -71,6 +71,8 @@ export interface RunInput {
   tool_grant_tiers?: readonly string[];
   workspace_root?: string;
   run_dir?: string;
+  /** Live-engine outcome. A non-zero exit or timeout seals `run.failed`, never `run.completed`. */
+  engine_status?: { exit_code: number; timed_out: boolean };
 }
 
 export interface RunAssembly {
@@ -118,13 +120,18 @@ export function assembleRun(input: RunInput): RunAssembly {
     ledger.push(appendToLedger(ledger, draft));
   };
 
+  // A live-engine failure (non-zero exit or timeout) means the run did NOT complete cleanly — it must
+  // seal run.failed, never run.completed, so a crashed run is not indistinguishable on disk from a clean one.
+  const engineFailed =
+    input.engine_status !== undefined && (input.engine_status.exit_code !== 0 || input.engine_status.timed_out);
+
   addEvent("run.started", "loopspec", { engine: input.engine });
   for (const e of input.events) addEvent(e.kind, e.source, (e.payload ?? {}) as Record<string, unknown>);
   for (const d of gate_report.decisions) {
     addEvent("gate.result", "loopspec", { gate_id: d.gate_id, status: d.status, blocking: d.blocking });
   }
-  const terminal = gate_report.blocking_hold_or_fail ? "run.held" : "run.completed";
-  addEvent(terminal, "loopspec", {});
+  const terminal = engineFailed ? "run.failed" : gate_report.blocking_hold_or_fail ? "run.held" : "run.completed";
+  addEvent(terminal, "loopspec", engineFailed ? { engine_status: input.engine_status } : {});
 
   const ledger_text = serializeLedger(ledger);
   const integrity = recoverLedger(ledger);
@@ -144,7 +151,16 @@ export function assembleRun(input: RunInput): RunAssembly {
       note: g.note,
     })),
     waivers: [],
-    findings: [],
+    findings: engineFailed
+      ? [
+          {
+            finding_id: "find_engine",
+            title: `Engine ${input.engine} did not complete cleanly (exit ${input.engine_status?.exit_code}${input.engine_status?.timed_out ? ", timed out" : ""})`,
+            classification: "blocking",
+            severity: "high",
+          },
+        ]
+      : [],
     redaction: {
       policy_version: "0.1",
       quarantined: 0,
