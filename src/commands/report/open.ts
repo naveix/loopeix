@@ -1,13 +1,28 @@
-import { Command } from "@oclif/core";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { Args, Command } from "@oclif/core";
+import { reportHtmlPath } from "../../run/run-dir.js";
 
-/** `loopspec report open` — stub. Real implementation lands in S12. */
+/**
+ * `loopspec report open <run-dir>` — print the path + file:// URL of a run's HTML report so you can
+ * open it in a browser. (Prints rather than spawning a browser, to avoid platform assumptions.)
+ */
 export default class ReportOpen extends Command {
-  static summary = "Open or print the path to a local run report (stub — implemented in S12).";
-  static state = "beta";
+  static summary = "Show the path to a run's HTML report (open it in your browser).";
+  static args = {
+    "run-dir": Args.string({ description: "path to the run directory (.loopspec/runs/<id>)", required: true }),
+  };
+  static examples = ["<%= config.bin %> report open .loopspec/runs/run_abc"];
 
   public async run(): Promise<void> {
-    this.warn(
-      "`report open` is not yet wired at the CLI. The report renderer lives in the buildReport library; the CLI command arrives with the run-execution layer.",
-    );
+    const { args } = await this.parse(ReportOpen);
+    const p = reportHtmlPath(args["run-dir"]);
+    if (!existsSync(p)) {
+      this.log(`ERROR  no report at ${p} — run \`loopspec report build ${args["run-dir"]}\` first`);
+      process.exitCode = 1;
+      return;
+    }
+    this.log(`Report: ${p}`);
+    this.log(`Open in a browser: file://${resolve(p)}`);
   }
 }

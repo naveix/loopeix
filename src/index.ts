@@ -25,3 +25,5 @@ export * from "./schema/proposal.js";
 export * from "./retro.js";
 export * from "./agent-proof.js";
 export * from "./redaction.js";
+export * from "./run/orchestrate.js";
+export * from "./run/run-dir.js";
