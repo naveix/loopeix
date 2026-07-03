@@ -23,3 +23,4 @@ export * from "./report.js";
 export * from "./lock.js";
 export * from "./schema/proposal.js";
 export * from "./retro.js";
+export * from "./agent-proof.js";

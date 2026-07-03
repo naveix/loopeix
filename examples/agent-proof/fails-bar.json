@@ -1,0 +1,15 @@
+{
+  "note": "AI-code-work run that FAILS the AgentProofProfile bar in two ways: a strong claim backed only by a file diff + a human note (no EXECUTION proof that the code works), and two mandatory gates that are weakened (evidence-integrity made waivable; report-truthfulness made non-blocking).",
+  "claims": [
+    { "claim_id": "claim_fix_works", "strength": "strong", "supported_by": ["ev_file", "ev_note"] }
+  ],
+  "evidence": [
+    { "evidence_id": "ev_file", "type": "file" },
+    { "evidence_id": "ev_note", "type": "human_note" }
+  ],
+  "gates": [
+    { "id": "no-t5", "blocking": true, "waiver_allowed": false },
+    { "id": "evidence-integrity", "blocking": true, "waiver_allowed": true },
+    { "id": "report-truthfulness", "blocking": false, "waiver_allowed": false }
+  ]
+}

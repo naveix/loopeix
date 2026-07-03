@@ -1,0 +1,17 @@
+{
+  "note": "AI-code-work run that MEETS the AgentProofProfile bar: every strong claim has executable (command/test) evidence, and the mandatory unwaivable gates are present, blocking, and non-waivable.",
+  "claims": [
+    { "claim_id": "claim_fix_works", "strength": "strong", "supported_by": ["ev_test", "ev_file"] },
+    { "claim_id": "claim_lint_clean", "strength": "strong", "supported_by": ["ev_cmd"] }
+  ],
+  "evidence": [
+    { "evidence_id": "ev_test", "type": "test", "outcome": "pass" },
+    { "evidence_id": "ev_file", "type": "file" },
+    { "evidence_id": "ev_cmd", "type": "command", "exit_code": 0 }
+  ],
+  "gates": [
+    { "id": "no-t5", "blocking": true, "waiver_allowed": false },
+    { "id": "evidence-integrity", "blocking": true, "waiver_allowed": false },
+    { "id": "report-truthfulness", "blocking": true, "waiver_allowed": false }
+  ]
+}
