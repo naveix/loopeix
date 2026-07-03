@@ -4,7 +4,7 @@ import { buildReport, checkReportTruthfulness, type ReportInput } from "../../sr
 const input: ReportInput = {
   run_id: "run_x",
   loop_family: "minimal-bugfix",
-  loopspec_version: "v001",
+  loopeix_version: "v001",
   run_state: "completed",
   integrity_status: "valid",
   evidence: {
@@ -78,7 +78,7 @@ describe("buildReport — completeness on EMPTY input (the guarantee that must n
   const empty: ReportInput = {
     run_id: "run_empty",
     loop_family: "x",
-    loopspec_version: "v001",
+    loopeix_version: "v001",
     run_state: "failed",
     integrity_status: "unknown",
     evidence: { verified: [], unverified: [], claims: [] },

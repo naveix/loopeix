@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://loopspec.dev/schemas/loopspec-0.1.schema.json",
-  "title": "LoopSpec",
-  "x-loopspec-schema-version": "0.1",
+  "$id": "https://loopeix.dev/schemas/loopeix-0.1.schema.json",
+  "title": "Loopeix",
+  "x-loopeix-schema-version": "0.1",
   "x-compatibility-policy": "additive within a minor version; breaking changes bump the version",
   "type": "object",
   "properties": {

@@ -1,8 +1,8 @@
 # Getting started
 
-A 10-minute, learning-oriented walkthrough: install LoopSpec, create a workspace, author a spec,
+A 10-minute, learning-oriented walkthrough: install Loopeix, create a workspace, author a spec,
 and understand what "valid" and "verified" mean. By the end you'll have validated your first
-LoopSpec and know where the trust guarantees come from.
+Loopeix and know where the trust guarantees come from.
 
 > New to the ideas here? Skim [Explanation: the trust model](../explanation/trust-model.md) after
 > this — it explains *why* each step exists.
@@ -11,20 +11,20 @@ LoopSpec and know where the trust guarantees come from.
 
 - **Node.js ≥ 22.12** (`node --version`).
 - **pnpm** (`npm install -g pnpm`).
-- Optionally the **Codex** or **Claude** CLI if you want to capture real runs — LoopSpec uses their
+- Optionally the **Codex** or **Claude** CLI if you want to capture real runs — Loopeix uses their
   own login and never handles API keys.
 
 ## 2. Install (from source)
 
 ```bash
-git clone <this-repo> loopspec && cd loopspec
+git clone <this-repo> loopeix && cd loopeix
 pnpm install && pnpm build && npm link
 ```
 
 Confirm the install and that the bundled schema is present:
 
 ```bash
-loopspec doctor
+loopeix doctor
 ```
 
 `doctor` checks your Node version, the CLI version, and the bundled JSON Schema. Fix anything it
@@ -34,11 +34,11 @@ flags before continuing.
 
 ```bash
 mkdir my-project && cd my-project
-loopspec init
+loopeix init
 ```
 
-This creates a `.loopspec/` directory (`workspace.yaml` + `loops/`) **in the current folder** — never
-in your home directory. Run data will live here, and uninstalling LoopSpec never deletes it (see
+This creates a `.loopeix/` directory (`workspace.yaml` + `loops/`) **in the current folder** — never
+in your home directory. Run data will live here, and uninstalling Loopeix never deletes it (see
 [INSTALL-UNINSTALL](../INSTALL-UNINSTALL.md)).
 
 ## 4. Author and validate a spec
@@ -46,17 +46,17 @@ in your home directory. Run data will live here, and uninstalling LoopSpec never
 Copy the starter template and validate it:
 
 ```bash
-cp templates/loopspec.template.yaml my-loop.yaml   # from your clone (step 2)
-# once published to npm: cp "$(npm root -g)/loopspec/templates/loopspec.template.yaml" .
-loopspec spec validate my-loop.yaml
-# OK  my-loop.yaml is a valid LoopSpec
+cp templates/loopeix.template.yaml my-loop.yaml   # from your clone (step 2)
+# once published to npm: cp "$(npm root -g)/loopeix/templates/loopeix.template.yaml" .
+loopeix spec validate my-loop.yaml
+# OK  my-loop.yaml is a valid Loopeix
 ```
 
 Now **break it on purpose** to see the two-layer validation. Change `risk_tier: "T2"` to `"T5"` and
 re-validate:
 
 ```bash
-loopspec spec validate my-loop.yaml
+loopeix spec validate my-loop.yaml
 # INVALID  my-loop.yaml (1 issue):
 #   - tool_grants.0.risk_tier: Invalid option: expected one of "T0"|"T1"|"T2"|"T3a"|"T3b"|"T3c"|"T3d"|"T4"
 # (exact wording is Zod-version-dependent; the signal is the field path + that T5 was rejected)
@@ -72,7 +72,7 @@ Both must pass.
 ## 5. Inspect it
 
 ```bash
-loopspec spec inspect my-loop.yaml
+loopeix spec inspect my-loop.yaml
 # my-loop v001  [evaluator-optimizer]
 #   roles: writer, reviewer
 #   tasks: do-the-work
@@ -85,7 +85,7 @@ loopspec spec inspect my-loop.yaml
 ## 6. Understand a report (the payoff)
 
 > **Design preview, not a runnable step in V0.3.** The report *library* is built and tested, but the
-> `loopspec report build`/`open` CLI commands are not yet wired (they warn today) — they arrive with
+> `loopeix report build`/`open` CLI commands are not yet wired (they warn today) — they arrive with
 > the run-execution layer. This section explains what a report guarantees so you know what you're
 > working toward.
 

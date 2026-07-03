@@ -1,8 +1,8 @@
-# LoopSpec Run Report — minimal-bugfix
+# Loopeix Run Report — minimal-bugfix
 
 - Run: `run_minimal_bugfix_success`
 - Loop family: `minimal-bugfix`
-- LoopSpec version: `v001` (`sha256:1111…1111`)
+- Loopeix version: `v001` (`sha256:1111…1111`)
 - Run state: **completed**
 - Integrity: **valid** (ledger sequence 1–9, hash chain intact)
 

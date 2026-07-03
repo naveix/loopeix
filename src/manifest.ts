@@ -5,7 +5,7 @@ import type { RunManifestRecord } from "./schema/runtime.js";
 export interface RunManifestInput {
   run_id: string;
   loop_family: string;
-  loopspec_version: string;
+  loopeix_version: string;
   workspace_root: string;
   run_dir: string;
   created_at: string;
@@ -58,7 +58,7 @@ export function buildRunManifest(input: RunManifestInput): RunManifestRecord {
     schema_version: "0.1",
     run_id: input.run_id,
     loop_family: input.loop_family,
-    loopspec_version: input.loopspec_version,
+    loopeix_version: input.loopeix_version,
     run_state: recovery.run_state as RunManifestRecord["run_state"],
     created_at: input.created_at,
     updated_at: input.updated_at,

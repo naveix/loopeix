@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { describe, expect, it } from "vitest";
-import { validateLoopSpec } from "../../src/validate.js";
+import { validateLoopeix } from "../../src/validate.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtures = join(here, "..", "fixtures");
@@ -18,7 +18,7 @@ describe("valid/specs — must pass validation", () => {
   const dir = join(fixtures, "valid", "specs");
   for (const file of listYaml(dir)) {
     it(file, () => {
-      const res = validateLoopSpec(loadYaml(join(dir, file)));
+      const res = validateLoopeix(loadYaml(join(dir, file)));
       // Show any errors in the failure output.
       expect(res.errors).toEqual([]);
       expect(res.ok).toBe(true);
@@ -30,7 +30,7 @@ describe("valid/versions — must pass validation", () => {
   const dir = join(fixtures, "valid", "versions");
   for (const file of listYaml(dir)) {
     it(file, () => {
-      const res = validateLoopSpec(loadYaml(join(dir, file)));
+      const res = validateLoopeix(loadYaml(join(dir, file)));
       expect(res.errors).toEqual([]);
       expect(res.ok).toBe(true);
     });
@@ -55,7 +55,7 @@ describe("invalid/specs — must fail validation for the INTENDED defect", () =>
   };
   for (const file of listYaml(dir)) {
     it(file, () => {
-      const res = validateLoopSpec(loadYaml(join(dir, file)));
+      const res = validateLoopeix(loadYaml(join(dir, file)));
       expect(res.ok).toBe(false);
       expect(res.errors.length).toBeGreaterThan(0);
       const token = expectedDefect[file];

@@ -1,8 +1,8 @@
-# Immutable LoopSpecVersion snapshot.
+# Immutable LoopeixVersion snapshot.
 # This is the frozen v001 of the `minimal-bugfix` loop family.
 # Once any LoopRun references a version, that version file is immutable:
 # changes must create a new version (v002, ...), never edit this file.
-# Runtime records store this file's hash as `loopspec_version_hash`.
+# Runtime records store this file's hash as `loopeix_version_hash`.
 schema_version: "0.1"
 loop_family: "minimal-bugfix"
 version: "v001"

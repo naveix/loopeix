@@ -1,4 +1,4 @@
-# LoopSpec Ledger — Integrity & Security Model (V1)
+# Loopeix Ledger — Integrity & Security Model (V1)
 
 The run ledger (`ledger.jsonl`) is an append-only SHA-256 hash chain. This document states
 exactly what that guarantees — and what it does not — so no consumer over-trusts it.
@@ -54,5 +54,5 @@ injective over on-disk JSON values, but not a published standard). Track as an A
 
 ## Privacy boundary (unchanged from planning)
 
-LoopSpec adds no telemetry and makes no hidden network calls. Codex CLI and Claude Code CLI
+Loopeix adds no telemetry and makes no hidden network calls. Codex CLI and Claude Code CLI
 may transmit data under their own settings; that boundary is disclosed before each run.

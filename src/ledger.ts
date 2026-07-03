@@ -1,5 +1,5 @@
 import { hashCanonical } from "./hash.js";
-import type { Issue } from "./schema/loopspec.js";
+import type { Issue } from "./schema/loopeix.js";
 import { LedgerEvent, type LedgerEventRecord } from "./schema/runtime.js";
 
 /**

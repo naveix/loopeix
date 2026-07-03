@@ -1,6 +1,6 @@
-# LoopSpec Test Fixtures
+# Loopeix Test Fixtures
 
-This directory is the **fixture corpus** for the LoopSpec CLI. Per the S5 contract
+This directory is the **fixture corpus** for the Loopeix CLI. Per the S5 contract
 (`docs/reference/golden-fixtures-plan.md` in the planning workspace), fixtures are
 committed **before** the validator (S6) and CLI (S7) exist. The S6 validator test
 suite must **fail** against these fixtures before implementation and pass only when
@@ -13,10 +13,10 @@ and no generated JSON Schema lives here (JSON Schema is generated from Zod in S6
 
 Field shapes mirror the approved planning contracts and canonical examples:
 
-- `docs/reference/schema-contract.md` — authoring schema (LoopSpec + nested types).
+- `docs/reference/schema-contract.md` — authoring schema (Loopeix + nested types).
 - `docs/reference/schema-runtime-contract.md` — runtime records.
 - `docs/reference/schema-evidence-gates.md` — evidence, gates, evaluations, findings, waivers.
-- `docs/reference/loopspec-rfc-draft.md` — canonical minimal shape.
+- `docs/reference/loopeix-rfc-draft.md` — canonical minimal shape.
 - `docs/examples/s3/**` — approved valid/invalid example specs (mirrored here).
 
 ## Expected-result legend
@@ -54,7 +54,7 @@ Golden comparisons must normalize before diffing:
 | Golden gates | `../golden/gates/` | **DONE** | 5: all-pass, HOLD, FAIL(no-t5), WAIVED(waivable), report-truthfulness HOLD. |
 | Golden reports | `../golden/reports/` | **DONE** | 4: success report + timeline, gate-failure-correction, adapter-limitations-disclosed. Format follows the required-section contract; finalized in S12. |
 | Golden manifests | `../golden/manifests/` | **DONE** | Run + artifact manifests for `minimal-bugfix-success`. |
-| Golden runs | `../golden/runs/` | **DEFERRED (next wave)** | Full end-to-end canonical `.loopspec/` run tree. Assembles the pieces above into one consistent run; deserves a focused pass + tree-wide hash-consistency check. |
+| Golden runs | `../golden/runs/` | **DEFERRED (next wave)** | Full end-to-end canonical `.loopeix/` run tree. Assembles the pieces above into one consistent run; deserves a focused pass + tree-wide hash-consistency check. |
 | Adapter events | `adapter-events/` | **BLOCKED** | Requires REAL redacted S1 samples. Live capture may call paid Codex/Claude services and needs explicit operator approval. Must not be fabricated. |
 | Parity | `parity/simple-loop/` | **BLOCKED** | Same as above — depends on real redacted Codex + Claude event samples. |
 

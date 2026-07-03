@@ -5,10 +5,10 @@ import { ClaudeAdapter, CodexAdapter, type EngineId } from "../../adapters/index
 import { parseJsonlEvents, runEngine } from "../../run/engine.js";
 import { assembleRun, type RunInput } from "../../run/orchestrate.js";
 import { RUN_DIR_FILES, writeRunDir } from "../../run/run-dir.js";
-import { validateLoopSpec } from "../../validate.js";
+import { validateLoopeix } from "../../validate.js";
 
 /**
- * `loopspec run start <spec>` — execute a loop end-to-end into a run directory.
+ * `loopeix run start <spec>` — execute a loop end-to-end into a run directory.
  * Validates the spec, gets the engine event stream (a live Codex/Claude call, or `--events-file`
  * replay), normalizes it, seals a ledger, evaluates gates, and writes a truthful report + manifest.
  * Exit 0 = completed clean; 1 = invalid spec / usage; 4 = a blocking gate held/failed.
@@ -16,13 +16,13 @@ import { validateLoopSpec } from "../../validate.js";
 export default class RunStart extends Command {
   static summary = "Execute a loop through an engine (or replay captured events) into a run directory.";
   static args = {
-    spec: Args.string({ description: "path to the LoopSpec YAML", required: true }),
+    spec: Args.string({ description: "path to the Loopeix YAML", required: true }),
   };
   static flags = {
     engine: Flags.string({ options: ["codex", "claude"], required: true, description: "engine to run" }),
     prompt: Flags.string({ description: "prompt / work item for the engine (required for a live run)" }),
     "events-file": Flags.string({ description: "replay a pre-captured JSONL event file instead of a live call" }),
-    workspace: Flags.string({ default: ".", description: "workspace root (run dir = <workspace>/.loopspec/runs/<id>)" }),
+    workspace: Flags.string({ default: ".", description: "workspace root (run dir = <workspace>/.loopeix/runs/<id>)" }),
     "max-budget-usd": Flags.string({ description: "Claude budget cap in USD (default 0.10)" }),
   };
   static examples = [
@@ -34,7 +34,7 @@ export default class RunStart extends Command {
     const { args, flags } = await this.parse(RunStart);
     const spec = parseYaml(readFileSync(args.spec, "utf8")) as Record<string, unknown>;
 
-    const validation = validateLoopSpec(spec);
+    const validation = validateLoopeix(spec);
     if (!validation.ok) {
       this.log(`INVALID spec (${validation.errors.length} issue(s)) — run aborted:`);
       for (const e of validation.errors) this.log(`  - ${e.path}: ${e.message}`);
@@ -80,13 +80,13 @@ export default class RunStart extends Command {
 
     const normalized = new (isCodex ? CodexAdapter : ClaudeAdapter)().normalize(rawEvents);
     const run_id = `run_${Date.now().toString(36)}`;
-    const run_dir = `${flags.workspace}/.loopspec/runs/${run_id}`;
+    const run_dir = `${flags.workspace}/.loopeix/runs/${run_id}`;
     const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
     const runInput: RunInput = {
       run_id,
       loop_family: String(spec.loop_family),
-      loopspec_version: String(spec.version),
+      loopeix_version: String(spec.version),
       started_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
       engine,
       events: normalized.events,

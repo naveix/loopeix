@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest. LoopSpec is built with an evidence-first discipline — the same one it
+Thanks for your interest. Loopeix is built with an evidence-first discipline — the same one it
 enforces — so contributions are expected to prove they work, not assert it.
 
 ## Development setup
@@ -19,7 +19,7 @@ pnpm test       # vitest
 1. **Build clean** (`pnpm build`) — strict TypeScript, no emit on error.
 2. **Tests pass** (`pnpm test`) and your change adds tests for new behavior, including the failure
    paths (fail-closed cases, not just the happy path).
-3. **Fixtures stay valid** — `loopspec spec validate` still passes on the golden specs; invalid
+3. **Fixtures stay valid** — `loopeix spec validate` still passes on the golden specs; invalid
    fixtures still fail. CI checks this.
 4. **No over-claiming.** If a command or library can't yet do something, say so in the code and docs
    rather than implying it works.

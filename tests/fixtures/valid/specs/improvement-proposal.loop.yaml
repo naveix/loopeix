@@ -6,7 +6,7 @@ outcome:
   summary: "Turn a retro and its findings into SpecChangeProposals without mutating any current spec version."
   success_criteria:
     - "Each proposal traces to a specific retro finding."
-    - "No current LoopSpecVersion file is modified."
+    - "No current LoopeixVersion file is modified."
     - "Every proposal is expressed as a new version, never an in-place edit."
 
 inputs:
@@ -21,7 +21,7 @@ context_contract:
   required:
     - "The retro record"
     - "The referenced findings"
-    - "The current LoopSpecVersion under review"
+    - "The current LoopeixVersion under review"
   forbidden:
     - "Write access to any immutable version file"
   untrusted_sources: []

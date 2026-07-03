@@ -1,13 +1,13 @@
 # Changelog
 
-All notable changes to LoopSpec. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
+All notable changes to Loopeix. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 The project is pre-release (alpha); everything below is **Unreleased** until the first tagged version.
 
 ## [Unreleased]
 
 ### Run-execution layer
 
-- `loopspec run start <spec> --engine <codex|claude>` executes a loop end-to-end (live) or replays a
+- `loopeix run start <spec> --engine <codex|claude>` executes a loop end-to-end (live) or replays a
   captured event file (`--events-file`): validate → run → normalize → seal ledger → gates → truthful
   report + manifest. A failed/timed-out engine seals `run.failed`, never a fake `completed`.
 - Engine invocation shells out with an args-array (no shell); Codex uses a `--` terminator so a prompt

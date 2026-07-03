@@ -1,6 +1,6 @@
-# LoopSpec starter template.
+# Loopeix starter template.
 # Copy this file, rename it, and edit the values. Validate with:
-#   loopspec spec validate your-loop.yaml
+#   loopeix spec validate your-loop.yaml
 # Every field below is required unless a comment says otherwise. See docs/reference/cli.md and
 # docs/explanation/trust-model.md.
 

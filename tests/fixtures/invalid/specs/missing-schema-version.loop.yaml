@@ -1,6 +1,6 @@
 # INVALID FIXTURE — expected to FAIL validation.
 # Sole defect: the required top-level `schema_version` field is absent.
-# Everything else is a well-formed 0.1 LoopSpec.
+# Everything else is a well-formed 0.1 Loopeix.
 loop_family: "invalid-missing-schema-version"
 version: "v001"
 

@@ -9,7 +9,7 @@ function resolveLedgerPath(p: string): string {
 }
 
 /**
- * `loopspec run recover <run>` — assess whether an interrupted run can be recovered.
+ * `loopeix run recover <run>` — assess whether an interrupted run can be recovered.
  * V1 is read-only: it reports integrity findings and a verdict; it does not rewrite history
  * (recovery events are written by later sprints). Exit 4 if the run is held/unrecoverable.
  */

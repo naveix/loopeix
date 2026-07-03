@@ -3,7 +3,7 @@ import type { EngineId } from "../adapters/index.js";
 
 /**
  * Engine invocation (the one part of the run-execution layer that shells out to a live CLI).
- * LoopSpec uses the Codex/Claude CLIs' OWN auth — it never passes or holds an API key. Both are
+ * Loopeix uses the Codex/Claude CLIs' OWN auth — it never passes or holds an API key. Both are
  * invoked non-interactively with empty stdin (the `</dev/null` the captures required, or `codex exec`
  * hangs waiting on stdin), read-only/ephemeral/bounded-budget where the CLI supports it, and their
  * JSONL stdout is parsed into raw events for the adapter to normalize.

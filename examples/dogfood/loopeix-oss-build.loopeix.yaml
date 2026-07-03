@@ -1,14 +1,14 @@
 schema_version: "0.1"
-loop_family: "loopspec-oss-build"
+loop_family: "loopeix-oss-build"
 version: "v001"
 
-# DOGFOOD (S13-A): LoopSpec describing its own construction. This is the actual loop that built
-# the LoopSpec CLI — sprint by sprint, each sprint written then independently reviewed, findings
-# fixed, and only committed on explicit operator approval. It validates against LoopSpec's own
-# validator (`loopspec spec validate examples/dogfood/loopspec-oss-build.loopspec.yaml`).
+# DOGFOOD (S13-A): Loopeix describing its own construction. This is the actual loop that built
+# the Loopeix CLI — sprint by sprint, each sprint written then independently reviewed, findings
+# fixed, and only committed on explicit operator approval. It validates against Loopeix's own
+# validator (`loopeix spec validate examples/dogfood/loopeix-oss-build.loopeix.yaml`).
 
 outcome:
-  summary: "Build the LoopSpec OSS CLI in sprint order, with every sprint independently reviewed and its findings fixed before commit."
+  summary: "Build the Loopeix OSS CLI in sprint order, with every sprint independently reviewed and its findings fixed before commit."
   success_criteria:
     - "Each sprint's required output exists, builds, and is covered by tests."
     - "Every sprint is independently reviewed; no BLOCKING/MAJOR finding is left unresolved before commit."

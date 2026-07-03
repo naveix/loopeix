@@ -2,12 +2,12 @@ import { z } from "zod";
 import { HumanId, LoopVersion, RiskTierV1, SchemaVersion } from "./scalars.js";
 
 /**
- * LoopSpec authoring schema (schema-contract.md).
+ * Loopeix authoring schema (schema-contract.md).
  *
  * Two-layer design (ADR 0001):
  *  - The Zod object below carries all STRUCTURAL rules and is the source for the
  *    generated JSON Schema (`z.toJSONSchema`).
- *  - Cross-field/relational invariants live in `checkLoopSpecInvariants` because
+ *  - Cross-field/relational invariants live in `checkLoopeixInvariants` because
  *    they cannot be expressed in JSON Schema; they run as a second pass.
  */
 
@@ -98,8 +98,8 @@ export const WorkflowPatternType = z.enum([
   "evaluator-optimizer",
 ]);
 
-/** The structural LoopSpec object. Feeds `z.toJSONSchema`. */
-export const LoopSpecShape = z.object({
+/** The structural Loopeix object. Feeds `z.toJSONSchema`. */
+export const LoopeixShape = z.object({
   schema_version: SchemaVersion,
   loop_family: HumanId,
   version: LoopVersion,
@@ -134,7 +134,7 @@ export const LoopSpecShape = z.object({
   }),
 });
 
-export type LoopSpec = z.infer<typeof LoopSpecShape>;
+export type Loopeix = z.infer<typeof LoopeixShape>;
 
 export interface Issue {
   path: string;
@@ -144,9 +144,9 @@ export interface Issue {
 /**
  * Cross-field invariants that JSON Schema cannot express (schema-contract.md
  * §Cross-Schema Invariants + RFC §Validation Rules). Runs on an already
- * structurally-valid LoopSpec.
+ * structurally-valid Loopeix.
  */
-export function checkLoopSpecInvariants(spec: LoopSpec): Issue[] {
+export function checkLoopeixInvariants(spec: Loopeix): Issue[] {
   const issues: Issue[] = [];
 
   const dup = (arr: ReadonlyArray<{ id: string }>, label: string): void => {

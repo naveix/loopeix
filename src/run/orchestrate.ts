@@ -16,7 +16,7 @@ import type { RunManifestRecord } from "../schema/runtime.js";
 /**
  * Run orchestration (the run-execution layer's core). Given a resolved spec + the normalized event
  * stream from an engine adapter, it seals a hash-chained ledger, derives integrity, evaluates gates,
- * extracts evidence, and builds a truthful report + manifest — the exact chain the CLI `loopspec run`
+ * extracts evidence, and builds a truthful report + manifest — the exact chain the CLI `loopeix run`
  * wires. It is engine-agnostic and pure (no I/O, no live calls), so it is fully fixture-testable.
  *
  * V1 honesty: claim↔evidence linkage is NOT auto-derived (which command proves which acceptance
@@ -61,7 +61,7 @@ export function extractEvidence(events: readonly NormalizedEvent[]): ExtractedEv
 export interface RunInput {
   run_id: string; // MachineId, e.g. run_abc123
   loop_family: string;
-  loopspec_version: string;
+  loopeix_version: string;
   started_at: string; // ISO UTC, e.g. 2026-01-01T00:00:00Z
   engine: EngineId;
   events: readonly NormalizedEvent[];
@@ -125,13 +125,13 @@ export function assembleRun(input: RunInput): RunAssembly {
   const engineFailed =
     input.engine_status !== undefined && (input.engine_status.exit_code !== 0 || input.engine_status.timed_out);
 
-  addEvent("run.started", "loopspec", { engine: input.engine });
+  addEvent("run.started", "loopeix", { engine: input.engine });
   for (const e of input.events) addEvent(e.kind, e.source, (e.payload ?? {}) as Record<string, unknown>);
   for (const d of gate_report.decisions) {
-    addEvent("gate.result", "loopspec", { gate_id: d.gate_id, status: d.status, blocking: d.blocking });
+    addEvent("gate.result", "loopeix", { gate_id: d.gate_id, status: d.status, blocking: d.blocking });
   }
   const terminal = engineFailed ? "run.failed" : gate_report.blocking_hold_or_fail ? "run.held" : "run.completed";
-  addEvent(terminal, "loopspec", engineFailed ? { engine_status: input.engine_status } : {});
+  addEvent(terminal, "loopeix", engineFailed ? { engine_status: input.engine_status } : {});
 
   const ledger_text = serializeLedger(ledger);
   const integrity = recoverLedger(ledger);
@@ -139,7 +139,7 @@ export function assembleRun(input: RunInput): RunAssembly {
   const reportInput: ReportInput = {
     run_id: input.run_id,
     loop_family: input.loop_family,
-    loopspec_version: input.loopspec_version,
+    loopeix_version: input.loopeix_version,
     run_state: integrity.run_state,
     integrity_status: integrity.integrity_status,
     // V1: no auto claim↔evidence linkage → no auto-verified claims (see module note).
@@ -176,9 +176,9 @@ export function assembleRun(input: RunInput): RunAssembly {
   const manifest = buildRunManifest({
     run_id: input.run_id,
     loop_family: input.loop_family,
-    loopspec_version: input.loopspec_version,
+    loopeix_version: input.loopeix_version,
     workspace_root: input.workspace_root ?? ".",
-    run_dir: input.run_dir ?? `.loopspec/runs/${input.run_id}`,
+    run_dir: input.run_dir ?? `.loopeix/runs/${input.run_id}`,
     created_at: input.started_at,
     updated_at: tsAt(ledger.length),
     events: ledger,

@@ -7,7 +7,7 @@ import { acquireLock, LockHeldError, withLock } from "../../src/index.js";
 let dir: string;
 let lock: string;
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "loopspec-lock-"));
+  dir = mkdtempSync(join(tmpdir(), "loopeix-lock-"));
   lock = join(dir, "ledger.lock");
 });
 afterEach(() => {

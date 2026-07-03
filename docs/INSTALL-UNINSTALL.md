@@ -1,6 +1,6 @@
 # Install & Uninstall
 
-LoopSpec is a local-first CLI (`loopspec`). Install and uninstall are reversible; **your run data is
+Loopeix is a local-first CLI (`loopeix`). Install and uninstall are reversible; **your run data is
 never deleted by uninstalling** — you delete it explicitly. This document states exactly what each
 step touches (required by the redaction & retention policy).
 
@@ -8,7 +8,7 @@ step touches (required by the redaction & retention policy).
 
 ```bash
 # from the published package (once released)
-npm install -g loopspec        # or: pnpm add -g loopspec
+npm install -g loopeix        # or: pnpm add -g loopeix
 
 # from source (this repo)
 pnpm install && pnpm build && npm link
@@ -16,32 +16,32 @@ pnpm install && pnpm build && npm link
 
 What install creates:
 
-- The `loopspec` binary on your `PATH` (via npm/pnpm global or `npm link`).
+- The `loopeix` binary on your `PATH` (via npm/pnpm global or `npm link`).
 - **No global config or hidden home-directory state** is written on install.
 
 Per-run state is created only when you run a loop, and lives **inside the workspace you run it in**
-(e.g. a `.loopspec/` directory next to your project), never in your home directory. Nothing is sent
-off your machine — LoopSpec uses the Codex/Claude CLIs' own auth and holds no API keys.
+(e.g. a `.loopeix/` directory next to your project), never in your home directory. Nothing is sent
+off your machine — Loopeix uses the Codex/Claude CLIs' own auth and holds no API keys.
 
 ## Uninstall
 
 ```bash
-npm uninstall -g loopspec       # or: pnpm remove -g loopspec
-# from source: npm unlink -g loopspec
+npm uninstall -g loopeix       # or: pnpm remove -g loopeix
+# from source: npm unlink -g loopeix
 ```
 
 What uninstall **does** remove:
 
-- The `loopspec` binary and its npm package files.
+- The `loopeix` binary and its npm package files.
 
 What uninstall **does NOT** remove (by design — it is your evidence):
 
-- Any `.loopspec/` run data, ledgers, artifacts, reports, or quarantined items in your workspaces.
+- Any `.loopeix/` run data, ledgers, artifacts, reports, or quarantined items in your workspaces.
 
 To remove run data yourself (irreversible):
 
 ```bash
-rm -rf ./.loopspec              # in a workspace you want to wipe
+rm -rf ./.loopeix              # in a workspace you want to wipe
 ```
 
 ## Retention (what ages out on its own)
@@ -50,7 +50,7 @@ rm -rf ./.loopspec              # in a workspace you want to wipe
 |---|---|---|
 | `short` | 7 days | Raw command output, raw adapter events, temporary captures. |
 | `run` | until you delete the run | Gate results, evidence, reports, findings. |
-| `project` | until you delete the workspace | LoopSpec versions, templates, approved retros. |
+| `project` | until you delete the workspace | Loopeix versions, templates, approved retros. |
 | `quarantine` | manual review required | Suspected secret captures / sensitive screenshots. |
 
 `short`-class raw captures are eligible for automatic age-out after 7 days; everything else persists
@@ -63,10 +63,10 @@ review and remove them (see the quarantine tooling under **Privacy commands** be
 > (`buildSupportBundle`, `redact`, `scanForLeaks`, `isExpired`); the CLI subcommands below arrive with
 > the run-execution layer. Until then, call the library functions directly.
 
-- `loopspec support bundle` — build a **redacted**, leak-scanned bundle safe to share for support.
-- `loopspec privacy purge-run` — purge or tombstone one run per the retention policy.
-- `loopspec privacy redact-artifact` — write a redacted replacement for one artifact.
-- `loopspec privacy list-quarantine` — list quarantined evidence.
+- `loopeix support bundle` — build a **redacted**, leak-scanned bundle safe to share for support.
+- `loopeix privacy purge-run` — purge or tombstone one run per the retention policy.
+- `loopeix privacy redact-artifact` — write a redacted replacement for one artifact.
+- `loopeix privacy list-quarantine` — list quarantined evidence.
 
 Redaction is conservative (privacy over completeness): it scrubs values under secret-like keys and
 known secret patterns (provider keys, bearer tokens, DB URLs, PEM private keys), and every export is

@@ -6,7 +6,7 @@ import addFormats from "ajv-formats";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import { beforeAll, describe, expect, it } from "vitest";
-import { LoopSpecShape } from "../../src/schema/loopspec.js";
+import { LoopeixShape } from "../../src/schema/loopeix.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const specs = join(here, "..", "fixtures", "valid", "specs");
@@ -16,7 +16,7 @@ const loadYaml = (p: string): unknown => parseYaml(readFileSync(p, "utf8"));
 let validate: (d: unknown) => boolean;
 
 beforeAll(() => {
-  const jsonSchema = z.toJSONSchema(LoopSpecShape, {
+  const jsonSchema = z.toJSONSchema(LoopeixShape, {
     target: "draft-2020-12",
     unrepresentable: "throw",
     reused: "ref",
@@ -59,7 +59,7 @@ describe("JSON Schema alone CANNOT catch relational defects (two-layer boundary)
     "blocking-gate-without-evidence-rule",
     "forbidden-context-also-required",
   ]) {
-    it(`${f}.loop.yaml → passes JSON Schema (caught later by validateLoopSpec)`, () => {
+    it(`${f}.loop.yaml → passes JSON Schema (caught later by validateLoopeix)`, () => {
       expect(validate(loadYaml(join(invalid, `${f}.loop.yaml`)))).toBe(true);
     });
   }

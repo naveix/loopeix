@@ -15,8 +15,8 @@ coverage/
 # packaged tarballs
 *.tgz
 
-# LoopSpec local runtime output (runs are local, not committed)
-.loopspec/runs/
+# Loopeix local runtime output (runs are local, not committed)
+.loopeix/runs/
 
 # OS / editor noise
 .DS_Store

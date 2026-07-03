@@ -4,7 +4,7 @@ import { parseLedgerText, recoverLedger } from "../ledger.js";
 import { buildReport, type Report, type ReportInput } from "../report.js";
 import type { RunAssembly } from "./orchestrate.js";
 
-/** Canonical file names inside a run directory (.loopspec/runs/<run-id>/). */
+/** Canonical file names inside a run directory (.loopeix/runs/<run-id>/). */
 export const RUN_DIR_FILES = {
   ledger: "ledger.jsonl",
   manifest: "manifest.json",
@@ -30,7 +30,7 @@ export function writeRunDir(dir: string, a: RunAssembly): void {
 
 /**
  * Rebuild the Markdown + HTML report from a run dir's persisted report input, and rewrite them.
- * This is what `loopspec report build <run-dir>` calls.
+ * This is what `loopeix report build <run-dir>` calls.
  *
  * The report's trust-critical status (`run_state`, `integrity_status`) is ANCHORED to the SEALED
  * ledger, not to the (unauthenticated) `report-input.json` sidecar: they are re-derived by recovering
@@ -72,7 +72,7 @@ export function buildReportFromRunDir(dir: string): Report {
   return report;
 }
 
-/** Absolute-ish path to a run dir's HTML report (what `loopspec report open <run-dir>` opens). */
+/** Absolute-ish path to a run dir's HTML report (what `loopeix report open <run-dir>` opens). */
 export function reportHtmlPath(dir: string): string {
   return join(dir, RUN_DIR_FILES.reportHtml);
 }

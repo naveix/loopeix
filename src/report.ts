@@ -13,7 +13,7 @@
 export interface ReportInput {
   run_id: string;
   loop_family: string;
-  loopspec_version: string;
+  loopeix_version: string;
   run_state: string;
   integrity_status: string;
   evidence: {
@@ -69,9 +69,9 @@ function markdown(input: ReportInput): string {
   const redaction = input.redaction ?? { policy_version: "unknown", quarantined: 0, raw_excluded: false, limitations: [] };
   const limitations = arr(redaction.limitations);
 
-  lines.push(`# LoopSpec Run Report — ${mdEsc(input.loop_family)}`, "");
+  lines.push(`# Loopeix Run Report — ${mdEsc(input.loop_family)}`, "");
   lines.push(`- Run: \`${mdEsc(input.run_id)}\``);
-  lines.push(`- Version: \`${mdEsc(input.loopspec_version)}\``);
+  lines.push(`- Version: \`${mdEsc(input.loopeix_version)}\``);
   lines.push(`- Run state: **${mdEsc(input.run_state)}**`);
   lines.push(`- Integrity: **${mdEsc(input.integrity_status)}**`, "");
 
@@ -138,7 +138,7 @@ function html(input: ReportInput): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LoopSpec Timeline — ${esc(input.run_id)}</title>
+  <title>Loopeix Timeline — ${esc(input.run_id)}</title>
   <style>
     body { font: 14px/1.5 system-ui, sans-serif; margin: 2rem; color: #111; background: #fff; }
     h1 { font-size: 1.25rem; }
@@ -153,7 +153,7 @@ function html(input: ReportInput): string {
   </style>
 </head>
 <body>
-  <h1>LoopSpec Timeline</h1>
+  <h1>Loopeix Timeline</h1>
   <div class="meta">Run <code>${esc(input.run_id)}</code> &middot; ${esc(input.loop_family)} &middot; state <strong>${esc(input.run_state)}</strong> &middot; integrity <strong>${esc(input.integrity_status)}</strong></div>
   <ol>
 ${items}

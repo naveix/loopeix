@@ -1,6 +1,6 @@
-# PROVISIONAL SHAPE — the `.loopspec/workspace.yaml` schema is not field-enumerated
+# PROVISIONAL SHAPE — the `.loopeix/workspace.yaml` schema is not field-enumerated
 # in the S3 contracts (runtime-file-contracts.md only states its purpose:
-# "Local LoopSpec workspace settings"). S4/S6 must finalize these fields.
+# "Local Loopeix workspace settings"). S4/S6 must finalize these fields.
 # This is a known-good minimal example so authoring validation can exist before the CLI.
 schema_version: "0.1"
 workspace_version: "0.1"
@@ -10,7 +10,7 @@ defaults:
   retention_class: "run"
   redaction_policy_version: "0.1"
 engine_disclosure: >-
-  LoopSpec adds no telemetry and makes no hidden network calls. Codex CLI and
+  Loopeix adds no telemetry and makes no hidden network calls. Codex CLI and
   Claude Code CLI may transmit prompts, files, or tool context under their own
   settings; this boundary is disclosed before each run starts.
 adapters:

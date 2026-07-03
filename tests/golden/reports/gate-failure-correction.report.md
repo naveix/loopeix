@@ -1,8 +1,8 @@
-# LoopSpec Run Report — gate-failure-correction
+# Loopeix Run Report — gate-failure-correction
 
 - Run: `run_gate_failure_correction`
 - Loop family: `gate-failure-correction`
-- LoopSpec version: `v001` (`sha256:1111…1111`)
+- Loopeix version: `v001` (`sha256:1111…1111`)
 - Run state: **completed**
 - Integrity: **valid**
 

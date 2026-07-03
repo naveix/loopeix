@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ArtifactType } from "./loopspec.js";
+import { ArtifactType } from "./loopeix.js";
 import { Hash, HumanId, IsoTimestamp, LoopVersion, MachineId, RiskTier, RiskTierV1, SchemaVersion } from "./scalars.js";
 
 /**
@@ -25,8 +25,8 @@ export const ResolvedRunPlan = z.object({
   schema_version: SchemaVersion,
   run_id: MachineId,
   loop_family: HumanId,
-  loopspec_version: LoopVersion,
-  loopspec_version_hash: Hash,
+  loopeix_version: LoopVersion,
+  loopeix_version_hash: Hash,
   work_item_id: MachineId,
   intake_brief_id: MachineId,
   created_at: IsoTimestamp,
@@ -46,7 +46,7 @@ export const ResolvedRunPlan = z.object({
 });
 
 export const LedgerSource = z.enum([
-  "loopspec",
+  "loopeix",
   "codex_cli",
   "claude_code_cli",
   "shell",
@@ -92,7 +92,7 @@ export const RunManifest = z.object({
   schema_version: SchemaVersion,
   run_id: MachineId,
   loop_family: HumanId,
-  loopspec_version: LoopVersion,
+  loopeix_version: LoopVersion,
   run_state: RunState,
   created_at: IsoTimestamp,
   updated_at: IsoTimestamp,

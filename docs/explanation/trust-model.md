@@ -1,13 +1,13 @@
 # Explanation: the trust model
 
-Understanding-oriented. This explains *why* LoopSpec is shaped the way it is — what problem each
+Understanding-oriented. This explains *why* Loopeix is shaped the way it is — what problem each
 layer solves, and, just as importantly, what it deliberately does **not** promise.
 
 ## The problem: confidence is not evidence
 
 An AI agent will tell you the fix works, the tests pass, and the refactor is safe — in the same
 confident voice whether or not any of that is true. The gap between a claim and its proof is where
-trust breaks. LoopSpec's entire design is about closing that gap **or disclosing that it's open**.
+trust breaks. Loopeix's entire design is about closing that gap **or disclosing that it's open**.
 
 Two rules run through everything:
 
@@ -18,9 +18,9 @@ Two rules run through everything:
 
 ## The layers
 
-### LoopSpec (authoring)
+### Loopeix (authoring)
 
-A LoopSpec is the *intent*: outcome, roles, tasks, tool grants (with risk tiers), gates, and risk
+A Loopeix is the *intent*: outcome, roles, tasks, tool grants (with risk tiers), gates, and risk
 controls, authored in YAML. Validation is two-layer — **structural** (shape/enums, generated from a
 Zod schema so the JSON Schema and the runtime checks can't drift) and **relational** (cross-field
 invariants a schema can't express, like "no T5 tier without approval"). The strictest control,
@@ -40,7 +40,7 @@ never a silent `valid`.
 Codex (`codex exec --json`) and Claude (`--output-format stream-json`) emit different events.
 Adapters normalize both into one taxonomy — but they **preserve the difference in what each engine
 can observe**. Codex reports command/file/MCP activity as first-class items (full capture); Claude
-only infers them from tool-use blocks and hooks (partial capture). LoopSpec records that as a
+only infers them from tool-use blocks and hooks (partial capture). Loopeix records that as a
 **capture gap** and never presents Claude's inferred command evidence as if it were as direct as
 Codex's. Unknown event types are recorded, never dropped.
 
@@ -94,7 +94,7 @@ by walking the structure, flagging any value left under a sensitive key, and cat
 token-shaped strings the pattern list doesn't recognize. A support bundle is `safe_to_share` only if
 that independent scan is clean.
 
-## What LoopSpec does NOT guarantee
+## What Loopeix does NOT guarantee
 
 Being honest about limits is part of the trust model:
 
@@ -108,5 +108,5 @@ Being honest about limits is part of the trust model:
   machine.
 - **Alpha.** Shapes may change before V1.
 
-The point is not that LoopSpec proves everything. It's that it proves what it can, refuses to claim
+The point is not that Loopeix proves everything. It's that it proves what it can, refuses to claim
 what it can't, and tells you which is which.

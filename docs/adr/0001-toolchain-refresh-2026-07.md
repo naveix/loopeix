@@ -4,7 +4,7 @@ Status: Accepted — confirms the planning-workspace stack with three concrete u
 
 ## Context
 
-The LoopSpec planning workspace locked a stack (TypeScript ESM, pnpm, oclif `@oclif/core`,
+The Loopeix planning workspace locked a stack (TypeScript ESM, pnpm, oclif `@oclif/core`,
 Zod 4 → generated JSON Schema, Vitest, `npm-shrinkwrap.json`, npm provenance). Before writing
 S6/S7 code we re-validated every choice against **current** sources on 2026-07-02 via three
 parallel research lanes (Context7 for library docs; nodejs.org release schedule; npm/pnpm docs).
@@ -61,7 +61,7 @@ runtime LTS (`^24`), not `^26`. Turn on `noUncheckedIndexedAccess` at the S7 ske
 - Packed-tarball smoke = **`pnpm pack`** (the npm `.tgz`), NOT `oclif pack tarballs` (that builds
   node-embedded standalone bundles). `oclif manifest` runs in `prepack`, is deleted in `postpack`,
   and MUST be listed in `files` so it ships inside the tarball. Then: install the tgz into a temp
-  prefix and run `loopspec --version`, `loopspec doctor`, one fixture command.
+  prefix and run `loopeix --version`, `loopeix doctor`, one fixture command.
 - Publishing: **Trusted Publishing (OIDC) from GitHub Actions** (npm ≥ 11.5.1, Node ≥ 22.14 on the
   runner, `permissions: id-token: write`, no `NPM_TOKEN`); provenance is then automatic — drop
   `--provenance`. Generate `npm-shrinkwrap.json` with npm in the release pipeline and guard against

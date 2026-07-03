@@ -9,7 +9,7 @@
 
 export type EngineId = "codex_cli" | "claude_code_cli";
 
-/** Normalized event taxonomy shared across engines. `kind` is what LoopSpec reasons about;
+/** Normalized event taxonomy shared across engines. `kind` is what Loopeix reasons about;
  *  `raw_type` preserves the original engine event type for traceability. */
 export type NormalizedKind =
   | "run.started"

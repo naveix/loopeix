@@ -1,5 +1,5 @@
 {
-  "name": "loopspec",
+  "name": "loopeix",
   "version": "0.0.0",
   "description": "Local-first CLI to design, run, verify, and improve repeatable AI work loops.",
   "type": "module",
@@ -15,7 +15,7 @@
     }
   },
   "bin": {
-    "loopspec": "./bin/run.js"
+    "loopeix": "./bin/run.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -33,13 +33,13 @@
     "oclif.manifest.json"
   ],
   "oclif": {
-    "bin": "loopspec",
-    "dirname": "loopspec",
+    "bin": "loopeix",
+    "dirname": "loopeix",
     "commands": "./dist/commands",
     "topicSeparator": " ",
     "topics": {
       "spec": {
-        "description": "Work with LoopSpec files (validate, inspect)."
+        "description": "Work with Loopeix files (validate, inspect)."
       },
       "report": {
         "description": "Build and open local run reports."

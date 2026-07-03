@@ -25,7 +25,7 @@ const noT5: GateSpecInput = { id: "no-t5", blocking: true, inputs_required: [], 
 const assembly = assembleRun({
   run_id: "run_test01",
   loop_family: "minimal-bugfix",
-  loopspec_version: "v001",
+  loopeix_version: "v001",
   started_at: "2026-01-01T00:00:00Z",
   engine: "codex_cli",
   events: events.events,
@@ -36,7 +36,7 @@ const assembly = assembleRun({
 
 let dir: string;
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "loopspec-run-"));
+  dir = mkdtempSync(join(tmpdir(), "loopeix-run-"));
 });
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
@@ -69,7 +69,7 @@ describe("buildReportFromRunDir anchors status to the SEALED ledger (tamper resi
   const heldAssembly = assembleRun({
     run_id: "run_held01",
     loop_family: "minimal-bugfix",
-    loopspec_version: "v001",
+    loopeix_version: "v001",
     started_at: "2026-01-01T00:00:00Z",
     engine: "codex_cli",
     events: events.events,

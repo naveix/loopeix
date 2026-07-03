@@ -2,7 +2,7 @@ import { Args, Command } from "@oclif/core";
 import { buildReportFromRunDir, RUN_DIR_FILES } from "../../run/run-dir.js";
 
 /**
- * `loopspec report build <run-dir>` — rebuild the Markdown + HTML report from a run's recorded
+ * `loopeix report build <run-dir>` — rebuild the Markdown + HTML report from a run's recorded
  * inputs (`report-input.json`, written during the run). Truthful by construction. Exit 0 on success.
  */
 export default class ReportBuild extends Command {
@@ -10,9 +10,9 @@ export default class ReportBuild extends Command {
   static description =
     "Reads <run-dir>/report-input.json and rebuilds report.md + report.html. The report is derived from the run's recorded evidence/gate/timeline inputs, so it cannot over-claim.";
   static args = {
-    "run-dir": Args.string({ description: "path to the run directory (.loopspec/runs/<id>)", required: true }),
+    "run-dir": Args.string({ description: "path to the run directory (.loopeix/runs/<id>)", required: true }),
   };
-  static examples = ["<%= config.bin %> report build .loopspec/runs/run_abc"];
+  static examples = ["<%= config.bin %> report build .loopeix/runs/run_abc"];
 
   public async run(): Promise<void> {
     const { args } = await this.parse(ReportBuild);

@@ -1,11 +1,11 @@
 # How-to: common tasks
 
-Task-oriented recipes. Each assumes LoopSpec is installed (`loopspec doctor` passes).
+Task-oriented recipes. Each assumes Loopeix is installed (`loopeix doctor` passes).
 
 ## Validate a spec before you rely on it
 
 ```bash
-loopspec spec validate path/to/loop.yaml
+loopeix spec validate path/to/loop.yaml
 ```
 
 If it prints `INVALID`, fix each numbered issue and re-run. Common ones:
@@ -17,7 +17,7 @@ If it prints `INVALID`, fix each numbered issue and re-run. Common ones:
 ## See what a spec actually does
 
 ```bash
-loopspec spec inspect path/to/loop.yaml
+loopeix spec inspect path/to/loop.yaml
 ```
 
 Reads out roles, tasks, and the blocking gates (`*`). Use it in review to confirm intent without
@@ -26,7 +26,7 @@ reading the whole file.
 ## Check whether a run's evidence is trustworthy
 
 ```bash
-loopspec run status .loopspec/runs/<run-id>
+loopeix run status .loopeix/runs/<run-id>
 ```
 
 - `valid` → the hash chain is intact and content hashes match.
@@ -36,7 +36,7 @@ loopspec run status .loopspec/runs/<run-id>
 ## Assess whether a run can be recovered
 
 ```bash
-loopspec run recover .loopspec/runs/<run-id>
+loopeix run recover .loopeix/runs/<run-id>
 ```
 
 **Read-only in V1** — it reports the recoverable **valid prefix** (up to the first break) and exactly
@@ -45,7 +45,7 @@ not make the whole ledger unreadable — you see the valid prefix and decide whe
 
 ## Build a report from a run
 
-> **Not yet a CLI command in V0.3.** `loopspec report build`/`report open` currently warn and do
+> **Not yet a CLI command in V0.3.** `loopeix report build`/`report open` currently warn and do
 > nothing — the report is implemented and tested in the `buildReport` library and reaches the CLI with
 > the run-execution layer.
 
@@ -55,7 +55,7 @@ redaction state; the HTML timeline is static (no scripts, no network) and safe t
 ## Build a redacted support bundle before asking for help
 
 > **Not yet a CLI command in V0.3** — use the `buildSupportBundle` **library function** today; the
-> `loopspec support bundle` command arrives with the run-execution layer.
+> `loopeix support bundle` command arrives with the run-execution layer.
 
 `buildSupportBundle` **redacts, then runs an independent leak-scan**, and marks the bundle
 `safe_to_share` only if the scan is clean — so you don't accidentally attach a secret. If the scan

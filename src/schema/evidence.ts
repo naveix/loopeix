@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Issue } from "./loopspec.js";
+import type { Issue } from "./loopeix.js";
 import { RedactionState, RetentionClass } from "./runtime.js";
 import { Hash, HumanId, IsoTimestamp, MachineId, RiskTier } from "./scalars.js";
 
@@ -54,7 +54,7 @@ export const EvidenceSource = z.enum([
   "browser",
   "user",
   "evaluator",
-  "loopspec",
+  "loopeix",
 ]);
 export const CaptureMethod = z.enum([
   "jsonl_event",

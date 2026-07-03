@@ -1,8 +1,8 @@
-# LoopSpec Run Report — adapter limitations disclosed
+# Loopeix Run Report — adapter limitations disclosed
 
 - Run: `run_adapter_limitations_disclosed`
 - Loop family: `expert-sprint`
-- LoopSpec version: `v001` (`sha256:1111…1111`)
+- Loopeix version: `v001` (`sha256:1111…1111`)
 - Engine adapter: `claude_code_cli` (stream-json)
 - Run state: **completed**
 - Integrity: **valid**
@@ -24,7 +24,7 @@ kept strictly separate from what the adapter could not capture.
 
 | Claim | Strength | Why unverified |
 |---|---|---|
-| No secret was sent to the engine during the run. | limited | Prompt/transcript payloads are outside LoopSpec's capture; see capture gaps. |
+| No secret was sent to the engine during the run. | limited | Prompt/transcript payloads are outside Loopeix's capture; see capture gaps. |
 
 ## Capture gaps (declared by the adapter — MUST NOT be reported as verified)
 
@@ -35,7 +35,7 @@ kept strictly separate from what the adapter could not capture.
 | Tool-approval + MCP tool-call event shapes | `claude_code_cli` | Event shapes unverified pending approved live samples; recorded as gaps, not proof. |
 | File-change events | `claude_code_cli` | Reconstructed from filesystem hashes, not from a native change stream. |
 
-Engine data-transmission boundary: LoopSpec adds no telemetry, but the Claude Code CLI may
+Engine data-transmission boundary: Loopeix adds no telemetry, but the Claude Code CLI may
 transmit prompts, files, or tool context under its own settings. This boundary was disclosed
 before the run started.
 

@@ -1,6 +1,6 @@
 # SpecChangeProposal — schema FINALIZED in S14 (src/schema/proposal.ts, checkProposalInvariants).
 # Validated by tests/unit/retro.test.ts. An accepted proposal creates a new immutable
-# LoopSpecVersion; this one introduces v002 and does not modify the immutable v001.
+# LoopeixVersion; this one introduces v002 and does not modify the immutable v001.
 schema_version: "0.1"
 proposal_id: "scp_0001"
 loop_family: "minimal-bugfix"

@@ -19,7 +19,7 @@ const draft = (eventId: string, eventType: string): LedgerEventDraft => ({
   run_id: "run_test",
   timestamp: "2026-01-01T00:00:00Z",
   event_type: eventType,
-  source: "loopspec",
+  source: "loopeix",
   actor_id: null,
   task_run_id: null,
   risk_tier: "T2",
@@ -170,9 +170,9 @@ describe("buildRunManifest", () => {
     const manifest = buildRunManifest({
       run_id: "run_test",
       loop_family: "minimal-bugfix",
-      loopspec_version: "v001",
+      loopeix_version: "v001",
       workspace_root: "<WORKSPACE_ROOT>",
-      run_dir: ".loopspec/loops/minimal-bugfix/runs/run_test",
+      run_dir: ".loopeix/loops/minimal-bugfix/runs/run_test",
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-01-01T00:00:03Z",
       events,
@@ -219,9 +219,9 @@ describe("adversarial integrity (security audit follow-ups)", () => {
     const manifest = buildRunManifest({
       run_id: "run_DIFFERENT",
       loop_family: "minimal-bugfix",
-      loopspec_version: "v001",
+      loopeix_version: "v001",
       workspace_root: "<W>",
-      run_dir: ".loopspec/loops/x/runs/run_DIFFERENT",
+      run_dir: ".loopeix/loops/x/runs/run_DIFFERENT",
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-01-01T00:00:03Z",
       events, // events belong to run_test, not run_DIFFERENT

@@ -17,7 +17,7 @@ import { hostname } from "node:os";
  *
  * A lock is stolen ONLY when stale: older than `staleMs`, or held by a pid that is no longer alive.
  * `now`/`pid`/`isAlive` are injectable for deterministic tests. (Requires a filesystem with hardlink
- * support — true for local disks; LoopSpec V1 is local-first. `host` is recorded for a future
+ * support — true for local disks; Loopeix V1 is local-first. `host` is recorded for a future
  * cross-host mode; local staleness uses pid liveness, which is meaningful only on this machine.)
  */
 

@@ -1,9 +1,9 @@
 import { z } from "zod";
-import type { Issue } from "./loopspec.js";
+import type { Issue } from "./loopeix.js";
 
 /**
  * SpecChangeProposal (S14): a proposed change to FUTURE loop behavior. Accepted proposals create a
- * new immutable LoopSpecVersion — they never modify the version they came from. This finalizes the
+ * new immutable LoopeixVersion — they never modify the version they came from. This finalizes the
  * shape the S5 fixture marked provisional (spec-change-proposal-v002.yaml).
  */
 

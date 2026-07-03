@@ -1,22 +1,22 @@
 import { readFileSync } from "node:fs";
 import { Args, Command } from "@oclif/core";
 import { parse as parseYaml } from "yaml";
-import { LoopSpecShape } from "../../schema/loopspec.js";
+import { LoopeixShape } from "../../schema/loopeix.js";
 
-/** `loopspec spec inspect <file>` — show resolved roles, tasks, gates, and risk controls. */
+/** `loopeix spec inspect <file>` — show resolved roles, tasks, gates, and risk controls. */
 export default class SpecInspect extends Command {
-  static summary = "Show the roles, tasks, gates, and risk controls of a LoopSpec.";
+  static summary = "Show the roles, tasks, gates, and risk controls of a Loopeix.";
   static args = {
-    file: Args.string({ description: "path to the LoopSpec YAML file", required: true }),
+    file: Args.string({ description: "path to the Loopeix YAML file", required: true }),
   };
   static enableJsonFlag = true;
 
   public async run(): Promise<unknown> {
     const { args } = await this.parse(SpecInspect);
     const data: unknown = parseYaml(readFileSync(args.file, "utf8"));
-    const parsed = LoopSpecShape.safeParse(data);
+    const parsed = LoopeixShape.safeParse(data);
     if (!parsed.success) {
-      this.error(`not a structurally valid LoopSpec — run 'loopspec spec validate ${args.file}'`, { exit: 1 });
+      this.error(`not a structurally valid Loopeix — run 'loopeix spec validate ${args.file}'`, { exit: 1 });
     }
     const s = parsed.data;
     const summary = {

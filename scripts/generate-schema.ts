@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { LoopSpecShape } from "../src/schema/loopspec.js";
+import { LoopeixShape } from "../src/schema/loopeix.js";
 
 /**
  * Generate the public JSON Schema from the Zod source (ADR 0001).
@@ -17,7 +17,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, "..", "schemas");
 mkdirSync(outDir, { recursive: true });
 
-const body = z.toJSONSchema(LoopSpecShape, {
+const body = z.toJSONSchema(LoopeixShape, {
   target: "draft-2020-12",
   unrepresentable: "throw",
   reused: "ref",
@@ -25,13 +25,13 @@ const body = z.toJSONSchema(LoopSpecShape, {
 
 const schema = {
   $schema: DIALECT,
-  $id: `https://loopspec.dev/schemas/loopspec-${SCHEMA_VERSION}.schema.json`,
-  title: "LoopSpec",
-  "x-loopspec-schema-version": SCHEMA_VERSION,
+  $id: `https://loopeix.dev/schemas/loopeix-${SCHEMA_VERSION}.schema.json`,
+  title: "Loopeix",
+  "x-loopeix-schema-version": SCHEMA_VERSION,
   "x-compatibility-policy": "additive within a minor version; breaking changes bump the version",
   ...body,
 };
 
-const outFile = join(outDir, "loopspec.schema.json");
+const outFile = join(outDir, "loopeix.schema.json");
 writeFileSync(outFile, `${JSON.stringify(schema, null, 2)}\n`);
 console.log(`wrote ${outFile}`);

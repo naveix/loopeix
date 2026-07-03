@@ -1,9 +1,9 @@
-# LoopSpec
+# Loopeix
 
 **Local-first CLI to design, run, verify, and improve repeatable AI work loops — without claiming
 more than it can prove.**
 
-LoopSpec turns an AI coding loop (run through the Codex or Claude CLI) into **inspectable local
+Loopeix turns an AI coding loop (run through the Codex or Claude CLI) into **inspectable local
 evidence**: a tamper-evident run ledger, normalized capture across both engines with honest capture
 gaps, blocking safety gates, an evidence verifier that refuses to call a strong claim "verified"
 without independent proof, and truthful local reports. It is CLI-first, local-first, and holds **no
@@ -12,13 +12,13 @@ API keys** — it uses the Codex/Claude CLIs' own authentication.
 > **Status: alpha (V0.3).** The schema, validator, run core, gate engine, evidence verifier, report
 > builder, retro/improvement engine, AgentProofProfile, and redaction/retention are built **as
 > libraries** and independently reviewed. Some **CLI entry points are not yet wired** — `report
-> build`/`report open`, `loopspec support bundle`, and `loopspec privacy *` currently warn and do
+> build`/`report open`, `loopeix support bundle`, and `loopeix privacy *` currently warn and do
 > nothing; their behavior lives in the library and arrives at the CLI with the run-execution layer.
 > Not yet published to npm. See [Limitations](#limitations).
 
 ## Why
 
-AI agents are confident. Confidence is not evidence. LoopSpec exists so that when a loop says "the
+AI agents are confident. Confidence is not evidence. Loopeix exists so that when a loop says "the
 fix works," you can see the command that ran, the test that passed, the hash-chained event that
 recorded it, and the gate that would have blocked the run if it hadn't. When it *can't* prove
 something, it says so — unverified claims go in an unverified section, and capture gaps are disclosed
@@ -29,7 +29,7 @@ rather than hidden.
 ```bash
 # from source (this repo) — not yet on npm
 pnpm install && pnpm build && npm link
-loopspec --help
+loopeix --help
 ```
 
 See [docs/INSTALL-UNINSTALL.md](docs/INSTALL-UNINSTALL.md) for what install/uninstall does and does
@@ -38,27 +38,27 @@ not touch (it never deletes your run data).
 ## Quick start
 
 ```bash
-loopspec doctor                          # check Node version, CLI version, bundled schema
-loopspec init                            # create a .loopspec/ workspace here
-loopspec spec validate my-loop.yaml      # structural + relational validation
-loopspec spec inspect my-loop.yaml       # human-readable summary (roles, tasks, gates)
-loopspec run status .loopspec/runs/<id>  # recover + report a run's integrity from its ledger (read-only)
+loopeix doctor                          # check Node version, CLI version, bundled schema
+loopeix init                            # create a .loopeix/ workspace here
+loopeix spec validate my-loop.yaml      # structural + relational validation
+loopeix spec inspect my-loop.yaml       # human-readable summary (roles, tasks, gates)
+loopeix run status .loopeix/runs/<id>  # recover + report a run's integrity from its ledger (read-only)
 
 # Not yet wired as CLI commands in V0.3 (library-complete; they warn today):
-#   loopspec report build/open, loopspec support bundle, loopspec privacy *
+#   loopeix report build/open, loopeix support bundle, loopeix privacy *
 # See docs/reference/cli.md for what is runnable now vs library-backed.
 ```
 
-Start from [`templates/loopspec.template.yaml`](templates/loopspec.template.yaml) or the worked
+Start from [`templates/loopeix.template.yaml`](templates/loopeix.template.yaml) or the worked
 [`examples/`](examples/).
 
 ## What's in the box
 
 | Piece | What it gives you |
 |---|---|
-| **Schema + validator** | A LoopSpec is authored in YAML; validation is structural (Zod → JSON Schema) **plus** relational invariants a schema can't express (e.g. no T5 tier without approval). |
+| **Schema + validator** | A Loopeix is authored in YAML; validation is structural (Zod → JSON Schema) **plus** relational invariants a schema can't express (e.g. no T5 tier without approval). |
 | **Run ledger** | Append-only, SHA-256 hash-chained, tamper-**evident**. Recovery quarantines corrupt lines and reports integrity honestly (never a silent "valid"). |
-| **Capture adapters** | Normalize Codex `codex exec --json` and Claude `--output-format stream-json` into one event taxonomy, **preserving each engine's capture gaps** (Codex sees command/file directly; Claude infers them — LoopSpec says so). |
+| **Capture adapters** | Normalize Codex `codex exec --json` and Claude `--output-format stream-json` into one event taxonomy, **preserving each engine's capture gaps** (Codex sees command/file directly; Claude infers them — Loopeix says so). |
 | **Gate engine** | Blocking gates evaluated fail-closed. `no-t5` (no scheduled/unattended behavior) is injected and can't be weakened; unwaivable gates can't be waived. |
 | **Evidence verifier** | A *strong* claim is `verified` only with present, independent evidence covering its required types. Declared-but-unproven claims are downgraded. |
 | **Reports** | Every report shows verified claims, unverified claims, capture gaps, waivers, unresolved findings, redaction state, and known limitations — and can't over-claim. |

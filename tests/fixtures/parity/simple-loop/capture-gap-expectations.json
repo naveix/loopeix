@@ -1,5 +1,5 @@
 {
-  "note": "Per-capability capture fidelity per engine. LoopSpec must preserve these differences and NOT report Claude command/file evidence as if it were as direct as Codex's.",
+  "note": "Per-capability capture fidelity per engine. Loopeix must preserve these differences and NOT report Claude command/file evidence as if it were as direct as Codex's.",
   "codex_cli": {
     "noninteractive_run": "full",
     "streamed_json_events": "full",

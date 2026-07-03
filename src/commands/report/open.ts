@@ -4,21 +4,21 @@ import { Args, Command } from "@oclif/core";
 import { reportHtmlPath } from "../../run/run-dir.js";
 
 /**
- * `loopspec report open <run-dir>` — print the path + file:// URL of a run's HTML report so you can
+ * `loopeix report open <run-dir>` — print the path + file:// URL of a run's HTML report so you can
  * open it in a browser. (Prints rather than spawning a browser, to avoid platform assumptions.)
  */
 export default class ReportOpen extends Command {
   static summary = "Show the path to a run's HTML report (open it in your browser).";
   static args = {
-    "run-dir": Args.string({ description: "path to the run directory (.loopspec/runs/<id>)", required: true }),
+    "run-dir": Args.string({ description: "path to the run directory (.loopeix/runs/<id>)", required: true }),
   };
-  static examples = ["<%= config.bin %> report open .loopspec/runs/run_abc"];
+  static examples = ["<%= config.bin %> report open .loopeix/runs/run_abc"];
 
   public async run(): Promise<void> {
     const { args } = await this.parse(ReportOpen);
     const p = reportHtmlPath(args["run-dir"]);
     if (!existsSync(p)) {
-      this.log(`ERROR  no report at ${p} — run \`loopspec report build ${args["run-dir"]}\` first`);
+      this.log(`ERROR  no report at ${p} — run \`loopeix report build ${args["run-dir"]}\` first`);
       process.exitCode = 1;
       return;
     }

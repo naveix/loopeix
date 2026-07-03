@@ -8,7 +8,7 @@ function resolveLedgerPath(p: string): string {
   return p;
 }
 
-/** `loopspec run status <run>` — show a run's state, integrity, and findings. */
+/** `loopeix run status <run>` — show a run's state, integrity, and findings. */
 export default class RunStatus extends Command {
   static summary = "Show a run's state, integrity, and findings from its ledger.";
   static description = "Reads the run's ledger.jsonl, recovers it, and reports. Exit 4 if integrity is not valid.";
