@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.12"
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (tsc, noEmitOnError)
+        run: pnpm build
+
+      - name: Test (vitest)
+        run: pnpm test
+
+      - name: Validate golden spec fixtures via the CLI
+        run: |
+          fail=0
+          for f in tests/fixtures/valid/specs/*.yaml examples/dogfood/*.yaml templates/*.yaml; do
+            if ! ./bin/run.js spec validate "$f" >/dev/null; then echo "UNEXPECTED INVALID: $f"; fail=1; fi
+          done
+          for f in tests/fixtures/invalid/specs/*.yaml; do
+            if ./bin/run.js spec validate "$f" >/dev/null 2>&1; then echo "UNEXPECTED VALID (should fail): $f"; fail=1; fi
+          done
+          exit $fail
