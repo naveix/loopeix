@@ -24,3 +24,4 @@ export * from "./lock.js";
 export * from "./schema/proposal.js";
 export * from "./retro.js";
 export * from "./agent-proof.js";
+export * from "./redaction.js";
