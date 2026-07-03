@@ -55,9 +55,13 @@ rm -rf ./.loopspec              # in a workspace you want to wipe
 
 `short`-class raw captures are eligible for automatic age-out after 7 days; everything else persists
 until you explicitly delete the run or workspace. Quarantined items are **never** auto-deleted — you
-review and remove them (`loopspec privacy list-quarantine`).
+review and remove them (see the quarantine tooling under **Privacy commands** below).
 
 ## Privacy commands
+
+> **Not yet wired as CLI commands in V0.3** — the behavior is implemented and tested in the library
+> (`buildSupportBundle`, `redact`, `scanForLeaks`, `isExpired`); the CLI subcommands below arrive with
+> the run-execution layer. Until then, call the library functions directly.
 
 - `loopspec support bundle` — build a **redacted**, leak-scanned bundle safe to share for support.
 - `loopspec privacy purge-run` — purge or tombstone one run per the retention policy.

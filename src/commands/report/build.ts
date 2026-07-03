@@ -6,6 +6,8 @@ export default class ReportBuild extends Command {
   static state = "beta";
 
   public async run(): Promise<void> {
-    this.warn("`report build` is not implemented in this V0.1 skeleton; it arrives in S12.");
+    this.warn(
+      "`report build` is not yet wired at the CLI. The report is implemented and tested in the buildReport library; the CLI command arrives with the run-execution layer.",
+    );
   }
 }

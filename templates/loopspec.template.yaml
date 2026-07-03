@@ -1,0 +1,92 @@
+# LoopSpec starter template.
+# Copy this file, rename it, and edit the values. Validate with:
+#   loopspec spec validate your-loop.yaml
+# Every field below is required unless a comment says otherwise. See docs/reference/cli.md and
+# docs/explanation/trust-model.md.
+
+schema_version: "0.1"
+loop_family: "my-loop" # kebab-case family name; a version series belongs to a family
+version: "v001" # vNNN; a new version is a NEW file — you never edit a released one
+
+outcome:
+  summary: "One sentence: what a successful run of this loop achieves."
+  success_criteria:
+    - "A concrete, checkable statement of done."
+    - "Another one, if needed."
+
+inputs:
+  - id: "work-item"
+    description: "What the loop operates on."
+    required: true
+
+context_contract:
+  required:
+    - "What the loop is allowed to read."
+  forbidden:
+    - "Secrets, .env contents, credentials, raw API keys."
+  untrusted_sources:
+    - "Model-generated findings before they are verified against files or command output."
+
+# One of: prompt-chaining | routing | parallel-specialists | orchestrator-workers | evaluator-optimizer
+workflow_pattern:
+  type: "evaluator-optimizer"
+  phases:
+    - "implement"
+    - "review"
+    - "fix"
+
+roles:
+  - id: "writer"
+    owns: ["implementation", "tests"]
+    must_not: ["self-certify its own work", "commit without approval"]
+    allowed_tools: ["shell", "file-write"]
+    handoff: "Hand the diff + tests to the reviewer."
+  - id: "reviewer"
+    owns: ["review-findings"]
+    must_not: ["edit implementation files"]
+    allowed_tools: ["shell"]
+    handoff: "Return findings by severity; the writer fixes before commit."
+
+tasks:
+  - id: "do-the-work"
+    role: "writer"
+    artifacts: ["result"]
+    depends_on: []
+    acceptance_checks:
+      - "The required output builds and its tests pass."
+
+# risk_tier is one of: T0 T1 T2 T3a T3b T3c T3d T4  (T5 is never allowed in V1)
+tool_grants:
+  - id: "workspace-shell"
+    tool: "shell"
+    scope: "build/test/git within the workspace"
+    risk_tier: "T2"
+    requires_approval: false
+
+artifacts:
+  - id: "result"
+    path: "artifacts/result.md"
+    type: "markdown" # markdown|json|jsonl|yaml|html|text|image|other
+    required: true
+    producer_task: "do-the-work"
+    acceptance_checks:
+      - "States what was produced and how it was verified."
+
+gates:
+  - id: "no-t5" # the always-on safety gate; keep it blocking and non-waivable
+    blocking: true
+    inputs_required: ["tool_grants"]
+    evidence_rule: "No tool grant or task introduces scheduled/recurring/unattended (T5) behavior."
+    pass_condition: "No T5 signal present."
+    hold_condition: "A T5 signal is ambiguous."
+    fail_condition: "Any T5 behavior is requested or executed."
+    waiver_allowed: false
+
+evaluations: []
+
+risk_controls:
+  max_tier_without_approval: "T2"
+  t5_allowed: false
+
+retro:
+  creates: "SpecChangeProposal"

@@ -6,6 +6,8 @@ export default class ReportOpen extends Command {
   static state = "beta";
 
   public async run(): Promise<void> {
-    this.warn("`report open` is not implemented in this V0.1 skeleton; it arrives in S12.");
+    this.warn(
+      "`report open` is not yet wired at the CLI. The report renderer lives in the buildReport library; the CLI command arrives with the run-execution layer.",
+    );
   }
 }
