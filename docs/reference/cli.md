@@ -35,6 +35,40 @@ approval, at least one blocking gate). Prints `OK` or `INVALID` with a numbered 
 Print a human-readable summary: version, workflow pattern, roles, tasks, and gates (blocking gates
 marked `*`), plus the max risk tier allowed without approval.
 
+### `loopeix run start <loop.yaml>`
+
+Execute a loop end to end: drive the engine (or replay a captured stream), seal the ledger,
+evaluate gates, verify evidence, build the truthful report, and write the run directory.
+
+- `--engine codex|claude` — which engine CLI to drive (uses that CLI's own login; Loopeix holds
+  no API keys). Codex is invoked read-only/ephemeral; Claude respects `--max-budget-usd`
+  (default `0.10`, max `100`).
+- `--prompt <text>` — the live task (required for a live run).
+- `--events-file <jsonl>` — replay a captured event stream instead of a live call (fully offline).
+- `--seal <brief.yaml>` — seal a structured brief as ledger event 1 and emit a signed
+  `receipt.json` with per-clause verdicts. Without it: ledger + report, no receipt, no verdicts.
+- `--workspace <dir>` — where `.loopeix/runs/<id>` lands (default `.`).
+
+Exit `0` on a completed run; non-zero on engine or integrity failure.
+
+### `loopeix verify <receipt.json>`
+
+Verify a signed receipt **offline** — no network, no key exchange (the receipt embeds the public
+key). Checks: parse, schema, invariants, doctrine (e.g. no `CONTRADICTED`/`PROMISE_BROKEN`
+without a citable evidence id), signature; with `--run-dir <dir>` also `ledger_hash`,
+`ledger_head` and `ledger_chain`, binding the receipt to the actual ledger. `--json` for
+machine output.
+
+- Exit `0` — `VERIFIED`.
+- Exit `1` — `NOT VERIFIED`, failed checks listed. Never a partial pass.
+
+### `loopeix pr <run-dir>`
+
+Render the Claims Check verdict table as PR-ready Markdown (red verdicts first) and, with
+`--card <path>`, the shareable Delta Card SVG (static, no scripts, no network). `--out <path>`
+writes the Markdown to a file. `pr` verifies the receipt **first** and refuses to render an
+unverified receipt (exit `1`), so a CI step fails instead of posting a laundered verdict.
+
 ### `loopeix run status <run-dir>`
 
 Read a run's append-only ledger, recover it, and report integrity: `valid` or `hold`, the run state,
@@ -51,20 +85,16 @@ valid prefix and what was dropped/quarantined, so you can decide whether to resu
 V1** — it reports and verdicts; it does **not** rewrite history or repair the chain (recovery events
 are written by a later sprint). Exit non-zero if the run is held/unrecoverable.
 
-### `loopeix report build <run-dir>`  *(not yet wired in V0.3)*
+### `loopeix report build <run-dir>`
 
-> **Not runnable yet.** This command currently warns and produces no output. Its behavior is
-> implemented and tested in the `buildReport` library and arrives at the CLI with the run-execution
-> layer.
+Rebuild `report.md` + `report.html` for a run from its recorded inputs (`report-input.json`) — a
+**truthful Markdown** report (verified claims, unverified claims, capture gaps, waivers, unresolved
+findings, redaction/retention state, known limitations — all sections always present) and a
+**static, self-contained HTML timeline** (no scripts, no network).
 
-Intended behavior: build the local report for a run — a **truthful Markdown** report (verified claims,
-unverified claims, capture gaps, waivers, unresolved findings, redaction/retention state, known
-limitations — all sections always present) and a **static, self-contained HTML timeline** (no scripts,
-no network).
+### `loopeix report open <run-dir>`
 
-### `loopeix report open <run-dir>`  *(not yet wired in V0.3)*
-
-> **Not runnable yet** — warns and does nothing today. Intended: open the built HTML report locally.
+Show the path to a run's built HTML report so you can open it locally in a browser.
 
 ## Privacy commands (documented per the redaction/retention policy)
 

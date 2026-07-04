@@ -100,7 +100,10 @@ Being honest about limits is part of the trust model:
 
 - **Tamper-evident, not tamper-proof.** The ledger detects corruption and naive edits. A
   write-capable actor who knows the (public) sealing algorithm can re-seal a forged or truncated
-  chain. Cryptographic signing/anchoring is a post-V1 item. See [security-model](../security-model.md).
+  chain. Per-claim receipts are already signed (ECDSA P-256, verified offline by `loopeix verify`),
+  which pins the sealed record to a key holder — but ledger **anchoring** (countersigning the chain
+  against an external log, which would make wholesale re-sealing detectable) is a post-V1 item.
+  See [security-model](../security-model.md).
 - **Redaction is conservative, not complete.** It catches known secret shapes and high-entropy
   tokens; it cannot promise to catch every unknown secret under an innocuous key. Every export is
   scanned and every report states redaction limitations.

@@ -9,6 +9,12 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # "22.12" is the declared engines floor — keep it pinned exactly so the
+        # floor itself stays proven, not just the latest patch of 22.x.
+        node-version: ["22.12", "26"]
     steps:
       - uses: actions/checkout@v4
 
@@ -18,7 +24,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22.12"
+          node-version: ${{ matrix.node-version }}
           cache: pnpm
 
       - name: Install
