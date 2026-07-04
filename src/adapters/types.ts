@@ -29,7 +29,10 @@ export interface NormalizedEvent {
   kind: NormalizedKind;
   /** The original engine event type, e.g. "item.completed" / "assistant". */
   raw_type: string;
-  /** Normalized, already-redacted payload. Never contains secrets, absolute paths, or volatile ids. */
+  /** Normalized, already-redacted payload. Never contains secrets or volatile ids. Evidence-bearing
+   *  kinds (command / file_change) carry the engine-reported command text, exit code, and
+   *  workspace-relative file paths — the verdict engine's deciding fields (Claims Check M2);
+   *  free-text message/output content is never carried. */
   payload: Record<string, unknown>;
 }
 

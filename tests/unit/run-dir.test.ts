@@ -43,9 +43,12 @@ afterEach(() => {
 });
 
 describe("writeRunDir + report build/open wiring", () => {
-  it("writes every canonical run-dir file", () => {
+  it("writes every canonical run-dir file (receipt.json only for sealed runs)", () => {
     writeRunDir(dir, assembly);
-    for (const name of Object.values(RUN_DIR_FILES)) expect(existsSync(join(dir, name))).toBe(true);
+    for (const name of Object.values(RUN_DIR_FILES)) {
+      // A briefless run dir has NO receipt.json — its absence is the honest signal.
+      expect(existsSync(join(dir, name))).toBe(name === RUN_DIR_FILES.receipt ? false : true);
+    }
   });
   it("the persisted ledger and manifest are the assembled ones", () => {
     writeRunDir(dir, assembly);

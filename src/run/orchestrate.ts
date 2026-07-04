@@ -8,8 +8,10 @@ import {
   type RecoveryResult,
   type SealedLedgerEvent,
 } from "../ledger.js";
+import { sealedBriefPayload } from "../brief.js";
 import { buildRunManifest } from "../manifest.js";
 import { buildReport, type Report, type ReportInput } from "../report.js";
+import type { Brief } from "../schema/brief.js";
 import { IsoTimestamp } from "../schema/scalars.js";
 import type { RunManifestRecord } from "../schema/runtime.js";
 
@@ -73,6 +75,9 @@ export interface RunInput {
   run_dir?: string;
   /** Live-engine outcome. A non-zero exit or timeout seals `run.failed`, never `run.completed`. */
   engine_status?: { exit_code: number; timed_out: boolean };
+  /** Sealed brief (Claims Check M2). When present, the FIRST ledger event — before run.started —
+   *  is `brief.sealed` with `{ brief, brief_hash }`. Briefless runs are byte-identical to before. */
+  brief?: Brief;
 }
 
 export interface RunAssembly {
@@ -125,6 +130,9 @@ export function assembleRun(input: RunInput): RunAssembly {
   const engineFailed =
     input.engine_status !== undefined && (input.engine_status.exit_code !== 0 || input.engine_status.timed_out);
 
+  // The sealed promise precedes everything: verdicts are computed only against the brief hash the
+  // run STARTED with, so brief.sealed must be ledger event 1, chained before run.started.
+  if (input.brief) addEvent("brief.sealed", "loopeix", sealedBriefPayload(input.brief));
   addEvent("run.started", "loopeix", { engine: input.engine });
   for (const e of input.events) addEvent(e.kind, e.source, (e.payload ?? {}) as Record<string, unknown>);
   for (const d of gate_report.decisions) {

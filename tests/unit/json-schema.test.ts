@@ -7,11 +7,14 @@ import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import { beforeAll, describe, expect, it } from "vitest";
 import { LoopeixShape } from "../../src/schema/loopeix.js";
+import { ReceiptShape } from "../../src/schema/receipt.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const specs = join(here, "..", "fixtures", "valid", "specs");
 const invalid = join(here, "..", "fixtures", "invalid", "specs");
+const receipts = join(here, "..", "fixtures", "receipts");
 const loadYaml = (p: string): unknown => parseYaml(readFileSync(p, "utf8"));
+const loadJson = (p: string): unknown => JSON.parse(readFileSync(p, "utf8"));
 
 let validate: (d: unknown) => boolean;
 
@@ -63,4 +66,35 @@ describe("JSON Schema alone CANNOT catch relational defects (two-layer boundary)
       expect(validate(loadYaml(join(invalid, `${f}.loop.yaml`)))).toBe(true);
     });
   }
+});
+
+describe("generated receipt JSON Schema (schemas/receipt.schema.json) vs receipt fixtures", () => {
+  let validateReceipt: (d: unknown) => boolean;
+
+  beforeAll(() => {
+    // Validate against the COMMITTED artifact — the file a stranger's ajv would use.
+    const onDisk = loadJson(join(here, "..", "..", "schemas", "receipt.schema.json")) as Record<string, unknown>;
+    const ajv = new Ajv2020({ strict: false, allErrors: true });
+    addFormats(ajv);
+    const compiled = ajv.compile(onDisk);
+    validateReceipt = (d: unknown): boolean => compiled(d) === true;
+
+    // Drift guard: the committed file must be exactly what the Zod source generates today.
+    const fresh = z.toJSONSchema(ReceiptShape, { target: "draft-2020-12", unrepresentable: "throw", reused: "ref" });
+    // z.toJSONSchema emits `$schema` itself; only $id/title/x-* are stamped additions.
+    const { $id, title, ...stripped } = onDisk;
+    delete stripped["x-loopeix-schema-version"];
+    delete stripped["x-compatibility-policy"];
+    expect(stripped).toEqual(fresh);
+  });
+
+  for (const f of ["clean-pass", "snitch", "snitch.tampered-verdict", "snitch.bad-signature"]) {
+    it(`${f}.receipt.json → accepted (the schema cannot check signatures — verifyReceipt does)`, () => {
+      expect(validateReceipt(loadJson(join(receipts, `${f}.receipt.json`)))).toBe(true);
+    });
+  }
+
+  it("snitch.uncited-contradiction.receipt.json → rejected (the doctrine is STRUCTURAL: even plain ajv refuses an uncited CONTRADICTED)", () => {
+    expect(validateReceipt(loadJson(join(receipts, "snitch.uncited-contradiction.receipt.json")))).toBe(false);
+  });
 });

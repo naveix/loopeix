@@ -2,7 +2,15 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { assembleRun, ClaudeAdapter, CodexAdapter, extractEvidence, type GateSpecInput } from "../../src/index.js";
+import {
+  assembleRun,
+  BriefShape,
+  ClaudeAdapter,
+  CodexAdapter,
+  computeBriefHash,
+  extractEvidence,
+  type GateSpecInput,
+} from "../../src/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const loadJsonl = (p: string): unknown[] =>
@@ -75,6 +83,38 @@ describe("extractEvidence", () => {
     expect(ev[0]).toMatchObject({ type: "command", outcome: "pass", exit_code: 0 });
     expect(ev[1]).toMatchObject({ type: "command", outcome: "fail", exit_code: 2 });
     expect(ev[2]).toMatchObject({ type: "file" });
+  });
+});
+
+describe("assembleRun — sealed brief (Claims Check M2)", () => {
+  const brief = BriefShape.parse({
+    brief_version: "0.1",
+    task: "make the suite green",
+    acceptance: [{ id: "tests-pass", label: "all tests pass", kind: "tests-pass" }],
+    forbidden: [{ id: "no-test-deletion", label: "deleting tests", kind: "delete_paths", globs: ["tests/**"] }],
+    scope: ["src/**"],
+  });
+  const base = { ...baseInput, engine: "codex_cli" as const, events: codexEvents.events, capture_gaps: codexEvents.capture_gaps };
+
+  it("brief.sealed is ledger event 1 — BEFORE run.started — carrying { brief, brief_hash }", () => {
+    const a = assembleRun({ ...base, brief });
+    expect(a.ledger[0]?.event_type).toBe("brief.sealed");
+    expect(a.ledger[0]?.sequence).toBe(1);
+    expect(a.ledger[1]?.event_type).toBe("run.started");
+    const payload = a.ledger[0]?.payload as { brief?: unknown; brief_hash?: string };
+    expect(payload.brief).toEqual(brief);
+    expect(payload.brief_hash).toBe(computeBriefHash(brief));
+    expect(a.ledger.length).toBe(codexEvents.events.length + 4); // + brief.sealed
+    expect(a.integrity.integrity_status).toBe("valid");
+    expect(a.integrity.run_state).toBe("completed");
+  });
+
+  it("briefless run: explicit-undefined brief produces identical ledger to no-brief; no brief.sealed event; exactly +3 base events (no brief.sealed leakage)", () => {
+    const a = assembleRun(base);
+    const b = assembleRun({ ...base, brief: undefined });
+    expect(b.ledger_text).toBe(a.ledger_text); // an explicit undefined brief changes nothing
+    expect(a.ledger_text).not.toContain("brief.sealed");
+    expect(a.ledger.length).toBe(codexEvents.events.length + 3); // exactly the pre-M2 shape
   });
 });
 

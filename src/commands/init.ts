@@ -35,11 +35,17 @@ export default class Init extends Command {
         this.log("  .loopeix/");
         this.log("  .loopeix/loops/");
         this.log("  .loopeix/workspace.yaml");
+        this.log("  .loopeix/keys/");
+        this.log("  .loopeix/keys/.gitignore");
       }
     } else {
       mkdirSync(join(root, "loops"), { recursive: true });
       writeFileSync(join(root, "workspace.yaml"), WORKSPACE_YAML);
-      created.push(".loopeix/", ".loopeix/loops/", ".loopeix/workspace.yaml");
+      // Receipt-signing keys live here (created on first --seal); ignore-all so key material
+      // can never be committed, even before any key exists.
+      mkdirSync(join(root, "keys"), { recursive: true });
+      writeFileSync(join(root, "keys", ".gitignore"), "*\n");
+      created.push(".loopeix/", ".loopeix/loops/", ".loopeix/workspace.yaml", ".loopeix/keys/", ".loopeix/keys/.gitignore");
       if (!this.jsonEnabled()) {
         this.log("created:");
         for (const p of created) this.log(`  ${p}`);

@@ -1,23 +1,16 @@
 import { createHash } from "node:crypto";
+import jcsCanonicalize from "canonicalize";
 
 /**
- * Deterministic canonical JSON: object keys sorted recursively, array order kept.
- * This is the byte form hashed for ledger events and manifests, so the same logical
- * value always produces the same hash regardless of key order.
+ * Deterministic canonical JSON per RFC 8785 (JSON Canonicalization Scheme, JCS).
+ * Keys are sorted by Unicode code point, array order is preserved, and numbers use
+ * the ES6 serialisation rule. This is the byte form hashed for ledger events so
+ * the same logical value always produces the same hash regardless of key insertion order.
  */
 export function canonicalize(value: unknown): string {
-  return JSON.stringify(sortValue(value));
-}
-
-function sortValue(v: unknown): unknown {
-  if (Array.isArray(v)) return v.map(sortValue);
-  if (v !== null && typeof v === "object") {
-    const src = v as Record<string, unknown>;
-    const out: Record<string, unknown> = {};
-    for (const k of Object.keys(src).sort()) out[k] = sortValue(src[k]);
-    return out;
-  }
-  return v;
+  const s = jcsCanonicalize(value);
+  if (s === undefined) throw new Error("cannot canonicalize non-serializable value");
+  return s;
 }
 
 export function sha256Hex(input: string): string {

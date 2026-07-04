@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseLedgerText, recoverLedger } from "../ledger.js";
 import { buildReport, type Report, type ReportInput } from "../report.js";
+import type { Receipt } from "../schema/receipt.js";
 import type { RunAssembly } from "./orchestrate.js";
 
 /** Canonical file names inside a run directory (.loopeix/runs/<run-id>/). */
@@ -12,11 +13,14 @@ export const RUN_DIR_FILES = {
   reportHtml: "report.html",
   reportInput: "report-input.json",
   runSummary: "run.json",
+  /** Signed receipt (sealed runs only — a briefless run dir simply has no receipt.json). */
+  receipt: "receipt.json",
 } as const;
 
 /** Persist a full run assembly to a run directory (created if needed). */
-export function writeRunDir(dir: string, a: RunAssembly): void {
+export function writeRunDir(dir: string, a: RunAssembly, extras: { receipt?: Receipt } = {}): void {
   mkdirSync(dir, { recursive: true });
+  if (extras.receipt) writeFileSync(join(dir, RUN_DIR_FILES.receipt), `${JSON.stringify(extras.receipt, null, 2)}\n`);
   writeFileSync(join(dir, RUN_DIR_FILES.ledger), a.ledger_text);
   writeFileSync(join(dir, RUN_DIR_FILES.manifest), `${JSON.stringify(a.manifest, null, 2)}\n`);
   writeFileSync(join(dir, RUN_DIR_FILES.reportMd), a.report.markdown);

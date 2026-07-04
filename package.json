@@ -56,10 +56,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "schema:generate": "tsx scripts/generate-schema.ts",
+    "fixtures:receipts": "tsx scripts/generate-receipt-fixtures.ts",
     "prepack": "pnpm build && pnpm schema:generate && oclif manifest"
   },
   "dependencies": {
     "@oclif/core": "4.11.14",
+    "canonicalize": "3.0.0",
     "yaml": "2.9.0",
     "zod": "4.4.3"
   },

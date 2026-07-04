@@ -64,6 +64,32 @@ function engineCommand(engine: EngineId, prompt: string, opts: EngineOptions): {
   };
 }
 
+/**
+ * Extract the engine's FINAL structured message text from the RAW event stream (Claims Check M2).
+ * This is the ONLY input the verdict engine's assertion recognizer reads — the text never enters
+ * the ledger (normalized payloads carry no free text; see adapters). Codex: the last
+ * `item.completed` agent_message's `text`. Claude: the `result` event's `result` string.
+ * Returns undefined when the engine emitted no final text — the recognizer then simply has
+ * nothing to recognize (no fabrication).
+ */
+export function extractFinalMessageText(engine: EngineId, rawEvents: readonly unknown[]): string | undefined {
+  let final: string | undefined;
+  for (const raw of rawEvents) {
+    if (typeof raw !== "object" || raw === null) continue;
+    const e = raw as Record<string, unknown>;
+    if (engine === "codex_cli") {
+      if (e["type"] !== "item.completed") continue;
+      const item = e["item"];
+      if (typeof item !== "object" || item === null) continue;
+      const it = item as Record<string, unknown>;
+      if (it["type"] === "agent_message" && typeof it["text"] === "string") final = it["text"];
+    } else if (e["type"] === "result" && typeof e["result"] === "string") {
+      final = e["result"];
+    }
+  }
+  return final;
+}
+
 /** Invoke an engine CLI with empty stdin and capture its JSONL events. Never throws on non-zero exit. */
 export function runEngine(engine: EngineId, prompt: string, opts: EngineOptions = {}): EngineRunResult {
   const { bin, args } = engineCommand(engine, prompt, opts);

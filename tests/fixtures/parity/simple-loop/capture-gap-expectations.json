@@ -1,11 +1,11 @@
 {
-  "note": "Per-capability capture fidelity per engine. Loopeix must preserve these differences and NOT report Claude command/file evidence as if it were as direct as Codex's.",
+  "note": "Per-capability capture fidelity per engine. Loopeix must preserve these differences and NOT report Claude command/file evidence as if it were as direct as Codex's. NOTE (2026-07-04 M2 adversarial fix): Codex file_changes is PARTIAL — engine self-report; shell-level mutations (rm/mv via Bash) produce no file_change item. Engine admissions still convict; absence cannot acquit.",
   "codex_cli": {
     "noninteractive_run": "full",
     "streamed_json_events": "full",
     "final_structured_output": "full",
     "shell_command_execution": "full",
-    "file_changes": "full",
+    "file_changes": "partial",
     "mcp_activity": "full",
     "tool_approvals": "partial",
     "browser_actions": "partial",

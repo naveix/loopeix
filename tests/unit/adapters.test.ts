@@ -32,9 +32,12 @@ describe("Codex adapter (real redacted s1 sample)", () => {
     expect(r.events.some((e) => e.kind === "notice")).toBe(true);
     expect(r.events.some((e) => e.kind === "error")).toBe(false);
   });
-  it("declares command/file/mcp capture as FULL (direct items)", () => {
+  it("declares command/mcp capture as FULL; file_changes as PARTIAL (M2 adversarial fix: shell rm/mv invisible)", () => {
     expect(gapLevel(r, "shell_command_execution")).toBe("full");
-    expect(gapLevel(r, "file_changes")).toBe("full");
+    // file_changes is partial: Codex engine self-report; shell-level mutations (rm/mv via Bash)
+    // produce only a command event — no file_change item. Engine admissions still convict;
+    // absence cannot acquit. (Changed from "full" in M2 adversarial fix-pass.)
+    expect(gapLevel(r, "file_changes")).toBe("partial");
     expect(gapLevel(r, "mcp_activity")).toBe("full");
   });
 });
@@ -62,7 +65,10 @@ describe("parity — same loop, honestly-different capture fidelity", () => {
     expect(gapLevel(cl, "noninteractive_run")).toBe("full");
     expect(gapLevel(cx, "shell_command_execution")).toBe("full");
     expect(gapLevel(cl, "shell_command_execution")).toBe("partial");
-    expect(gapLevel(cx, "file_changes")).toBe("full");
+    // F4 (M2 adversarial fix): Codex file_changes is now PARTIAL — engine self-report;
+    // shell-level mutations (rm/mv via Bash) produce no file_change item.
+    // Engine admissions still convict at any level; absence cannot acquit.
+    expect(gapLevel(cx, "file_changes")).toBe("partial");
     expect(gapLevel(cl, "file_changes")).toBe("partial");
   });
   it("both reach a normalized run.completed", () => {
@@ -102,6 +108,44 @@ describe("parity fixtures are ASSERTED (not inert)", () => {
     const cl = new ClaudeAdapter().normalize(loadJsonl(join(parity, "claude-events.redacted.jsonl")));
     for (const [cap, lvl] of Object.entries(gapExp.codex_cli)) expect(gapLevel(cx, cap as Capability)).toBe(lvl);
     for (const [cap, lvl] of Object.entries(gapExp.claude_code_cli)) expect(gapLevel(cl, cap as Capability)).toBe(lvl);
+  });
+});
+
+describe("Codex evidence-bearing payloads (Claims Check M2)", () => {
+  it("command_execution carries command/exit_code/status but NEVER aggregated_output", () => {
+    const r = new CodexAdapter().normalize([
+      {
+        type: "item.completed",
+        item: { id: "i1", type: "command_execution", command: "pnpm test", aggregated_output: "SECRET-ish blob", exit_code: 1, status: "failed" },
+      },
+    ]);
+    expect(r.events[0]?.payload).toEqual({ item_type: "command_execution", command: "pnpm test", exit_code: 1, status: "failed" });
+  });
+
+  it("file_change carries changes[{path,kind}] and drops malformed entries instead of inventing them", () => {
+    const r = new CodexAdapter().normalize([
+      {
+        type: "item.completed",
+        item: {
+          id: "i2",
+          type: "file_change",
+          status: "completed",
+          changes: [{ path: "tests/unit/a.test.ts", kind: "delete" }, { kind: "update" }, "garbage", { path: "src/b.ts" }],
+        },
+      },
+    ]);
+    expect(r.events[0]?.payload).toEqual({
+      item_type: "file_change",
+      status: "completed",
+      changes: [{ path: "tests/unit/a.test.ts", kind: "delete" }, { path: "src/b.ts" }],
+    });
+  });
+
+  it("agent_message text is NOT carried into the normalized payload (no free text in the ledger)", () => {
+    const r = new CodexAdapter().normalize([
+      { type: "item.completed", item: { id: "i3", type: "agent_message", text: "Done — 34/34 tests passing" } },
+    ]);
+    expect(r.events[0]?.payload).toEqual({ item_type: "agent_message" });
   });
 });
 

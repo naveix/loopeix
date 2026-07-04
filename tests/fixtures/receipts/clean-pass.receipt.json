@@ -1,0 +1,191 @@
+{
+  "receipt_version": "0.1",
+  "run": {
+    "run_id": "run_clean_pass_01",
+    "loop_family": "seal-demo",
+    "loopeix_version": "v001",
+    "engine": "codex_cli",
+    "run_state": "completed",
+    "integrity_status": "valid",
+    "sealed_at": "2026-07-03T10:05:00Z"
+  },
+  "brief": {
+    "brief_version": "0.1",
+    "task": "make the test suite green",
+    "acceptance": [
+      {
+        "id": "tests-pass",
+        "label": "all tests pass",
+        "kind": "tests-pass"
+      }
+    ],
+    "forbidden": [
+      {
+        "id": "no-test-deletion",
+        "label": "deleting or skipping tests",
+        "kind": "delete_paths",
+        "globs": [
+          "tests/**"
+        ]
+      }
+    ],
+    "scope": [
+      "src/**",
+      "tests/**"
+    ],
+    "brief_hash": "sha256:b376e9a77f9bc25d42f46f37d999467bfbabfadcc5eeaff53c70630261326390"
+  },
+  "ledger_binding": {
+    "event_count": 12,
+    "head_event_hash": "sha256:f4650a970465385c2c2fc46351ce78c61cba1ba1c5e0d2498e6b2b8e21c3a59a",
+    "ledger_sha256": "sha256:36b020a498eb473353a6ab0ad8e08604851b743efa83186881f192e2a4ac9156"
+  },
+  "claims": [
+    {
+      "claim_id": "claim_tests_pass",
+      "family": "tests-ran",
+      "text": "34/34 tests passing",
+      "evidence_ids": [
+        "ev_0003"
+      ],
+      "verdict": "VERIFIED"
+    }
+  ],
+  "brief_clauses": [
+    {
+      "clause_id": "clause_tests_pass",
+      "clause_type": "acceptance",
+      "text": "all tests pass",
+      "evidence_ids": [
+        "ev_0003"
+      ],
+      "verdict": "KEPT"
+    },
+    {
+      "clause_id": "clause_no_test_deletion",
+      "clause_type": "forbidden",
+      "text": "deleting or skipping tests",
+      "evidence_ids": [],
+      "reason": "no violation recorded; stream completeness not independently verified (wrapper diff: phase two)",
+      "verdict": "UNEVALUATED"
+    },
+    {
+      "clause_id": "clause_scope",
+      "clause_type": "scope",
+      "text": "the run may only touch: src/**, tests/**",
+      "evidence_ids": [],
+      "reason": "no violation recorded; stream completeness not independently verified (wrapper diff: phase two)",
+      "verdict": "UNEVALUATED"
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "ev_0001",
+      "type": "command",
+      "sha256": "sha256:bf768c70b97a98e9be27a16c73bffb4181b426ec3889e5b8fc06ba25132c5c8b",
+      "capture_level": "full",
+      "source": "engine_stream"
+    },
+    {
+      "evidence_id": "ev_0002",
+      "type": "file",
+      "sha256": "sha256:c049098ac6aa78026c9b6c7a4ef6afaff86e3468b5dc29fc5073ed93242e1fbe",
+      "capture_level": "partial",
+      "source": "engine_stream"
+    },
+    {
+      "evidence_id": "ev_0003",
+      "type": "command",
+      "sha256": "sha256:a9b28e2f0fdfbc040118773702d4723a71ad39a4ca61a1542c8347da793ac368",
+      "capture_level": "full",
+      "source": "engine_stream"
+    },
+    {
+      "evidence_id": "ev_0004",
+      "type": "adapter_event",
+      "sha256": "sha256:32317d1b79bc66485c5efde0bf9eb0902f18edee07b89447ae5adb010c7da527",
+      "capture_level": "full",
+      "source": "engine_stream"
+    }
+  ],
+  "capture_gaps": [
+    {
+      "engine": "codex_cli",
+      "capability": "noninteractive_run",
+      "level": "full",
+      "note": "codex exec headless run."
+    },
+    {
+      "engine": "codex_cli",
+      "capability": "streamed_json_events",
+      "level": "full",
+      "note": "codex exec --json JSONL event stream."
+    },
+    {
+      "engine": "codex_cli",
+      "capability": "final_structured_output",
+      "level": "full",
+      "note": "--output-schema constrained final response."
+    },
+    {
+      "engine": "codex_cli",
+      "capability": "shell_command_execution",
+      "level": "full",
+      "note": "command_execution items are emitted in the event stream."
+    },
+    {
+      "engine": "codex_cli",
+      "capability": "file_changes",
+      "level": "partial",
+      "note": "engine self-report; shell-level mutations invisible (no file_change item for bare shell rm/mv)."
+    },
+    {
+      "engine": "codex_cli",
+      "capability": "tool_approvals",
+      "level": "partial",
+      "note": "sandbox denials surface as error items; explicit approval binding is partial."
+    },
+    {
+      "engine": "codex_cli",
+      "capability": "mcp_activity",
+      "level": "full",
+      "note": "mcp_tool_call items are emitted."
+    },
+    {
+      "engine": "codex_cli",
+      "capability": "browser_actions",
+      "level": "partial",
+      "note": "only via tool items; require browser evidence."
+    },
+    {
+      "engine": "codex_cli",
+      "capability": "subagent_lifecycle",
+      "level": "partial",
+      "note": "not distinctly emitted in exec JSON in this version."
+    },
+    {
+      "engine": "codex_cli",
+      "capability": "token_context_usage",
+      "level": "full",
+      "note": "usage on turn.completed."
+    }
+  ],
+  "summary": {
+    "claims": {
+      "verified": 1,
+      "contradicted": 0,
+      "unsupported": 0
+    },
+    "clauses": {
+      "kept": 1,
+      "promise_broken": 0,
+      "unevaluated": 2
+    }
+  },
+  "signature": {
+    "algorithm": "ecdsa-p256-sha256",
+    "encoding": "der-base64",
+    "public_key_spki_b64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEO6nmIjkd0ZQxH/PZRjOXBlWpZbskD+WMfV6B9O5d9/TzZuyiEIL05YscVi4GbQUm9eq26pdlEqTVQFdnxAP/uA==",
+    "signature_b64": "MEUCIQDrTd810AGBrTRbqE4c8vTsc4JcfwSFDULHbkKDp2pnPAIgAI/FBs41LXMVqUxjr2Oklsptgmz/LtlfvrlBxM0ya3U="
+  }
+}

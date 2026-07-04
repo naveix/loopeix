@@ -1,7 +1,16 @@
 import type { AdapterResult, CaptureGap, EngineAdapter, NormalizedEvent, NormalizedKind } from "./types.js";
 
 /** Codex `item.completed` item.type → normalized kind. Unknown item types are collected in
- *  `unmapped_raw_types` (never silently dropped), so research can refine without breaking. */
+ *  `unmapped_raw_types` (never silently dropped), so research can refine without breaking.
+ *
+ *  EVIDENCE-BEARING PAYLOADS (Claims Check M2): adjudicable fields are carried through
+ *  normalization for the verdict engine: `command_execution` → { command, exit_code, status };
+ *  `file_change` → { status, changes: [{ path, kind }] } with kind ∈ add|delete|update.
+ *  `aggregated_output` is deliberately NOT carried (unbounded, potentially secret-bearing);
+ *  message text is likewise not carried (see ClaudeAdapter).
+ *  NOTE: file_change capture is declared PARTIAL (engine self-report; shell-level mutations via
+ *  bare `rm`/`mv` produce no file_change item). Admitted events still convict (doctrine: presence
+ *  convicts), but absence cannot acquit — see CODEX_GAPS below. */
 const ITEM_KIND: Record<string, NormalizedKind> = {
   agent_message: "message",
   reasoning: "reasoning",
@@ -16,20 +25,45 @@ const ITEM_KIND: Record<string, NormalizedKind> = {
   error: "notice",
 };
 
-/** Codex capture matrix. Codex exposes command_execution / file_change / mcp_tool_call items
- *  directly (full), where Claude only infers them from tool_use (partial). */
+/** Codex capture matrix.
+ *  `shell_command_execution` is FULL (command_execution items carry command text + exit code).
+ *  `file_changes` is PARTIAL: Codex emits file_change items for agent-initiated edits, but
+ *  shell-level mutations (e.g. `rm`, `mv` run via Bash) produce only a command_execution item
+ *  with no corresponding file_change — so the file-change record is engine self-report, not an
+ *  independent filesystem diff. An engine admission still convicts (doctrine: presence convicts),
+ *  but absence cannot acquit — hence partial, not full. */
 const CODEX_GAPS: readonly CaptureGap[] = [
   { capability: "noninteractive_run", level: "full", note: "codex exec headless run." },
   { capability: "streamed_json_events", level: "full", note: "codex exec --json JSONL event stream." },
   { capability: "final_structured_output", level: "full", note: "--output-schema constrained final response." },
   { capability: "shell_command_execution", level: "full", note: "command_execution items are emitted in the event stream." },
-  { capability: "file_changes", level: "full", note: "file_change/patch items are emitted in the event stream." },
+  { capability: "file_changes", level: "partial", note: "engine self-report; shell-level mutations invisible (no file_change item for bare shell rm/mv)." },
   { capability: "tool_approvals", level: "partial", note: "sandbox denials surface as error items; explicit approval binding is partial." },
   { capability: "mcp_activity", level: "full", note: "mcp_tool_call items are emitted." },
   { capability: "browser_actions", level: "partial", note: "only via tool items; require browser evidence." },
   { capability: "subagent_lifecycle", level: "partial", note: "not distinctly emitted in exec JSON in this version." },
   { capability: "token_context_usage", level: "full", note: "usage on turn.completed." },
 ];
+
+/** Adjudicable fields carried through for evidence-bearing item types (see header note). */
+function itemPayload(itemType: string, item: Record<string, unknown>): Record<string, unknown> {
+  const payload: Record<string, unknown> = { item_type: itemType };
+  if (itemType === "command_execution") {
+    if (typeof item["command"] === "string") payload["command"] = item["command"];
+    if (typeof item["exit_code"] === "number") payload["exit_code"] = item["exit_code"];
+    if (typeof item["status"] === "string") payload["status"] = item["status"];
+  } else if (itemType === "file_change") {
+    if (typeof item["status"] === "string") payload["status"] = item["status"];
+    const raw = Array.isArray(item["changes"]) ? item["changes"] : [];
+    payload["changes"] = raw.flatMap((c) => {
+      if (typeof c !== "object" || c === null) return [];
+      const cc = c as Record<string, unknown>;
+      if (typeof cc["path"] !== "string") return [];
+      return [{ path: cc["path"], ...(typeof cc["kind"] === "string" ? { kind: cc["kind"] } : {}) }];
+    });
+  }
+  return payload;
+}
 
 /** Normalize Codex `codex exec --json` JSONL events. */
 export class CodexAdapter implements EngineAdapter {
@@ -64,7 +98,7 @@ export class CodexAdapter implements EngineAdapter {
           const itemType =
             typeof item === "object" && item !== null ? String((item as Record<string, unknown>)["type"] ?? "") : "";
           const kind = ITEM_KIND[itemType];
-          if (kind) emit(kind, `item.completed:${itemType}`, { item_type: itemType });
+          if (kind) emit(kind, `item.completed:${itemType}`, itemPayload(itemType, (item ?? {}) as Record<string, unknown>));
           else unmapped.add(`item.completed:${itemType}`);
           break;
         }

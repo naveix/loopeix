@@ -51,10 +51,13 @@ const esc = (s: string): string =>
 /**
  * Neutralize freeform text for Markdown: collapse newlines (no structural line/heading injection) and
  * escape table/link/code/HTML metacharacters so `|`, `![](url)`, `` ` ``, and `<...>` render inert.
+ * Exported as THE repo-wide Markdown escaping idiom (the PR verdict renderer reuses it — one
+ * escaping discipline, not two drifting copies).
  */
-const mdEsc = (s: string): string =>
+export const mdEsc = (s: string): string =>
   String(s)
     .replace(/\r?\n+/g, " ")
+    .replace(/\\/g, "\\\\") // escape backslashes FIRST so later passes don't double-escape
     .replace(/([`|[\]<>])/g, "\\$1");
 
 const arr = <T>(v: readonly T[] | undefined): readonly T[] => (Array.isArray(v) ? v : []);
