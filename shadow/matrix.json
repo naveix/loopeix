@@ -1,0 +1,16 @@
+{
+  "env_cells": [
+    { "node": "22.12", "base": "node:22.12-bookworm-slim" },
+    { "node": "24", "base": "node:24-bookworm-slim" },
+    { "node": "26", "base": "node:26-bookworm-slim" }
+  ],
+  "missions": ["docile-install", "docs-followability", "adversarial-tamper", "spec-corpus", "fuzz-receipt"],
+  "archetypes": [
+    { "name": "careful-novice",     "mission": "docile-install",      "tier": 0, "docs_read_ratio": [0.9, 1.0], "patience_turns": [8, 12], "adversarial": false, "faults": ["none"] },
+    { "name": "impatient-shipper",  "mission": "docile-install",      "tier": 0, "docs_read_ratio": [0.2, 0.5], "patience_turns": [2, 4],  "adversarial": false, "faults": ["none"] },
+    { "name": "doc-skeptic",        "mission": "docs-followability",  "tier": 0, "docs_read_ratio": [0.4, 0.8], "patience_turns": [4, 8],  "adversarial": false, "faults": ["none"] },
+    { "name": "spec-linter",        "mission": "spec-corpus",         "tier": 0, "docs_read_ratio": [0.7, 1.0], "patience_turns": [6, 10], "adversarial": false, "faults": ["none"] },
+    { "name": "forger",             "mission": "adversarial-tamper",  "tier": 0, "docs_read_ratio": [0.1, 0.4], "patience_turns": [3, 6],  "adversarial": true,  "faults": ["none"] },
+    { "name": "fuzzer",             "mission": "fuzz-receipt",        "tier": 0, "docs_read_ratio": [0.0, 0.2], "patience_turns": [2, 5],  "adversarial": true,  "faults": ["none"] }
+  ]
+}

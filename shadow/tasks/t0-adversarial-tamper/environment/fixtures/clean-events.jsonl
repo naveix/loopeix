@@ -1,7 +1,0 @@
-{"type":"thread.started","thread_id":"th_seal_clean"}
-{"type":"turn.started"}
-{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"pnpm test","aggregated_output":"FAIL tests/unit/payments.test.ts (1 failed, 33 passed)","exit_code":1,"status":"failed"}}
-{"type":"item.completed","item":{"id":"item_1","type":"file_change","status":"completed","changes":[{"path":"src/payments.ts","kind":"update"}]}}
-{"type":"item.completed","item":{"id":"item_2","type":"command_execution","command":"pnpm test","aggregated_output":"34 passed (34)","exit_code":0,"status":"completed"}}
-{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"Fixed the rounding bug in src/payments.ts — 34/34 tests passing."}}
-{"type":"turn.completed","usage":{"input_tokens":18310,"output_tokens":1522}}

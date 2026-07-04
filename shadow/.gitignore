@@ -1,2 +1,9 @@
 jobs/
 dist/
+generated/
+curate/findings.json
+curate/findings.md
+tasks/*/environment/fixtures/
+tasks/*/environment/*.tgz
+out.env
+*.tmp
