@@ -1,6 +1,7 @@
 jobs/
 dist/
 generated/
+generated-t1/
 curate/findings.json
 curate/findings.md
 tasks/*/environment/fixtures/

@@ -11,6 +11,10 @@
     { "name": "doc-skeptic",        "mission": "docs-followability",  "tier": 0, "docs_read_ratio": [0.4, 0.8], "patience_turns": [4, 8],  "adversarial": false, "faults": ["none"] },
     { "name": "spec-linter",        "mission": "spec-corpus",         "tier": 0, "docs_read_ratio": [0.7, 1.0], "patience_turns": [6, 10], "adversarial": false, "faults": ["none"] },
     { "name": "forger",             "mission": "adversarial-tamper",  "tier": 0, "docs_read_ratio": [0.1, 0.4], "patience_turns": [3, 6],  "adversarial": true,  "faults": ["none"] },
-    { "name": "fuzzer",             "mission": "fuzz-receipt",        "tier": 0, "docs_read_ratio": [0.0, 0.2], "patience_turns": [2, 5],  "adversarial": true,  "faults": ["none"] }
+    { "name": "fuzzer",             "mission": "fuzz-receipt",        "tier": 0, "docs_read_ratio": [0.0, 0.2], "patience_turns": [2, 5],  "adversarial": true,  "faults": ["none"] },
+    { "name": "t1-careful-novice",   "mission": "docile-install",     "tier": 1, "docs_read_ratio": [0.8, 1.0], "patience_turns": [8, 12], "adversarial": false, "faults": ["none"] },
+    { "name": "t1-impatient-shipper","mission": "docile-install",     "tier": 1, "docs_read_ratio": [0.2, 0.5], "patience_turns": [2, 4],  "adversarial": false, "faults": ["none"] },
+    { "name": "t1-doc-skeptic",      "mission": "docs-followability", "tier": 1, "docs_read_ratio": [0.4, 0.8], "patience_turns": [4, 8],  "adversarial": false, "faults": ["none"] },
+    { "name": "t1-spec-linter",      "mission": "spec-corpus",        "tier": 1, "docs_read_ratio": [0.7, 1.0], "patience_turns": [6, 10], "adversarial": false, "faults": ["none"] }
   ]
 }

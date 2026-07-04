@@ -1,4 +1,70 @@
-# Shadow-fleet — S18-A′ first full Tier-0 wave
+# Shadow-fleet — Tier-0 waves
+
+## S18-B′ scaled wave — 240 personas (2026-07-04)
+
+Substrate: Harbor 0.17.1 (local Docker). Personas: deterministic sampler seed 11, N=240
+(docile-install ×80, docs-followability ×40, spec-corpus ×40, adversarial-tamper ×40,
+fuzz-receipt ×40; node cells 22.12/24/26). Reproduce:
+`node shadow/persona/sample-personas.mjs --n 240 --seed 11 && node shadow/generate/generate-tasks.mjs && bash shadow/prep.sh && bash shadow/run-wave.sh`.
+
+| Metric | Value |
+|---|---|
+| Trials (oracle-decided) | 240 |
+| Pass | **240 / 240 (100%)** |
+| Oracle failures | 0 |
+| Infra exceptions unrecovered | 0 |
+| Infra retries (advisory, from harbor debug log) | 0 reported |
+| Gates | SG1 PASS, SG2 PASS (T0 fallback), SG3 PASS, SG4 PASS, SG5 PASS, SG6 MANUAL |
+| Wall clock | ~18 min at `--n-concurrent 6`, `--max-retries 2` (hot Docker layer caches) |
+
+Notes: run via `run-wave.sh` (Harbor-native exception retry — Harbor deletes a failed attempt's
+trial dir before retrying and never retries oracle reward-0 results, so retries cannot launder
+findings). The retry count is advisory (a harbor debug-log line, both job.log and captured
+console are grepped); unrecovered exceptions (trial dirs without reward.txt) are the
+authoritative infra-failure signal and the curator fails gates on them. Curated verdict verified
+by re-running `curate.mjs` in the foreground and reading `findings.json` back from disk
+(mtime-checked) after a session tooling incident produced fabricated mid-wave status text —
+see the planning repo's S18-B′ notes.
+
+Tier-1 status: lane BUILT and validated offline (selftest runs every T1 reference solution
+against its oracle via `-a oracle`, zero engine calls) — no live Tier-1 wave has run yet;
+that run is gated on an operator usage-window check (`LOOPEIX_SHADOW_LIVE_OK=<today's date>`).
+
+### Independent review round 2 (2026-07-04) — HOLD → all folded → re-proven
+
+A 3-lane adversarial Workflow review (false-green / harness-code / credential-safety, each
+finding independently verified) raised 24 findings; 22 confirmed after verification (2 refuted),
+deduplicating to ~17 distinct defects. All fixed in-session; the wave verdict above was
+re-derived under the fixed curator with `--expect 240` and stands. Highlights:
+
+- **SG2 pooled-cohort false PASS (P1, reproduced):** curator now gates SG2 on the T1
+  docs-followability cohort ONLY and never overrides a dirty Tier-0 docs cohort; per-mission T1
+  rates reported separately. Proven by 4 synthetic-job repros.
+- **Two answer-key leaks into T1 containers (P1):** labelled `specs/valid|invalid` dirs were
+  staged next to `specs-mixed/`, and the docs mission listed self-describing receipt filenames
+  ("tampered-verdict"…). prep.sh now stages per-tier bundles (T1 gets ONLY mission inputs +
+  anonymised `specs-mixed/` + new content-hash `receipts-mixed/`); leak-free staging asserted.
+- **Instruction injection via crafted `--personas` corpus (P1):** generator whitelist-validates
+  every corpus string/numeric/enum before interpolation; proven with a hostile corpus (FATAL).
+- **Live-wave guard hardening (P1):** non-oracle agents now require a DATED ack
+  (`LOOPEIX_SHADOW_LIVE_OK=$(date +%F)`, expires daily), explicit `-p generated-t1*` paths only
+  (Tier-0 dirs hold adversarial missions), and a pinned cheap model via `-m`. All four
+  rejection paths exercised.
+- **selftest could grade a stale job on harbor launch failure (P1):** run_task now checks
+  harbor's exit code and grades only a job dir created by that invocation (before/after diff);
+  cleanup restores the CANONICAL fleets instead of leaving selftest's tmp fleets staged (P1).
+- **Partial-wave floor (P1):** curator `--expect N` (run-wave passes the task-dir count) forces
+  all gates FAIL and emits a `short-wave` P1 finding when trials < expected.
+- Plus: retry-count robustness (greps job.log AND captured console; advisory label;
+  authoritative unrecovered-exception count), wrong-answer fault injection added to selftest,
+  EXP-floor >0 asserts, stale-fixture cleanup on re-prep, job-dir before/after detection in
+  run-wave, drift-message wording, usage() fix, getans regex-dot escape.
+- Accepted risk (documented in CONTRACT §3b): T1 containers keep Harbor's default public
+  egress (live adapters need API egress); revisit with agent-host allowlisting before any T2.
+- Refuted by verification (for the record): "retry launders timeout findings" (harbor 0.17.1
+  excludes agent-timeout exception types from retry by default).
+
+## S18-A′ first full Tier-0 wave — 60 personas
 
 Date: 2026-07-04. Substrate: Harbor (local Docker). Personas: deterministic sampler seed 7, N=60.
 Reproduce: `node shadow/persona/sample-personas.mjs --n 60 --seed 7 && node shadow/generate/generate-tasks.mjs && bash shadow/prep.sh && cd shadow && harbor run -a oracle -p generated --n-concurrent 8`.
