@@ -5,5 +5,6 @@
   "observed": "Token/cost usage is exposed ONLY in the final `result` event (cumulative for the run). There are NO per-event or per-step usage figures in the stream.",
   "implication": "Loopeix must NOT make per-step live-context claims for Claude runs. Only a run-level usage summary is available, and its values are volatile (redacted in fixtures).",
   "also": "Shell command execution and file changes are `partial` for Claude — inferred from assistant `tool_use` blocks (Bash/Edit/Write) and PostToolUse hooks, not from first-class events. Strong command/file claims require independent filesystem evidence.",
-  "source": "Real s1 capture 2026-07-02 (claude 2.1.198) + code.claude.com/docs stream-json; see adapter-events/README.md."
+  "live_confirmed_2026_07_04": "Real capture (claude 2.1.201, `-p --output-format stream-json --permission-mode acceptEdits`): the `Write` tool_use carries an ABSOLUTE `file_path` under the run workspace; a file DELETION in the same run surfaced ONLY as a `Bash` tool_use (`rm <abs path>`) with NO file-change-shaped event — the shell-rm bypass is live-proven. Forbidden delete_paths clauses must therefore stay UNEVALUATED on absence of a file-change admission (absence never acquits).",
+  "source": "Real s1 capture 2026-07-02 (claude 2.1.198) + live file-op capture 2026-07-04 (claude 2.1.201) + code.claude.com/docs stream-json; see adapter-events/README.md."
 }

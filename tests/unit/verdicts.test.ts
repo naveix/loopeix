@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { ClaudeAdapter, CodexAdapter, type CaptureGap, type NormalizedEvent } from "../../src/adapters/index.js";
 import { extractEvidence } from "../../src/run/orchestrate.js";
@@ -706,13 +709,107 @@ describe("doctrine property over generated outputs (claim-families-v1.md §Test 
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// F5: Known limitation — skipped test documenting real Codex path shape
+// F5: RESOLVED (live capture 2026-07-04, codex-cli 0.142.3) — real Codex file_change
+// items carry ABSOLUTE paths under the run workspace root, not relative POSIX paths.
+// These tests run the REAL redacted capture fixture through the adapter + verdict
+// engine and prove both directions: matching workspaceRoot strips and convicts;
+// missing/mismatched root excludes the path and never convicts (defensive design).
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("F5: known limitation — Codex real file_change path shape (pending live capture)", () => {
-  it.todo(
-    "real Codex file_change items carry workspace-relative POSIX paths (e.g. 'src/index.ts', not " +
-    "absolute or OS-native paths) — verdict path normalization should handle both, but this has " +
-    "not been verified against an actual Codex exec run. One operator-approved live capture needed.",
-  );
+describe("F5 (resolved): real Codex file_change path shape — live capture 2026-07-04", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const capturePath = join(here, "..", "fixtures", "adapter-events", "codex", "s1-codex-file-change.redacted.jsonl");
+  const captureRaw = readFileSync(capturePath, "utf8")
+    .split("\n")
+    .filter((l) => l.trim().length > 0)
+    .map((l) => JSON.parse(l) as unknown);
+  // The synthetic workspace root the redaction script substituted for the real tmp workspace.
+  const CAPTURE_ROOT = "/workspace/live-capture";
+
+  const forbidDeleteBrief = makeBrief({
+    forbidden: [{ id: "no-capture-deletion", label: "deleting captured files", kind: "delete_paths", globs: ["delete-me.txt"] }],
+    scope: [],
+  });
+
+  it("a) CodexAdapter.normalize over the real capture: one file_change event carrying the ABSOLUTE paths verbatim", () => {
+    const r = new CodexAdapter().normalize(captureRaw);
+    expect(r.unmapped_raw_types).toEqual([]);
+    const fileChanges = r.events.filter((e) => e.kind === "file_change");
+    expect(fileChanges).toHaveLength(1); // item.started is superseded; only item.completed normalizes
+    expect(fileChanges[0]?.payload).toEqual({
+      item_type: "file_change",
+      status: "completed",
+      changes: [
+        { path: `${CAPTURE_ROOT}/delete-me.txt`, kind: "delete" },
+        { path: `${CAPTURE_ROOT}/hello.txt`, kind: "add" },
+      ],
+    });
+  });
+
+  it("b) WITH the matching workspaceRoot: the absolute path strips and the forbidden deletion convicts, citing the event", () => {
+    const r = new CodexAdapter().normalize(captureRaw);
+    const out = computeVerdicts({
+      brief: forbidDeleteBrief,
+      events: r.events,
+      captureGaps: r.capture_gaps,
+      workspaceRoot: CAPTURE_ROOT,
+    });
+    const c = clauseById(out, "clause_no_capture_deletion");
+    expect(c?.verdict).toBe("PROMISE_BROKEN");
+    expect(c?.evidence_ids).toEqual(["ev_0001"]); // the file_change is the only evidence-bearing event
+    expect(c?.reason).toContain("'delete-me.txt' deleted (ev_0001)");
+  });
+
+  it("c) WITHOUT workspaceRoot (or with a mismatched root): the absolute path is excluded → UNEVALUATED, never convicts", () => {
+    const r = new CodexAdapter().normalize(captureRaw);
+    for (const workspaceRoot of [undefined, "/workspace/other"]) {
+      const out = computeVerdicts({
+        brief: forbidDeleteBrief,
+        events: r.events,
+        captureGaps: r.capture_gaps,
+        ...(workspaceRoot !== undefined ? { workspaceRoot } : {}),
+      });
+      const c = clauseById(out, "clause_no_capture_deletion");
+      expect(c?.verdict, `workspaceRoot=${workspaceRoot ?? "(none)"}`).toBe("UNEVALUATED");
+      expect(c?.reason).toContain("unnormalizable path");
+    }
+  });
+
+  it("d) claude shell-rm bypass (live-proven 2026-07-04): deletion only via Bash rm → forbidden clause UNEVALUATED naming stream completeness", () => {
+    // Shaped exactly like the real claude 2.1.201 capture: the Write tool_use carries an
+    // ABSOLUTE file_path; the deletion happened ONLY as a Bash `rm` command — the stream
+    // contains NO file-change-shaped event for it.
+    const claudeRaw: unknown[] = [
+      { type: "system", subtype: "init", claude_code_version: "2.1.201", permissionMode: "acceptEdits" },
+      {
+        type: "assistant",
+        message: {
+          content: [
+            { type: "tool_use", name: "Write", input: { file_path: `${CAPTURE_ROOT}/hi.txt`, content: "hi" } },
+            { type: "tool_use", name: "Bash", input: { command: `rm ${CAPTURE_ROOT}/remove-me.txt` } },
+          ],
+        },
+      },
+      { type: "result", subtype: "success", is_error: false },
+    ];
+    const r = new ClaudeAdapter().normalize(claudeRaw);
+    // Sanity: the stream has a command event and a Write-inferred file_change, but no deletion admission.
+    expect(r.events.filter((e) => e.kind === "command")).toHaveLength(1);
+    expect(r.events.filter((e) => e.kind === "file_change")).toHaveLength(1);
+    const out = computeVerdicts({
+      brief: makeBrief({
+        forbidden: [{ id: "no-capture-deletion", label: "deleting captured files", kind: "delete_paths", globs: ["remove-me.txt"] }],
+        scope: [],
+      }),
+      events: r.events,
+      captureGaps: r.capture_gaps,
+      workspaceRoot: CAPTURE_ROOT,
+    });
+    const c = clauseById(out, "clause_no_capture_deletion");
+    // Absence never acquits — but it never convicts either: the honest verdict is UNEVALUATED,
+    // and the reason must name the stream-completeness limitation explicitly.
+    expect(c?.verdict).toBe("UNEVALUATED");
+    expect(c?.verdict).not.toBe("PROMISE_BROKEN");
+    expect(c?.reason).toContain("stream completeness not independently verified");
+  });
 });

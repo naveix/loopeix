@@ -10,7 +10,10 @@ import type { AdapterResult, CaptureGap, EngineAdapter, NormalizedEvent, Normali
  *  message text is likewise not carried (see ClaudeAdapter).
  *  NOTE: file_change capture is declared PARTIAL (engine self-report; shell-level mutations via
  *  bare `rm`/`mv` produce no file_change item). Admitted events still convict (doctrine: presence
- *  convicts), but absence cannot acquit — see CODEX_GAPS below. */
+ *  convicts), but absence cannot acquit — see CODEX_GAPS below.
+ *  PATH SHAPE (live-verified 2026-07-04, codex-cli 0.142.3): real file_change `changes[].path`
+ *  values are ABSOLUTE, prefixed with the run workspace root. They are carried verbatim here;
+ *  the verdict engine strips them against `workspaceRoot` (src/glob.ts normalizePath, P3a). */
 const ITEM_KIND: Record<string, NormalizedKind> = {
   agent_message: "message",
   reasoning: "reasoning",

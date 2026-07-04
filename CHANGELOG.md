@@ -67,10 +67,15 @@ The project is pre-release (alpha); everything below is **Unreleased** until the
 - Path normalization in `src/glob.ts`: resolves `.`/`..`, NFC-normalizes (Unicode filenames),
   strips workspace-root prefix for absolute paths; null result excluded from adjudication.
 
-**Known limitation (pending live Codex capture):** the real Codex `file_change` item path shape
-(relative vs absolute, OS separator) is unverified against an actual Codex run — verdict path
-normalization and glob adjudication are designed to handle both but have been tested only against
-fixtures that use POSIX relative paths. One operator-approved live capture is needed to confirm.
+**Known limitation RESOLVED (live capture 2026-07-04, codex-cli 0.142.3):** real Codex
+`file_change` items carry ABSOLUTE POSIX paths under the run workspace root. Captured, redacted
+into `tests/fixtures/adapter-events/codex/s1-codex-file-change.redacted.jsonl`, and tested both
+ways: a matching `workspaceRoot` strips the prefix and convicts; a missing or mismatched root
+excludes the path and never convicts (the defensive direction proven correct). The run-seal
+fixtures deliberately keep the canonical post-strip relative form for replay portability, with a
+tested equivalence proof — see `tests/fixtures/run-seal/README.md`. Same-day Claude capture
+(2.1.201): a file deletion surfaced ONLY as a Bash `rm` tool_use with no file-change-shaped event —
+the shell-rm bypass is live-proven; forbidden clauses stay `UNEVALUATED` (absence never acquits).
 
 ### Claims Check (M1)
 

@@ -1,5 +1,5 @@
 {
-  "note": "Per-capability capture fidelity per engine. Loopeix must preserve these differences and NOT report Claude command/file evidence as if it were as direct as Codex's. NOTE (2026-07-04 M2 adversarial fix): Codex file_changes is PARTIAL — engine self-report; shell-level mutations (rm/mv via Bash) produce no file_change item. Engine admissions still convict; absence cannot acquit.",
+  "note": "Per-capability capture fidelity per engine. Loopeix must preserve these differences and NOT report Claude command/file evidence as if it were as direct as Codex's. NOTE (2026-07-04 M2 adversarial fix): Codex file_changes is PARTIAL — engine self-report; shell-level mutations (rm/mv via Bash) produce no file_change item. Engine admissions still convict; absence cannot acquit. LIVE-CONFIRMED 2026-07-04: real Codex file_change paths are ABSOLUTE under the run workspace (codex-cli 0.142.3); the Claude shell-rm bypass (deletion via Bash rm, no file-change event) was observed in a real run (claude 2.1.201).",
   "codex_cli": {
     "noninteractive_run": "full",
     "streamed_json_events": "full",

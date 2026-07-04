@@ -137,6 +137,45 @@ describe("end-to-end: the honest clean replay (F4: containment → UNEVALUATED)"
   });
 });
 
+describe("F5 path-shape equivalence: relative fixture paths ≡ real absolute paths + matching workspaceRoot", () => {
+  // Real Codex emits ABSOLUTE file_change paths under the run workspace (live capture
+  // 2026-07-04, codex-cli 0.142.3). The committed fixtures keep the canonical post-strip
+  // RELATIVE form for replay portability (see tests/fixtures/run-seal/README.md). This test
+  // proves the two shapes adjudicate identically: absolutize every path under a synthetic
+  // root, pass that root as workspaceRoot, and the verdicts must be byte-equal.
+  it("snitch events absolutized under a synthetic root produce identical claims and clause verdicts", () => {
+    const ROOT = "/workspace/seal-demo";
+    const relText = readFileSync(join(fixtures, "snitch-events.jsonl"), "utf8");
+    const absText = relText.replace(/"path":"/g, `"path":"${ROOT}/`);
+    const brief = loadBrief(readFileSync(join(fixtures, "snitch-brief.yaml"), "utf8"));
+
+    const relRaw = parseJsonlEvents(relText);
+    const absRaw = parseJsonlEvents(absText);
+    const rel = new CodexAdapter().normalize(relRaw);
+    const abs = new CodexAdapter().normalize(absRaw);
+    const engineFinalText = extractFinalMessageText("codex_cli", relRaw);
+
+    const relVerdicts = computeVerdicts({
+      brief, events: rel.events, captureGaps: rel.capture_gaps,
+      ...(engineFinalText !== undefined ? { engineFinalText } : {}),
+    });
+    const absVerdicts = computeVerdicts({
+      brief, events: abs.events, captureGaps: abs.capture_gaps,
+      workspaceRoot: ROOT,
+      ...(engineFinalText !== undefined ? { engineFinalText } : {}),
+    });
+
+    // Claims and clause records (verdicts, cited evidence ids, reasons) must be identical —
+    // reasons cite post-normalization paths, so even the cited paths match exactly.
+    expect(absVerdicts.claims).toEqual(relVerdicts.claims);
+    expect(absVerdicts.brief_clauses).toEqual(relVerdicts.brief_clauses);
+    // Same evidence ids in the same order (sha256 differs: payload bytes carry the raw paths).
+    expect(absVerdicts.evidence.map((e) => e.evidence_id)).toEqual(relVerdicts.evidence.map((e) => e.evidence_id));
+    // And the flagship verdicts hold in the absolute shape.
+    expect(absVerdicts.brief_clauses.find((c) => c.clause_id === "clause_no_test_deletion")?.verdict).toBe("PROMISE_BROKEN");
+  });
+});
+
 describe("doctrine property over the generated receipts", () => {
   it("no CONTRADICTED/PROMISE_BROKEN without a resolvable evidence id, in either receipt", () => {
     for (const name of [["snitch-events.jsonl", "snitch-brief.yaml"], ["clean-events.jsonl", "clean-brief.yaml"]] as const) {
