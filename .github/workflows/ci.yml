@@ -6,15 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+# Two-stage design, mirroring the shadow fleet: the dev toolchain (pnpm 11.9 needs Node >= 22.13)
+# builds and tests ONCE on a modern Node, then the PACKED ARTIFACT — what users actually
+# install — is proven with plain npm on every supported Node, including the exact 22.12
+# engines floor. The floor is a runtime promise, not a build-environment promise.
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # "22.12" is the declared engines floor — keep it pinned exactly so the
-        # floor itself stays proven, not just the latest patch of 22.x.
-        node-version: ["22.12", "26"]
     permissions:
       contents: read
     steps:
@@ -27,7 +26,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: "26"
           cache: pnpm
 
       - name: Install
@@ -49,3 +48,60 @@ jobs:
             if ./bin/run.js spec validate "$f" >/dev/null 2>&1; then echo "UNEXPECTED VALID (should fail): $f"; fail=1; fi
           done
           exit $fail
+
+      - name: Pack the npm artifact
+        run: pnpm pack --pack-destination /tmp/loopeix-pack
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: npm-tarball
+          path: /tmp/loopeix-pack/*.tgz
+          retention-days: 7
+
+  artifact-floor:
+    # Prove the shipped artifact on every supported Node with plain npm — no pnpm, no dev deps.
+    # "22.12" is the declared engines floor, pinned exactly so the floor itself stays proven.
+    needs: build-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["22.12", "24", "26"]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: npm-tarball
+          path: /tmp/loopeix-pack
+
+      - name: Install the artifact with npm (what users run)
+        run: npm install -g /tmp/loopeix-pack/*.tgz && loopeix --version && loopeix doctor
+
+      - name: Validate golden spec fixtures via the installed binary
+        run: |
+          fail=0
+          for f in tests/fixtures/valid/specs/*.yaml examples/dogfood/*.yaml templates/*.yaml; do
+            if ! loopeix spec validate "$f" >/dev/null; then echo "UNEXPECTED INVALID: $f"; fail=1; fi
+          done
+          for f in tests/fixtures/invalid/specs/*.yaml; do
+            if loopeix spec validate "$f" >/dev/null 2>&1; then echo "UNEXPECTED VALID (should fail): $f"; fail=1; fi
+          done
+          exit $fail
+
+      - name: Seal + verify smoke (the Snitch replay, offline)
+        run: |
+          WS="$(mktemp -d)"
+          loopeix run start tests/fixtures/run-seal/seal-loop.yaml --engine codex \
+            --events-file tests/fixtures/run-seal/snitch-events.jsonl \
+            --seal tests/fixtures/run-seal/snitch-brief.yaml --workspace "$WS"
+          RD="$(echo "$WS"/.loopeix/runs/*)"
+          loopeix verify "$RD/receipt.json" --run-dir "$RD"
+          loopeix pr "$RD" --card /tmp/delta-card.svg
+          test -s /tmp/delta-card.svg

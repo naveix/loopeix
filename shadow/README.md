@@ -3,7 +3,9 @@
 Simulated agent "users" that install and exercise the Loopeix CLI in isolated containers, decided
 by deterministic oracles. Substrate: [Harbor](https://github.com/harbor-framework/harbor) (a
 persona mission = a Harbor task: instruction + Dockerfile env cell + `tests/test.sh` oracle).
-Plan and rationale: `loopeix-specs/docs/sprints/s18-shadow-fleet-plan.md` (decisions D20/D22).
+Design in brief: hundreds of persona missions (install, docs-followability, spec corpus, receipt
+tamper, receipt fuzz) compiled from a deterministic sampler, each decided by an oracle that is
+itself fault-injection tested (`selftest.sh`).
 
 ## Run it (Tier 0 — scripted, free)
 

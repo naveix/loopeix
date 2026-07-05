@@ -1,7 +1,7 @@
 {
   "name": "loopeix",
   "version": "0.1.0",
-  "description": "A lie detector for agent pull requests: seal what the agent promised, adjudicate its claims against the engine's own event stream, and sign a receipt anyone verifies offline.",
+  "description": "Design, run, and verify repeatable AI work loops locally, with tamper-evident evidence and truthful reports. Flagship add-on: the Claims Check, a lie detector for agent pull requests with signed, offline-verifiable receipts.",
   "keywords": [
     "ai-agents",
     "verification",

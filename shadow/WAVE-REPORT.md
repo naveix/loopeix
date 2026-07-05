@@ -23,8 +23,8 @@ findings). The retry count is advisory (a harbor debug-log line, both job.log an
 console are grepped); unrecovered exceptions (trial dirs without reward.txt) are the
 authoritative infra-failure signal and the curator fails gates on them. Curated verdict verified
 by re-running `curate.mjs` in the foreground and reading `findings.json` back from disk
-(mtime-checked) after a session tooling incident produced fabricated mid-wave status text —
-see the planning repo's S18-B′ notes.
+(mtime-checked) after a development-session tooling incident produced fabricated mid-wave status
+text — every number in this report was re-derived from the trial artifacts directly.
 
 Tier-1 status: lane BUILT and validated offline (selftest runs every T1 reference solution
 against its oracle via `-a oracle`, zero engine calls) — no live Tier-1 wave has run yet;
