@@ -18,7 +18,7 @@ jobs:
       contents: read
     steps:
       # Actions pinned to commit SHAs (supply-chain: a moved tag cannot change what runs here).
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       # pnpm version comes from package.json "packageManager" (the exact pin); passing a
       # version input as well makes the action refuse with "Multiple versions of pnpm specified".
@@ -70,7 +70,7 @@ jobs:
       matrix:
         node-version: ["22.12", "24", "26"]
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
