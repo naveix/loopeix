@@ -1,9 +1,28 @@
 # Changelog
 
 All notable changes to Loopeix. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
-The project is pre-release (alpha); everything below is **Unreleased** until the first tagged version.
 
 ## [Unreleased]
+
+## [0.1.0] - 2026-07-04
+
+First public release: the Claims Check — seal the brief, adjudicate the agent's claims against
+the engine's own event stream, sign the receipt, verify it anywhere offline. Everything below
+was built and reviewed pre-release and ships in this version.
+
+### Shadow-fleet validation (S18)
+
+- The shipped npm artifact (not just source) is now exercised by a persona fleet before release:
+  240 scripted Tier-0 personas across 5 missions (install, docs-followability, spec corpus,
+  receipt tamper, receipt fuzz) × Node 22.12/24/26 containers — **240/240 oracle-decided PASS**,
+  including the declared Node 22.12 engines floor. Abuse resistance: 4 forgery classes per tamper
+  persona all rejected; ~24 seeded receipt mutations per fuzz persona, zero verified.
+- The harness itself is adversarially reviewed and fault-injection tested (`shadow/selftest.sh`):
+  oracles are proven to FAIL on mis-staged fixtures, missing deliverables, and wrong answers —
+  a green wave means the checks ran, not that nothing was checked.
+- Tier-1 (live cheap-model personas) lane is built and validated offline; live waves are gated
+  behind a dated operator acknowledgement and hard credential rules (adversarial personas never
+  share a container with live auth).
 
 ### Claims Check (M3)
 

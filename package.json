@@ -1,7 +1,30 @@
 {
   "name": "loopeix",
-  "version": "0.0.0",
-  "description": "Local-first CLI to design, run, verify, and improve repeatable AI work loops.",
+  "version": "0.1.0",
+  "description": "A lie detector for agent pull requests: seal what the agent promised, adjudicate its claims against the engine's own event stream, and sign a receipt anyone verifies offline.",
+  "keywords": [
+    "ai-agents",
+    "verification",
+    "receipts",
+    "provenance",
+    "claims-check",
+    "code-review",
+    "codex",
+    "claude-code",
+    "evidence",
+    "signed-receipts",
+    "local-first",
+    "cli"
+  ],
+  "homepage": "https://github.com/naveix/loopeix#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/naveix/loopeix.git"
+  },
+  "bugs": {
+    "url": "https://github.com/naveix/loopeix/issues"
+  },
+  "author": "Naveix",
   "type": "module",
   "license": "Apache-2.0",
   "engines": {
@@ -30,7 +53,9 @@
     "bin",
     "dist",
     "schemas",
-    "oclif.manifest.json"
+    "oclif.manifest.json",
+    "NOTICE",
+    "CHANGELOG.md"
   ],
   "oclif": {
     "bin": "loopeix",

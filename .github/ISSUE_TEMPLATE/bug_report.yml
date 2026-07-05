@@ -1,0 +1,28 @@
+name: Bug report
+description: Something behaved incorrectly or dishonestly
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `loopeix --version`
+      placeholder: loopeix/0.1.0 darwin-arm64 node-v22.12.0
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: >
+        If a verdict or verify result looks wrong, that is a priority bug — include the receipt
+        JSON and (if shareable) the run dir. Receipts are designed to travel; raw evidence is not,
+        so never attach unredacted ledgers or transcripts.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Exact commands, ideally against the committed fixtures.
+    validations:
+      required: true
