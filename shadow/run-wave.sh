@@ -48,6 +48,12 @@ else
   # 3. Cheap-model doctrine: a live wave must pin its model explicitly — harbor's default model
   #    for the adapter is NOT guaranteed cheap.
   [ -n "$MODEL" ] || { echo "FATAL: live waves must pin a cheap model with -m (e.g. -m claude-haiku-4-5)." >&2; exit 1; }
+  # 4. Auth-path preflight: subscription OAuth must not be silently outranked by a stray API key
+  #    in the environment (per-token billing + a second credential inside the container).
+  if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+    echo "FATAL: ANTHROPIC_API_KEY is set — unset it for live waves so the subscription OAuth path (CLAUDE_FORCE_OAUTH) is the only credential in play." >&2
+    exit 1
+  fi
 fi
 
 # Single args array (avoids empty-array expansion under set -u on macOS bash 3.2).
