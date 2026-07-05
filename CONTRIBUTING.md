@@ -14,6 +14,12 @@ pnpm test       # vitest
 ./bin/run.js --help
 ```
 
+> **npm commands are intentionally blocked inside this repo.** The `devEngines` field pins the
+> project to pnpm, so `npm install` / `npm publish` / even `npx` fail here with
+> `EBADDEVENGINES` — that is the guard working, not a bug. Use `pnpm` inside the repo; run npm
+> commands (like `npx loopeix ...`) from any other directory. Dev tooling needs Node ≥ 22.13
+> (pnpm 11.9); the **product's** 22.12 floor is proven in CI on the packed artifact.
+
 ## Before you open a PR
 
 1. **Build clean** (`pnpm build`) — strict TypeScript, no emit on error.
