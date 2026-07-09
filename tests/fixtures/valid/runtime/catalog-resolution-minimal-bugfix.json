@@ -1,0 +1,17 @@
+{
+  "schema_version": "0.1",
+  "resolution_id": "resolution_minimal_bugfix",
+  "catalog_version_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "terminal_state": "compiled",
+  "ranked_candidates": [
+    {
+      "item_id": "safe-bugfix",
+      "score": 6,
+      "reasons": ["positive:failing test", "positive:fix"]
+    }
+  ],
+  "selected_item_id": "safe-bugfix",
+  "selection_evidence": ["positive:failing test", "positive:fix"],
+  "rejected_candidates": [],
+  "needs_clarification": false
+}

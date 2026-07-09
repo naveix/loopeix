@@ -1,0 +1,23 @@
+[
+  {
+    "item_id": "safe-bugfix",
+    "loop_family": "minimal-bugfix",
+    "version": "v001",
+    "title": "Safe Bugfix",
+    "summary": "Diagnose, fix, and validate a scoped bug.",
+    "intent_tags": ["bugfix", "tests"],
+    "positive_signals": ["bug", "failing test", "fix"],
+    "negative_signals": ["research only"],
+    "required_inputs": ["bug-statement"],
+    "optional_inputs": ["validation-command"],
+    "workflow_pattern": "evaluator-optimizer",
+    "max_risk_tier_without_approval": "T2",
+    "allowed_tool_grants": ["workspace-shell"],
+    "required_gates": ["claim-support", "no-t5"],
+    "required_evaluations": ["project-validation"],
+    "primary_artifacts": ["diagnosis", "validation-results"],
+    "can_prove": ["validation command ran"],
+    "cannot_prove": ["the code is secure"],
+    "avoid_when": ["the user asks to delete tests"]
+  }
+]

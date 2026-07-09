@@ -47,9 +47,10 @@ Golden comparisons must normalize before diffing:
 | Valid specs | `valid/specs/` | **DONE** | 5 specs, 4 workflow patterns exercised. |
 | Valid versions | `valid/versions/` | **DONE** | Immutable `v001` snapshot. |
 | Invalid specs | `invalid/specs/` | **DONE** | 7 single-defect specs. |
-| Valid authoring | `valid/authoring/` | **DONE (provisional)** | `workspace-basic.yaml`, `template-manifest-basic.json`. Shapes flagged provisional — not field-enumerated in S3; S6 finalizes. |
-| Valid runtime | `valid/runtime/` | **DONE** | 10 records. ResolvedRunPlan/evidence/evaluation/finding/waiver follow enumerated contracts; work-item/intake-brief/spec-change-proposal flagged provisional. |
-| Invalid runtime | `invalid/runtime/` | **DONE** | 7 single-defect records (integrity, retention, waiver, finding, gate, unsupported-claim). |
+| Valid authoring | `valid/authoring/` | **DONE** | `workspace-basic.yaml`, `template-manifest-basic.json`, `item-catalog-basic.json`. Item catalog is the S23 loop compiler catalog contract. Workspace/template shapes remain provisional until fully enumerated. |
+| Valid runtime | `valid/runtime/` | **DONE** | 14 records. Includes S23 compiler intake, catalog resolution, compilation, and specialist handoff records alongside S6 runtime records. |
+| Invalid runtime | `invalid/runtime/` | **DONE** | 10 single-defect records, including S23 catalog ambiguity, risk escalation, and unsupported specialist-handoff claims. |
+| Compiler evals | `evals/` | **DONE** | Golden and adversarial prompt-routing corpus for deterministic loop item selection. |
 | Golden ledgers | `../golden/ledgers/` | **DONE** | 5 ledgers: success, HOLD, FAIL(no-t5), redaction tombstone, interrupted recovery. All hash-chains verified. |
 | Golden gates | `../golden/gates/` | **DONE** | 5: all-pass, HOLD, FAIL(no-t5), WAIVED(waivable), report-truthfulness HOLD. |
 | Golden reports | `../golden/reports/` | **DONE** | 4: success report + timeline, gate-failure-correction, adapter-limitations-disclosed. Format follows the required-section contract; finalized in S12. |
@@ -101,13 +102,25 @@ Each file fails for exactly one reason. The S6 validator should report the mappe
 | `gate-waives-no-t5.json` | invalid | `no-t5` gate `status: WAIVED` | `no-t5` is unwaivable; no waiver may allow T5. |
 | `finding-nonblocking-without-owner.json` | invalid | `accepted-risk` with `owner: null` | Non-blocking findings require owner and rationale. |
 | `waiver-missing-expiry.json` | invalid | required `expires_at` omitted | Required field absent. |
+| `catalog-resolution-ambiguous.json` | invalid | `terminal_state: "hold-ambiguous"` also selects an item | HOLD resolutions must not select an executable item. |
+| `compilation-record-risk-escalation.json` | invalid | compiled record attempts `max_tier_without_approval: "T5"` | V1 never permits T5 in compiler risk controls. |
+| `specialist-handoff-missing-evidence.json` | invalid | strong claim has no evidence refs | Specialist handoff strong claims require evidence references. |
 
 ## Oracle — valid runtime (`valid/runtime/`)
 
-Ten known-good records for `run_minimal_bugfix` (shared `work_item_id`/`intake_brief_id`).
+Fourteen known-good records for `run_minimal_bugfix` (shared `work_item_id`/`intake_brief_id`).
 `resolved-run-plan`, `evidence-*`, `evaluation-*`, `finding-*`, `waiver-*` follow the enumerated
 runtime/evidence contracts exactly. `work-item`, `intake-brief`, and `spec-change-proposal-v002`
 carry a provisional shape (marked in-file) because their fields are not enumerated in S3.
+
+S23 adds compiler-layer records for turning a vague request into an executable loop:
+
+| File | Expected | Proves |
+|---|---|---|
+| `intake-record-minimal-bugfix.json` | valid | Normalized user intent separates objective, outcome, scope, risks, ambiguities, and trusted inputs. |
+| `catalog-resolution-minimal-bugfix.json` | valid | Catalog routing records candidates, selected item, score, decision rationale, and HOLD questions. |
+| `compilation-record-minimal-bugfix.json` | valid | Compiled loop plan binds selected catalog inputs, tasks, gates, evaluations, artifacts, and risk controls. |
+| `specialist-handoff-basic.json` | valid | Agent-to-agent handoff preserves task scope, accepted context, rejected context, evidence refs, and limitations. |
 
 Contract gap recorded for S6: the evidence-layer objects (Claim, EvidenceItem, GateResult,
 EvaluationResult, Finding, Waiver) are NOT given a `schema_version` field by the S3 contracts, so a
@@ -127,6 +140,19 @@ run-manifest `schema_versions` map.
    the spec omits. If S10's "required V1 gates" injects `no-t5` universally, document it and update
    these fixtures then. (`expert-sprint`, `refactor-dependency-trace`, `gate-failure-correction`,
    `improvement-proposal` declare `no-t5` explicitly and are unaffected.)
+3. **Compiler routing is intentionally conservative.** S23 eval fixtures expect HOLD rather than
+   best-guess compilation when a prompt requests T5/background execution, connector writes,
+   production deployment, secrets handling, or ambiguous multi-loop scope.
+
+## Oracle — compiler evals (`evals/`)
+
+The compiler eval corpus is not a model-quality benchmark. It is a deterministic guardrail for the
+V1 catalog resolver so prompt routing does not drift silently as item definitions change.
+
+| File | Expected | Purpose |
+|---|---|---|
+| `golden-authoring.json` | valid | Representative beginner/expert prompts must resolve to the intended catalog item or explicit HOLD state. |
+| `adversarial-prompts.json` | valid | Unsafe, overbroad, connector-write, production, and ambiguity cases must HOLD instead of compiling. |
 
 ## Oracle — golden (`../golden/`)
 

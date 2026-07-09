@@ -1,0 +1,21 @@
+{
+  "schema_version": "0.1",
+  "handoff_id": "handoff_missing_evidence",
+  "run_id": "run_minimal_bugfix",
+  "from_role": "fix-owner",
+  "to_role": "qa-specialist",
+  "task_id": "verify-fix",
+  "owned_scope": ["tests/date-parser.test.ts"],
+  "inputs_consumed": ["compilation_minimal_bugfix"],
+  "outputs_produced": ["validation-results"],
+  "files_read": ["tests/date-parser.test.ts"],
+  "files_written": [],
+  "evidence_refs": [],
+  "gate_refs": [],
+  "strong_claims": ["The validation command passed."],
+  "findings": [],
+  "unresolved_risks": [],
+  "next_acceptance_checks": ["QA verifies evidence refs exist."],
+  "must_not_assume": ["Passing one command proves complete security."],
+  "created_at": "2026-01-01T00:00:00Z"
+}

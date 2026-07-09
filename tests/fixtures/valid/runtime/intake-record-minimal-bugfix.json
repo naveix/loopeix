@@ -1,0 +1,13 @@
+{
+  "schema_version": "0.1",
+  "intake_id": "intake_minimal_bugfix",
+  "work_item_id": "wi_minimal_bugfix",
+  "objective": "Fix the failing date parser test.",
+  "requested_outcome": "The date parser test passes without deleting tests.",
+  "candidate_scope": ["src/date-parser.ts", "tests/date-parser.test.ts"],
+  "forbidden_actions": ["delete tests", "read .env"],
+  "required_inputs": ["bug-statement"],
+  "risk_flags": [],
+  "ambiguities": [],
+  "untrusted_source_refs": []
+}
