@@ -88,6 +88,16 @@ quarantined, partial final line dropped, truncation, content-hash mismatch).
 - Exit `0` — planned status or ledger integrity `valid`.
 - Exit non-zero (e.g. `4`) — integrity `hold` (findings printed). Never a silent pass.
 
+### `loopeix run preflight <planned-run-dir>`
+
+Check whether a planned run directory is startable before `run start` mutates it. This reads
+planned-run files only; it does not invoke an engine and does not write artifacts.
+
+- `--engine codex|claude` — required engine to compare against the plan's adapter binding.
+- Exit `0` — ready to start.
+- Exit `1` — HOLD, with findings such as missing files, wrong engine, invalid generated loop, or
+  existing execution artifacts.
+
 ### `loopeix run recover <run-dir>`
 
 Like `run status`, but oriented at a run interrupted or corrupted mid-flight: reports the recoverable

@@ -86,6 +86,7 @@ describe("loopeix run start <planned-run-dir>", () => {
     const second = await runStart([runDir, "--engine", "codex", "--events-file", codexEvents]);
 
     expect(second.exitCode).toBe(1);
-    expect(second.out).toContain("execution artifacts already exist");
+    expect(second.out).toContain("hold-already-started");
+    expect(second.out).toContain("execution artifact already exists");
   });
 });

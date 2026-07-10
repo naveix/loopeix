@@ -8,29 +8,15 @@ import { ensureSigningKey, publicKeyFingerprint } from "../../keys.js";
 import { buildReceipt } from "../../receipt.js";
 import { extractFinalMessageText, parseJsonlEvents, runEngine } from "../../run/engine.js";
 import { assembleRun, type RunInput } from "../../run/orchestrate.js";
+import { preflightPlannedRun } from "../../run/preflight.js";
 import { RUN_DIR_FILES, writeRunDir } from "../../run/run-dir.js";
 import type { Brief } from "../../schema/brief.js";
 import type { Receipt } from "../../schema/receipt.js";
-import { ResolvedRunPlan } from "../../schema/runtime.js";
 import { validateLoopeix } from "../../validate.js";
 import { computeVerdicts } from "../../verdicts.js";
 
 function isPlannedRunDir(path: string): boolean {
   return existsSync(path) && statSync(path).isDirectory() && existsSync(join(path, "resolved-run-plan.json"));
-}
-
-function plannedWorkspaceRoot(plan: unknown): string {
-  const boundary = (plan as { workspace_boundary?: unknown }).workspace_boundary;
-  if (typeof boundary !== "object" || boundary === null) return ".";
-  const root = (boundary as { workspace_root?: unknown }).workspace_root;
-  return typeof root === "string" && root.length > 0 ? root : ".";
-}
-
-function plannedEngine(plan: unknown): string | undefined {
-  const adapter = (plan as { adapter_plan?: unknown }).adapter_plan;
-  if (typeof adapter !== "object" || adapter === null) return undefined;
-  const engine = (adapter as { engine?: unknown }).engine;
-  return typeof engine === "string" ? engine : undefined;
 }
 
 /**
@@ -80,24 +66,17 @@ export default class RunStart extends Command {
         process.exitCode = 1;
         return;
       }
-      for (const file of [RUN_DIR_FILES.ledger, RUN_DIR_FILES.manifest, RUN_DIR_FILES.reportMd, RUN_DIR_FILES.reportHtml, RUN_DIR_FILES.runSummary]) {
-        if (existsSync(join(target, file))) {
-          this.log("ERROR: execution artifacts already exist; refusing to overwrite planned run output.");
-          process.exitCode = 1;
-          return;
-        }
-      }
-      const resolvedPlan = ResolvedRunPlan.parse(JSON.parse(readFileSync(join(target, "resolved-run-plan.json"), "utf8")));
-      const planEngine = plannedEngine(resolvedPlan);
-      if (planEngine !== undefined && planEngine !== engine) {
-        this.log(`ERROR: planned run was prepared for ${planEngine}, not ${engine}.`);
+      const preflight = preflightPlannedRun({ runDir: target, engine });
+      if (!preflight.ok) {
+        this.log(`ERROR: planned run preflight failed (${preflight.status}).`);
+        for (const finding of preflight.findings) this.log(`  - ${finding}`);
         process.exitCode = 1;
         return;
       }
-      run_id = resolvedPlan.run_id;
-      run_dir = target;
-      workspace = plannedWorkspaceRoot(resolvedPlan);
-      specSource = join(target, "generated.loop.yaml");
+      run_id = preflight.run_id;
+      run_dir = preflight.run_dir;
+      workspace = preflight.workspace_root ?? ".";
+      specSource = preflight.spec_path ?? join(target, "generated.loop.yaml");
     }
 
     const spec = parseYaml(readFileSync(specSource, "utf8")) as Record<string, unknown>;
