@@ -72,7 +72,7 @@ export default class RunStatus extends Command {
         findings: [],
         run_dir: args.run,
         engine,
-        next_action: `loopeix run start ${args.run} --engine ${shortEngine(engine)} --events-file <jsonl>`,
+        next_action: `loopeix run start ${args.run} --engine ${shortEngine(engine)}`,
       };
       if (!this.jsonEnabled()) {
         this.log(`run_state:     ${result.run_state}`);

@@ -9,6 +9,7 @@ import { buildReceipt } from "../../receipt.js";
 import { extractFinalMessageText, parseJsonlEvents, runEngine } from "../../run/engine.js";
 import { assembleRun, type RunInput } from "../../run/orchestrate.js";
 import { preflightPlannedRun } from "../../run/preflight.js";
+import { buildPlannedRunPrompt } from "../../run/prompt.js";
 import { RUN_DIR_FILES, writeRunDir } from "../../run/run-dir.js";
 import type { Brief } from "../../schema/brief.js";
 import type { Receipt } from "../../schema/receipt.js";
@@ -36,7 +37,7 @@ export default class RunStart extends Command {
   };
   static flags = {
     engine: Flags.string({ options: ["codex", "claude"], required: true, description: "engine to run" }),
-    prompt: Flags.string({ description: "prompt / work item for the engine (required for a live run)" }),
+    prompt: Flags.string({ description: "prompt / work item for raw YAML live runs; refused for planned run directories" }),
     "events-file": Flags.string({ description: "replay a pre-captured JSONL event file instead of a live call" }),
     workspace: Flags.string({ default: ".", description: "workspace root (run dir = <workspace>/.loopeix/runs/<id>)" }),
     "max-budget-usd": Flags.string({ description: "Claude budget cap in USD (default 0.10)" }),
@@ -44,6 +45,7 @@ export default class RunStart extends Command {
   };
   static examples = [
     '<%= config.bin %> run start my-loop.yaml --engine codex --prompt "Reply with ok"',
+    "<%= config.bin %> run start .loopeix/loops/minimal-bugfix/runs/run_abc --engine codex",
     "<%= config.bin %> run start my-loop.yaml --engine claude --events-file captured.jsonl",
     "<%= config.bin %> run start my-loop.yaml --engine codex --events-file captured.jsonl --seal brief.yaml",
   ];
@@ -59,10 +61,11 @@ export default class RunStart extends Command {
     let run_dir: string | undefined;
     let workspace = flags.workspace;
     let specSource = target;
+    let plannedPrompt: string | undefined;
 
     if (plannedMode) {
-      if (!flags["events-file"]) {
-        this.log("ERROR: planned run directories require --events-file in S27; live planned execution is not enabled yet.");
+      if (flags.prompt !== undefined) {
+        this.log("ERROR: planned run directories use the approved generated prompt; remove --prompt to start the planned run.");
         process.exitCode = 1;
         return;
       }
@@ -77,6 +80,16 @@ export default class RunStart extends Command {
       run_dir = preflight.run_dir;
       workspace = preflight.workspace_root ?? ".";
       specSource = preflight.spec_path ?? join(target, "generated.loop.yaml");
+      if (!flags["events-file"]) {
+        const promptResult = buildPlannedRunPrompt({ runDir: target });
+        if (!promptResult.ok) {
+          this.log(`ERROR: planned run prompt failed (${promptResult.status}).`);
+          for (const finding of promptResult.findings) this.log(`  - ${finding}`);
+          process.exitCode = 1;
+          return;
+        }
+        plannedPrompt = promptResult.prompt;
+      }
     }
 
     const spec = parseYaml(readFileSync(specSource, "utf8")) as Record<string, unknown>;
@@ -119,13 +132,15 @@ export default class RunStart extends Command {
       rawEvents = parseJsonlEvents(readFileSync(flags["events-file"], "utf8"));
       this.log(`Replaying ${rawEvents.length} captured event(s) from ${flags["events-file"]}`);
     } else {
-      if (!flags.prompt) {
+      const prompt = plannedPrompt ?? flags.prompt;
+      if (!prompt) {
         this.log("ERROR: --prompt is required for a live run (or pass --events-file to replay).");
         process.exitCode = 1;
         return;
       }
-      this.log(`Invoking ${engine} (read-only, empty stdin)...`);
-      const res = runEngine(engine, flags.prompt, { maxBudgetUsd });
+      const engineOptions = { ...(plannedMode ? { cwd: workspace } : {}), ...(maxBudgetUsd === undefined ? {} : { maxBudgetUsd }) };
+      this.log(plannedMode ? `Invoking ${engine} with planned prompt (read-only, empty stdin)...` : `Invoking ${engine} (read-only, empty stdin)...`);
+      const res = runEngine(engine, prompt, engineOptions);
       rawEvents = res.rawEvents;
       engineStatus = { exit_code: res.exit_code, timed_out: res.timed_out };
       if (res.exit_code !== 0 || res.timed_out) {

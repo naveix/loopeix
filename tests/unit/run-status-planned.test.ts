@@ -80,6 +80,7 @@ describe("loopeix run status <planned-run-dir>", () => {
     expect(out).toContain("run_state:     planned");
     expect(out).toContain("next action:");
     expect(out).toContain("run start");
+    expect(out).not.toContain("--events-file");
   });
 
   it("reports ledger-backed state after planned replay starts", async () => {

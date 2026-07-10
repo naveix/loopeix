@@ -76,6 +76,7 @@ describe("preflightPlannedRun", () => {
     expect(result.status).toBe("ready");
     expect(result.run_id).toBe("run_fix_the_failing_date_parser_test_and_prove_the_f");
     expect(result.next_action).toContain("run start");
+    expect(result.next_action).not.toContain("--events-file");
   });
 
   it("rejects wrong engine before execution can start", () => {
@@ -121,6 +122,7 @@ describe("loopeix run preflight", () => {
     expect(result.ok).toBe(true);
     expect(out).toContain("READY");
     expect(out).toContain("run start");
+    expect(out).not.toContain("--events-file");
   });
 
   it("prints HOLD for an already executed planned run", async () => {

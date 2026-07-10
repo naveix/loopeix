@@ -43,17 +43,21 @@ evaluate gates, verify evidence, build the truthful report, and write the run di
 - `--engine codex|claude` — which engine CLI to drive (uses that CLI's own login; Loopeix holds
   no API keys). Codex is invoked read-only/ephemeral; Claude respects `--max-budget-usd`
   (default `0.10`, max `100`).
-- `--prompt <text>` — the live task (required for a live run).
+- `--prompt <text>` — the live task for raw YAML runs. Not allowed for planned run directories;
+  planned runs derive the prompt from approved planned records.
 - `--events-file <jsonl>` — replay a captured event stream instead of a live call (fully offline).
 - `--seal <brief.yaml>` — seal a structured brief as ledger event 1 and emit a signed
   `receipt.json` with per-clause verdicts. Without it: ledger + report, no receipt, no verdicts.
 - `--workspace <dir>` — where `.loopeix/runs/<id>` lands (default `.`).
 
-When the first argument is a planned run directory containing `resolved-run-plan.json`, S27 runs in
-planned replay mode:
+When the first argument is a planned run directory containing `resolved-run-plan.json`, the command
+runs in planned mode:
 
-- `--events-file <jsonl>` is required.
-- Live `--prompt` execution is refused.
+- Without `--events-file`, Loopeix builds the same bounded prompt shown by `loopeix run prompt` and
+  invokes the planned engine from the planned workspace root.
+- With `--events-file <jsonl>`, Loopeix replays captured events into the planned run directory and
+  does not render or require the intake prompt.
+- `--prompt` is refused so a planned run cannot be silently replaced by fresh operator text.
 - The command uses the planned `run_id`, workspace root, and run directory.
 - Existing execution artifacts are never overwritten.
 

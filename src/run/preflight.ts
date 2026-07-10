@@ -144,7 +144,7 @@ export function preflightPlannedRun(input: PlannedRunPreflightInput): PlannedRun
     engine: planEngine,
     workspace_root: plannedWorkspaceRoot(resolvedPlan),
     spec_path: specPath,
-    next_action: `loopeix run start ${runDir} --engine ${shortEngine(input.engine)} --events-file <jsonl>`,
+    next_action: `loopeix run start ${runDir} --engine ${shortEngine(input.engine)}`,
     findings: [],
   };
 }
