@@ -59,6 +59,8 @@ runs in planned mode:
   does not render or require the intake prompt.
 - `--prompt` is refused so a planned run cannot be silently replaced by fresh operator text.
 - The command uses the planned `run_id`, workspace root, and run directory.
+- The command takes `<planned-run-dir>/ledger.lock` before live/replay execution and releases it
+  after artifacts are written, so concurrent starts fail closed instead of interleaving writes.
 - Existing execution artifacts are never overwritten.
 
 Exit `0` on a completed run; non-zero on engine or integrity failure.

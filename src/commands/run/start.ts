@@ -5,6 +5,7 @@ import { parse as parseYaml } from "yaml";
 import { ClaudeAdapter, CodexAdapter, type EngineId } from "../../adapters/index.js";
 import { loadBrief } from "../../brief.js";
 import { ensureSigningKey, publicKeyFingerprint } from "../../keys.js";
+import { acquireLock, LockHeldError, type LockHandle } from "../../lock.js";
 import { buildReceipt } from "../../receipt.js";
 import { extractFinalMessageText, parseJsonlEvents, runEngine } from "../../run/engine.js";
 import { assembleRun, type RunInput } from "../../run/orchestrate.js";
@@ -19,6 +20,8 @@ import { computeVerdicts } from "../../verdicts.js";
 function isPlannedRunDir(path: string): boolean {
   return existsSync(path) && statSync(path).isDirectory() && existsSync(join(path, "resolved-run-plan.json"));
 }
+
+const RUN_START_LOCK_OPTIONS = { staleMs: Number.MAX_SAFE_INTEGER };
 
 /**
  * `loopeix run start <spec>` — execute a loop end-to-end into a run directory.
@@ -62,6 +65,7 @@ export default class RunStart extends Command {
     let workspace = flags.workspace;
     let specSource = target;
     let plannedPrompt: string | undefined;
+    let runLock: LockHandle | undefined;
 
     if (plannedMode) {
       if (flags.prompt !== undefined) {
@@ -80,6 +84,16 @@ export default class RunStart extends Command {
       run_dir = preflight.run_dir;
       workspace = preflight.workspace_root ?? ".";
       specSource = preflight.spec_path ?? join(target, "generated.loop.yaml");
+      try {
+        runLock = acquireLock(join(run_dir, "ledger.lock"), RUN_START_LOCK_OPTIONS);
+      } catch (err) {
+        if (err instanceof LockHeldError) {
+          this.log(`ERROR: run lock is held: ${err.message}`);
+          process.exitCode = 1;
+          return;
+        }
+        throw err;
+      }
       if (!flags["events-file"]) {
         const promptResult = buildPlannedRunPrompt({ runDir: target });
         if (!promptResult.ok) {
@@ -92,170 +106,174 @@ export default class RunStart extends Command {
       }
     }
 
-    const spec = parseYaml(readFileSync(specSource, "utf8")) as Record<string, unknown>;
+    try {
+      const spec = parseYaml(readFileSync(specSource, "utf8")) as Record<string, unknown>;
 
-    const validation = validateLoopeix(spec);
-    if (!validation.ok) {
-      this.log(`INVALID spec (${validation.errors.length} issue(s)) — run aborted:`);
-      for (const e of validation.errors) this.log(`  - ${e.path}: ${e.message}`);
-      process.exitCode = 1;
-      return;
-    }
-
-    let maxBudgetUsd: number | undefined;
-    if (flags["max-budget-usd"] !== undefined) {
-      maxBudgetUsd = Number(flags["max-budget-usd"]);
-      if (!Number.isFinite(maxBudgetUsd) || maxBudgetUsd <= 0 || maxBudgetUsd > 100) {
-        this.log(`ERROR: --max-budget-usd must be a positive number ≤ 100 (got '${flags["max-budget-usd"]}').`);
+      const validation = validateLoopeix(spec);
+      if (!validation.ok) {
+        this.log(`INVALID spec (${validation.errors.length} issue(s)) — run aborted:`);
+        for (const e of validation.errors) this.log(`  - ${e.path}: ${e.message}`);
         process.exitCode = 1;
         return;
       }
-    }
 
-    // Sealed brief (--seal): loaded and validated BEFORE any engine work — a run must never
-    // start against a promise that could not be parsed exactly as written.
-    let brief: Brief | undefined;
-    if (flags.seal !== undefined) {
-      try {
-        brief = loadBrief(readFileSync(flags.seal, "utf8"));
-      } catch (err) {
-        this.log(`ERROR: cannot seal brief '${flags.seal}': ${(err as Error).message}`);
-        process.exitCode = 1;
-        return;
+      let maxBudgetUsd: number | undefined;
+      if (flags["max-budget-usd"] !== undefined) {
+        maxBudgetUsd = Number(flags["max-budget-usd"]);
+        if (!Number.isFinite(maxBudgetUsd) || maxBudgetUsd <= 0 || maxBudgetUsd > 100) {
+          this.log(`ERROR: --max-budget-usd must be a positive number ≤ 100 (got '${flags["max-budget-usd"]}').`);
+          process.exitCode = 1;
+          return;
+        }
       }
-    }
 
-    // Events: replay a captured file, or a live engine call.
-    let rawEvents: unknown[];
-    let engineStatus: { exit_code: number; timed_out: boolean } | undefined;
-    if (flags["events-file"]) {
-      rawEvents = parseJsonlEvents(readFileSync(flags["events-file"], "utf8"));
-      this.log(`Replaying ${rawEvents.length} captured event(s) from ${flags["events-file"]}`);
-    } else {
-      const prompt = plannedPrompt ?? flags.prompt;
-      if (!prompt) {
-        this.log("ERROR: --prompt is required for a live run (or pass --events-file to replay).");
-        process.exitCode = 1;
-        return;
+      // Sealed brief (--seal): loaded and validated BEFORE any engine work — a run must never
+      // start against a promise that could not be parsed exactly as written.
+      let brief: Brief | undefined;
+      if (flags.seal !== undefined) {
+        try {
+          brief = loadBrief(readFileSync(flags.seal, "utf8"));
+        } catch (err) {
+          this.log(`ERROR: cannot seal brief '${flags.seal}': ${(err as Error).message}`);
+          process.exitCode = 1;
+          return;
+        }
       }
-      const engineOptions = { ...(plannedMode ? { cwd: workspace } : {}), ...(maxBudgetUsd === undefined ? {} : { maxBudgetUsd }) };
-      this.log(plannedMode ? `Invoking ${engine} with planned prompt (read-only, empty stdin)...` : `Invoking ${engine} (read-only, empty stdin)...`);
-      const res = runEngine(engine, prompt, engineOptions);
-      rawEvents = res.rawEvents;
-      engineStatus = { exit_code: res.exit_code, timed_out: res.timed_out };
-      if (res.exit_code !== 0 || res.timed_out) {
-        this.warn(
-          `engine exited ${res.exit_code}${res.timed_out ? " (timed out)" : ""}; captured ${rawEvents.length} event(s) — the run will seal run.failed, not run.completed.`,
-        );
+
+      // Events: replay a captured file, or a live engine call.
+      let rawEvents: unknown[];
+      let engineStatus: { exit_code: number; timed_out: boolean } | undefined;
+      if (flags["events-file"]) {
+        rawEvents = parseJsonlEvents(readFileSync(flags["events-file"], "utf8"));
+        this.log(`Replaying ${rawEvents.length} captured event(s) from ${flags["events-file"]}`);
+      } else {
+        const prompt = plannedPrompt ?? flags.prompt;
+        if (!prompt) {
+          this.log("ERROR: --prompt is required for a live run (or pass --events-file to replay).");
+          process.exitCode = 1;
+          return;
+        }
+        const engineOptions = { ...(plannedMode ? { cwd: workspace } : {}), ...(maxBudgetUsd === undefined ? {} : { maxBudgetUsd }) };
+        this.log(plannedMode ? `Invoking ${engine} with planned prompt (read-only, empty stdin)...` : `Invoking ${engine} (read-only, empty stdin)...`);
+        const res = runEngine(engine, prompt, engineOptions);
+        rawEvents = res.rawEvents;
+        engineStatus = { exit_code: res.exit_code, timed_out: res.timed_out };
+        if (res.exit_code !== 0 || res.timed_out) {
+          this.warn(
+            `engine exited ${res.exit_code}${res.timed_out ? " (timed out)" : ""}; captured ${rawEvents.length} event(s) — the run will seal run.failed, not run.completed.`,
+          );
+        }
       }
-    }
 
-    const normalized = new (isCodex ? CodexAdapter : ClaudeAdapter)().normalize(rawEvents);
-    run_id = run_id ?? `run_${Date.now().toString(36)}`;
-    run_dir = run_dir ?? `${flags.workspace}/.loopeix/runs/${run_id}`;
-    const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+      const normalized = new (isCodex ? CodexAdapter : ClaudeAdapter)().normalize(rawEvents);
+      const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+      run_id = run_id ?? `run_${Date.now().toString(36)}`;
+      run_dir = run_dir ?? `${flags.workspace}/.loopeix/runs/${run_id}`;
 
-    const runInput: RunInput = {
-      run_id,
-      loop_family: String(spec.loop_family),
-      loopeix_version: String(spec.version),
-      started_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
-      engine,
-      events: normalized.events,
-      capture_gaps: normalized.capture_gaps,
-      gates: asArray(spec.gates).map((g) => {
-        const gate = g as Record<string, unknown>;
-        return {
-          id: String(gate.id),
-          blocking: gate.blocking === true,
-          inputs_required: asArray(gate.inputs_required).map(String),
-          waiver_allowed: gate.waiver_allowed === true,
-        };
-      }),
-      risk_controls: spec.risk_controls as RunInput["risk_controls"],
-      tool_grant_tiers: asArray(spec.tool_grants).map((t) => String((t as Record<string, unknown>).risk_tier)),
-      workspace_root: workspace,
-      run_dir,
-      engine_status: engineStatus,
-      brief,
-    };
-
-    const assembly = assembleRun(runInput);
-
-    // Sealed pipeline: verdicts → workspace signing key → signed receipt. Runs for FAILED runs
-    // too — the receipt records what actually happened, not only successes.
-    // If buildReceipt fails, the run dir is STILL written (without a receipt) so the run
-    // artifacts are preserved even when the seal step itself fails.
-    let receipt: Receipt | undefined;
-    if (brief) {
-      const engineFinalText = extractFinalMessageText(engine, rawEvents);
-      const verdicts = computeVerdicts({
-        brief,
+      const runInput: RunInput = {
+        run_id,
+        loop_family: String(spec.loop_family),
+        loopeix_version: String(spec.version),
+        started_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+        engine,
         events: normalized.events,
-        captureGaps: normalized.capture_gaps,
-        // resolve() ensures "." becomes the real cwd — without this, absolute paths under the
-        // workspace root would not strip the prefix and would be excluded from adjudication (P3a).
-        workspaceRoot: resolve(workspace),
-        ...(engineFinalText !== undefined ? { engineFinalText } : {}),
-      });
-      let key;
-      try {
-        key = ensureSigningKey(workspace);
-      } catch (err) {
-        this.log(`ERROR: cannot initialize signing key: ${(err as Error).message}`);
-        writeRunDir(run_dir, assembly, {});
-        process.exitCode = 1;
-        return;
-      }
-      if (key.created) {
-        this.log(`Created signing key ${key.keyPath} (public key ${publicKeyFingerprint(key.publicKeySpkiB64)}); the keys directory is git-ignored.`);
-      } else if (key.mode_corrected) {
-        this.log(`Notice: signing key ${key.keyPath} had incorrect permissions — corrected to 0600.`);
-      }
-      try {
-        receipt = buildReceipt(
-          {
-            run: {
-              run_id,
-              loop_family: String(spec.loop_family),
-              loopeix_version: String(spec.version),
-              engine,
-              sealed_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+        capture_gaps: normalized.capture_gaps,
+        gates: asArray(spec.gates).map((g) => {
+          const gate = g as Record<string, unknown>;
+          return {
+            id: String(gate.id),
+            blocking: gate.blocking === true,
+            inputs_required: asArray(gate.inputs_required).map(String),
+            waiver_allowed: gate.waiver_allowed === true,
+          };
+        }),
+        risk_controls: spec.risk_controls as RunInput["risk_controls"],
+        tool_grant_tiers: asArray(spec.tool_grants).map((t) => String((t as Record<string, unknown>).risk_tier)),
+        workspace_root: workspace,
+        run_dir,
+        engine_status: engineStatus,
+        brief,
+      };
+
+      const assembly = assembleRun(runInput);
+
+      // Sealed pipeline: verdicts → workspace signing key → signed receipt. Runs for FAILED runs
+      // too — the receipt records what actually happened, not only successes.
+      // If buildReceipt fails, the run dir is STILL written (without a receipt) so the run
+      // artifacts are preserved even when the seal step itself fails.
+      let receipt: Receipt | undefined;
+      if (brief) {
+        const engineFinalText = extractFinalMessageText(engine, rawEvents);
+        const verdicts = computeVerdicts({
+          brief,
+          events: normalized.events,
+          captureGaps: normalized.capture_gaps,
+          // resolve() ensures "." becomes the real cwd — without this, absolute paths under the
+          // workspace root would not strip the prefix and would be excluded from adjudication (P3a).
+          workspaceRoot: resolve(workspace),
+          ...(engineFinalText !== undefined ? { engineFinalText } : {}),
+        });
+        let key;
+        try {
+          key = ensureSigningKey(workspace);
+        } catch (err) {
+          this.log(`ERROR: cannot initialize signing key: ${(err as Error).message}`);
+          writeRunDir(run_dir, assembly, {});
+          process.exitCode = 1;
+          return;
+        }
+        if (key.created) {
+          this.log(`Created signing key ${key.keyPath} (public key ${publicKeyFingerprint(key.publicKeySpkiB64)}); the keys directory is git-ignored.`);
+        } else if (key.mode_corrected) {
+          this.log(`Notice: signing key ${key.keyPath} had incorrect permissions — corrected to 0600.`);
+        }
+        try {
+          receipt = buildReceipt(
+            {
+              run: {
+                run_id,
+                loop_family: String(spec.loop_family),
+                loopeix_version: String(spec.version),
+                engine,
+                sealed_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+              },
+              brief,
+              claims: verdicts.claims,
+              brief_clauses: verdicts.brief_clauses,
+              evidence: verdicts.evidence,
+              capture_gaps: normalized.capture_gaps.map((g) => ({ engine, capability: g.capability, level: g.level, note: g.note })),
+              ledger: assembly.ledger,
             },
-            brief,
-            claims: verdicts.claims,
-            brief_clauses: verdicts.brief_clauses,
-            evidence: verdicts.evidence,
-            capture_gaps: normalized.capture_gaps.map((g) => ({ engine, capability: g.capability, level: g.level, note: g.note })),
-            ledger: assembly.ledger,
-          },
-          key.privateKeyPem,
-        );
-      } catch (err) {
-        this.log(`ERROR: cannot build receipt — run dir written without receipt: ${(err as Error).message}`);
-        writeRunDir(run_dir, assembly, {});
-        process.exitCode = 1;
-        return;
+            key.privateKeyPem,
+          );
+        } catch (err) {
+          this.log(`ERROR: cannot build receipt — run dir written without receipt: ${(err as Error).message}`);
+          writeRunDir(run_dir, assembly, {});
+          process.exitCode = 1;
+          return;
+        }
       }
+
+      writeRunDir(run_dir, assembly, receipt ? { receipt } : {});
+
+      this.log(`Run ${run_id}: ${assembly.integrity.run_state} (integrity ${assembly.integrity.integrity_status})`);
+      this.log(
+        `Gates: pass=${assembly.gate_report.summary.pass} hold=${assembly.gate_report.summary.hold} fail=${assembly.gate_report.summary.fail}`,
+      );
+      this.log(`Evidence: ${assembly.evidence.length} item(s) from ${normalized.events.length} normalized event(s)`);
+      this.log(`Run dir: ${run_dir}  (${RUN_DIR_FILES.reportMd} / ${RUN_DIR_FILES.reportHtml})`);
+
+      if (receipt) {
+        this.log("");
+        this.log(`Sealed brief verdicts (brief_hash ${receipt.brief.brief_hash}):`);
+        for (const c of receipt.claims) this.log(`  ${c.verdict}  ${c.text}${c.reason !== undefined ? `  (${c.reason})` : ""}`);
+        for (const c of receipt.brief_clauses) this.log(`  ${c.verdict}  ${c.text}${c.reason !== undefined ? `  (${c.reason})` : ""}`);
+        this.log(`Receipt: ${run_dir}/${RUN_DIR_FILES.receipt}`);
+        this.log(`verify: npx loopeix verify ${run_dir}/${RUN_DIR_FILES.receipt}`);
+      }
+      if (assembly.gate_report.blocking_hold_or_fail) process.exitCode = 4;
+    } finally {
+      runLock?.release();
     }
-
-    writeRunDir(run_dir, assembly, receipt ? { receipt } : {});
-
-    this.log(`Run ${run_id}: ${assembly.integrity.run_state} (integrity ${assembly.integrity.integrity_status})`);
-    this.log(
-      `Gates: pass=${assembly.gate_report.summary.pass} hold=${assembly.gate_report.summary.hold} fail=${assembly.gate_report.summary.fail}`,
-    );
-    this.log(`Evidence: ${assembly.evidence.length} item(s) from ${normalized.events.length} normalized event(s)`);
-    this.log(`Run dir: ${run_dir}  (${RUN_DIR_FILES.reportMd} / ${RUN_DIR_FILES.reportHtml})`);
-
-    if (receipt) {
-      this.log("");
-      this.log(`Sealed brief verdicts (brief_hash ${receipt.brief.brief_hash}):`);
-      for (const c of receipt.claims) this.log(`  ${c.verdict}  ${c.text}${c.reason !== undefined ? `  (${c.reason})` : ""}`);
-      for (const c of receipt.brief_clauses) this.log(`  ${c.verdict}  ${c.text}${c.reason !== undefined ? `  (${c.reason})` : ""}`);
-      this.log(`Receipt: ${run_dir}/${RUN_DIR_FILES.receipt}`);
-      this.log(`verify: npx loopeix verify ${run_dir}/${RUN_DIR_FILES.receipt}`);
-    }
-    if (assembly.gate_report.blocking_hold_or_fail) process.exitCode = 4;
   }
 }

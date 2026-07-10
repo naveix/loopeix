@@ -77,8 +77,46 @@ describe("loopeix run start <planned-run-dir>", () => {
     expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(true);
     expect(existsSync(join(runDir, RUN_DIR_FILES.manifest))).toBe(true);
     expect(existsSync(join(runDir, RUN_DIR_FILES.reportMd))).toBe(true);
+    expect(existsSync(join(runDir, "ledger.lock"))).toBe(false);
     const summary = JSON.parse(readFileSync(join(runDir, RUN_DIR_FILES.runSummary), "utf8"));
     expect(summary.run_id).toBe("run_fix_the_failing_date_parser_test_and_prove_the_f");
+    expect(runEngine).not.toHaveBeenCalled();
+  });
+
+  it("refuses to start when the planned run ledger lock is already held", async () => {
+    const runDir = createPlannedRun();
+    writeFileSync(join(runDir, "ledger.lock"), `${JSON.stringify({ pid: process.pid, acquired_at: Date.now(), host: "test" })}\n`);
+
+    const { exitCode, out } = await runStart([runDir, "--engine", "codex", "--events-file", codexEvents]);
+
+    expect(exitCode).toBe(1);
+    expect(out).toContain("run lock is held");
+    expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(false);
+    expect(runEngine).not.toHaveBeenCalled();
+  });
+
+  it("refuses live planned execution under a held run lock before engine launch", async () => {
+    const runDir = createPlannedRun();
+    writeFileSync(join(runDir, "ledger.lock"), `${JSON.stringify({ pid: process.pid, acquired_at: Date.now(), host: "test" })}\n`);
+
+    const { exitCode, out } = await runStart([runDir, "--engine", "codex"]);
+
+    expect(exitCode).toBe(1);
+    expect(out).toContain("run lock is held");
+    expect(out).not.toContain("Invoking");
+    expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(false);
+    expect(runEngine).not.toHaveBeenCalled();
+  });
+
+  it("does not steal an older run lock while the holder pid is still alive", async () => {
+    const runDir = createPlannedRun();
+    writeFileSync(join(runDir, "ledger.lock"), `${JSON.stringify({ pid: process.pid, acquired_at: Date.now() - 60_000, host: "test" })}\n`);
+
+    const { exitCode, out } = await runStart([runDir, "--engine", "codex", "--events-file", codexEvents]);
+
+    expect(exitCode).toBe(1);
+    expect(out).toContain("run lock is held");
+    expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(false);
     expect(runEngine).not.toHaveBeenCalled();
   });
 
@@ -92,6 +130,7 @@ describe("loopeix run start <planned-run-dir>", () => {
     expect(out).toContain("Replaying");
     expect(out).not.toContain("planned run prompt failed");
     expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(true);
+    expect(existsSync(join(runDir, "ledger.lock"))).toBe(false);
     expect(runEngine).not.toHaveBeenCalled();
   });
 
@@ -113,6 +152,7 @@ describe("loopeix run start <planned-run-dir>", () => {
     expect(out).toContain("Invoking codex_cli with planned prompt");
     expect(out).toContain(`Run dir: ${runDir}`);
     expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(true);
+    expect(existsSync(join(runDir, "ledger.lock"))).toBe(false);
     expect(runEngine).toHaveBeenCalledTimes(1);
     expect(runEngine).toHaveBeenCalledWith(
       "codex_cli",
@@ -140,6 +180,7 @@ describe("loopeix run start <planned-run-dir>", () => {
     expect(out).toContain("Invoking claude_code_cli with planned prompt");
     expect(out).toContain(`Run dir: ${runDir}`);
     expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(true);
+    expect(existsSync(join(runDir, "ledger.lock"))).toBe(false);
     expect(runEngine).toHaveBeenCalledWith(
       "claude_code_cli",
       promptResult.prompt,
