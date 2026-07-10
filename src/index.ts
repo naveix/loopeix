@@ -38,6 +38,7 @@ export * from "./run/run-dir.js";
 export * from "./run/engine.js";
 export * from "./run/plan.js";
 export * from "./run/preflight.js";
+export * from "./run/prompt.js";
 export * from "./catalog/item.js";
 export * from "./catalog/default-items.js";
 export * from "./compiler/records.js";

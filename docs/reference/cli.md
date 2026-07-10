@@ -98,6 +98,21 @@ planned-run files only; it does not invoke an engine and does not write artifact
 - Exit `1` — HOLD, with findings such as missing files, wrong engine, invalid generated loop, or
   existing execution artifacts.
 
+### `loopeix run prompt <planned-run-dir>`
+
+Print the exact bounded prompt derived from a planned run directory. This is the human-readable
+bridge between an approved compile pack and later live engine execution: it shows the objective,
+scope, workspace boundary, allowed/forbidden context, tool grants, gates, evaluations, adapter gaps,
+and execution rules before any engine is invoked.
+
+- Reads `intake-brief.json`, `resolved-run-plan.json`, and the planned run files checked by
+  `run preflight`.
+- Infers the planned engine from `resolved-run-plan.json`; no engine flag is accepted.
+- Requires the same startability gate as `run preflight`, including no existing execution artifacts.
+- Exit `0` — prints the bounded prompt.
+- Exit `1` — HOLD, with findings. No prompt is printed for invalid, wrong-state, or already-started
+  planned runs.
+
 ### `loopeix run recover <run-dir>`
 
 Like `run status`, but oriented at a run interrupted or corrupted mid-flight: reports the recoverable
