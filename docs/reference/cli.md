@@ -79,11 +79,13 @@ unverified receipt (exit `1`), so a CI step fails instead of posting a laundered
 
 ### `loopeix run status <run-dir>`
 
-Read a run's append-only ledger, recover it, and report integrity: `valid` or `hold`, the run state,
-the last valid sequence, whether it terminated, and any findings (corruption quarantined, partial
-final line dropped, truncation, content-hash mismatch).
+Read a run's status. For planned run directories that do not have `ledger.jsonl` yet, it reports
+`planned`, `integrity: unknown`, the planned `run_id`, and the next `run start` command shape. Once
+`ledger.jsonl` exists, it recovers the append-only ledger and reports integrity: `valid` or `hold`,
+the run state, the last valid sequence, whether it terminated, and any findings (corruption
+quarantined, partial final line dropped, truncation, content-hash mismatch).
 
-- Exit `0` — integrity `valid`.
+- Exit `0` — planned status or ledger integrity `valid`.
 - Exit non-zero (e.g. `4`) — integrity `hold` (findings printed). Never a silent pass.
 
 ### `loopeix run recover <run-dir>`
