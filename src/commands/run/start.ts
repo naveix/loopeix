@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { Args, Command, Flags } from "@oclif/core";
 import { parse as parseYaml } from "yaml";
 import { ClaudeAdapter, CodexAdapter, type EngineId } from "../../adapters/index.js";
@@ -11,8 +11,27 @@ import { assembleRun, type RunInput } from "../../run/orchestrate.js";
 import { RUN_DIR_FILES, writeRunDir } from "../../run/run-dir.js";
 import type { Brief } from "../../schema/brief.js";
 import type { Receipt } from "../../schema/receipt.js";
+import { ResolvedRunPlan } from "../../schema/runtime.js";
 import { validateLoopeix } from "../../validate.js";
 import { computeVerdicts } from "../../verdicts.js";
+
+function isPlannedRunDir(path: string): boolean {
+  return existsSync(path) && statSync(path).isDirectory() && existsSync(join(path, "resolved-run-plan.json"));
+}
+
+function plannedWorkspaceRoot(plan: unknown): string {
+  const boundary = (plan as { workspace_boundary?: unknown }).workspace_boundary;
+  if (typeof boundary !== "object" || boundary === null) return ".";
+  const root = (boundary as { workspace_root?: unknown }).workspace_root;
+  return typeof root === "string" && root.length > 0 ? root : ".";
+}
+
+function plannedEngine(plan: unknown): string | undefined {
+  const adapter = (plan as { adapter_plan?: unknown }).adapter_plan;
+  if (typeof adapter !== "object" || adapter === null) return undefined;
+  const engine = (adapter as { engine?: unknown }).engine;
+  return typeof engine === "string" ? engine : undefined;
+}
 
 /**
  * `loopeix run start <spec>` — execute a loop end-to-end into a run directory.
@@ -45,7 +64,43 @@ export default class RunStart extends Command {
 
   public async run(): Promise<void> {
     const { args, flags } = await this.parse(RunStart);
-    const spec = parseYaml(readFileSync(args.spec, "utf8")) as Record<string, unknown>;
+    const target = resolve(args.spec);
+    const plannedMode = isPlannedRunDir(target);
+    const isCodex = flags.engine === "codex";
+    const engine: EngineId = isCodex ? "codex_cli" : "claude_code_cli";
+
+    let run_id: string | undefined;
+    let run_dir: string | undefined;
+    let workspace = flags.workspace;
+    let specSource = target;
+
+    if (plannedMode) {
+      if (!flags["events-file"]) {
+        this.log("ERROR: planned run directories require --events-file in S27; live planned execution is not enabled yet.");
+        process.exitCode = 1;
+        return;
+      }
+      for (const file of [RUN_DIR_FILES.ledger, RUN_DIR_FILES.manifest, RUN_DIR_FILES.reportMd, RUN_DIR_FILES.reportHtml, RUN_DIR_FILES.runSummary]) {
+        if (existsSync(join(target, file))) {
+          this.log("ERROR: execution artifacts already exist; refusing to overwrite planned run output.");
+          process.exitCode = 1;
+          return;
+        }
+      }
+      const resolvedPlan = ResolvedRunPlan.parse(JSON.parse(readFileSync(join(target, "resolved-run-plan.json"), "utf8")));
+      const planEngine = plannedEngine(resolvedPlan);
+      if (planEngine !== undefined && planEngine !== engine) {
+        this.log(`ERROR: planned run was prepared for ${planEngine}, not ${engine}.`);
+        process.exitCode = 1;
+        return;
+      }
+      run_id = resolvedPlan.run_id;
+      run_dir = target;
+      workspace = plannedWorkspaceRoot(resolvedPlan);
+      specSource = join(target, "generated.loop.yaml");
+    }
+
+    const spec = parseYaml(readFileSync(specSource, "utf8")) as Record<string, unknown>;
 
     const validation = validateLoopeix(spec);
     if (!validation.ok) {
@@ -54,9 +109,6 @@ export default class RunStart extends Command {
       process.exitCode = 1;
       return;
     }
-
-    const isCodex = flags.engine === "codex";
-    const engine: EngineId = isCodex ? "codex_cli" : "claude_code_cli";
 
     let maxBudgetUsd: number | undefined;
     if (flags["max-budget-usd"] !== undefined) {
@@ -105,8 +157,8 @@ export default class RunStart extends Command {
     }
 
     const normalized = new (isCodex ? CodexAdapter : ClaudeAdapter)().normalize(rawEvents);
-    const run_id = `run_${Date.now().toString(36)}`;
-    const run_dir = `${flags.workspace}/.loopeix/runs/${run_id}`;
+    run_id = run_id ?? `run_${Date.now().toString(36)}`;
+    run_dir = run_dir ?? `${flags.workspace}/.loopeix/runs/${run_id}`;
     const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
     const runInput: RunInput = {
@@ -128,7 +180,7 @@ export default class RunStart extends Command {
       }),
       risk_controls: spec.risk_controls as RunInput["risk_controls"],
       tool_grant_tiers: asArray(spec.tool_grants).map((t) => String((t as Record<string, unknown>).risk_tier)),
-      workspace_root: flags.workspace,
+      workspace_root: workspace,
       run_dir,
       engine_status: engineStatus,
       brief,
@@ -149,12 +201,12 @@ export default class RunStart extends Command {
         captureGaps: normalized.capture_gaps,
         // resolve() ensures "." becomes the real cwd — without this, absolute paths under the
         // workspace root would not strip the prefix and would be excluded from adjudication (P3a).
-        workspaceRoot: resolve(flags.workspace),
+        workspaceRoot: resolve(workspace),
         ...(engineFinalText !== undefined ? { engineFinalText } : {}),
       });
       let key;
       try {
-        key = ensureSigningKey(flags.workspace);
+        key = ensureSigningKey(workspace);
       } catch (err) {
         this.log(`ERROR: cannot initialize signing key: ${(err as Error).message}`);
         writeRunDir(run_dir, assembly, {});

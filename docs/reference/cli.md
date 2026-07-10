@@ -35,7 +35,7 @@ approval, at least one blocking gate). Prints `OK` or `INVALID` with a numbered 
 Print a human-readable summary: version, workflow pattern, roles, tasks, and gates (blocking gates
 marked `*`), plus the max risk tier allowed without approval.
 
-### `loopeix run start <loop.yaml>`
+### `loopeix run start <loop.yaml | planned-run-dir>`
 
 Execute a loop end to end: drive the engine (or replay a captured stream), seal the ledger,
 evaluate gates, verify evidence, build the truthful report, and write the run directory.
@@ -48,6 +48,14 @@ evaluate gates, verify evidence, build the truthful report, and write the run di
 - `--seal <brief.yaml>` — seal a structured brief as ledger event 1 and emit a signed
   `receipt.json` with per-clause verdicts. Without it: ledger + report, no receipt, no verdicts.
 - `--workspace <dir>` — where `.loopeix/runs/<id>` lands (default `.`).
+
+When the first argument is a planned run directory containing `resolved-run-plan.json`, S27 runs in
+planned replay mode:
+
+- `--events-file <jsonl>` is required.
+- Live `--prompt` execution is refused.
+- The command uses the planned `run_id`, workspace root, and run directory.
+- Existing execution artifacts are never overwritten.
 
 Exit `0` on a completed run; non-zero on engine or integrity failure.
 
