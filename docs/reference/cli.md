@@ -132,6 +132,9 @@ Rebuild `report.md` + `report.html` for a run from its recorded inputs (`report-
 **truthful Markdown** report (verified claims, unverified claims, capture gaps, waivers, unresolved
 findings, redaction/retention state, known limitations — all sections always present) and a
 **static, self-contained HTML timeline** (no scripts, no network).
+The command takes `<run-dir>/ledger.lock` around the rebuild and writes each report through a
+temporary file plus atomic rename, so a concurrent run writer is not interleaved and readers do not
+observe half-written report files.
 
 ### `loopeix report open <run-dir>`
 

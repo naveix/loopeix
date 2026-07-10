@@ -11,7 +11,7 @@ import { extractFinalMessageText, parseJsonlEvents, runEngine } from "../../run/
 import { assembleRun, type RunInput } from "../../run/orchestrate.js";
 import { preflightPlannedRun } from "../../run/preflight.js";
 import { buildPlannedRunPrompt } from "../../run/prompt.js";
-import { RUN_DIR_FILES, writeRunDir } from "../../run/run-dir.js";
+import { RUN_DIR_FILES, RUN_LEDGER_LOCK, RUN_WRITE_LOCK_OPTIONS, writeRunDir } from "../../run/run-dir.js";
 import type { Brief } from "../../schema/brief.js";
 import type { Receipt } from "../../schema/receipt.js";
 import { validateLoopeix } from "../../validate.js";
@@ -20,8 +20,6 @@ import { computeVerdicts } from "../../verdicts.js";
 function isPlannedRunDir(path: string): boolean {
   return existsSync(path) && statSync(path).isDirectory() && existsSync(join(path, "resolved-run-plan.json"));
 }
-
-const RUN_START_LOCK_OPTIONS = { staleMs: Number.MAX_SAFE_INTEGER };
 
 /**
  * `loopeix run start <spec>` — execute a loop end-to-end into a run directory.
@@ -85,7 +83,7 @@ export default class RunStart extends Command {
       workspace = preflight.workspace_root ?? ".";
       specSource = preflight.spec_path ?? join(target, "generated.loop.yaml");
       try {
-        runLock = acquireLock(join(run_dir, "ledger.lock"), RUN_START_LOCK_OPTIONS);
+        runLock = acquireLock(join(run_dir, RUN_LEDGER_LOCK), RUN_WRITE_LOCK_OPTIONS);
       } catch (err) {
         if (err instanceof LockHeldError) {
           this.log(`ERROR: run lock is held: ${err.message}`);
