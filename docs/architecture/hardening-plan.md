@@ -2,9 +2,11 @@
 
 > Authored by a Fable 5 architecture pass against the code at commit `a25e7f2` + release-prep, and the
 > independent-review findings log. Every weakness below was verified against current source, not
-> recalled. Status: **proposed**. The single ordering rule underneath all of it: **make every claim the
-> system already renders become true before adding new claims** — verified claims before signatures,
-> signatures before real tiers/timestamps get signed, durability before scale.
+> recalled. Status: **proposed** with S34 implementation and automated validation complete for P0.5,
+> with independent final QA returning `SHIP IT`; shipped through the human gate on 2026-07-11.
+> The single ordering rule underneath all of it:
+> **make every claim the system already renders become true before adding new claims** — verified claims
+> before signatures, signatures before real tiers/timestamps get signed, durability before scale.
 
 ## Verified current-state facts this plan is built on
 
@@ -13,9 +15,9 @@
 3. `src/run/orchestrate.ts` — `risk_tier: "T1"` hardcoded on every ledger event.
 4. `src/run/orchestrate.ts` — event timestamps fabricated as `started_at + i seconds`; `NormalizedEvent` carries no timestamp, so the ledger timeline is synthetic.
 5. `src/ledger.ts` — hash chain is keyless; re-seal, tail-truncation, and byte-level tampering documented as limits.
-6. `src/lock.ts` — hardened but **not imported by any run command**; `run start` writes without a lock. `expectedLastSequence` truncation detection is wired only inside `buildRunManifest`.
+6. `src/lock.ts` — planned `run start` and report rebuild already use `ledger.lock`; raw `run start` still does not hold `ledger.lock` during write output in this sprint.
 7. `src/run/engine.ts` — `spawnSync` (synchronous, whole-stream-then-parse); a crash mid-run persists nothing (ledger assembled in memory, written once at the end).
-8. `src/commands/run/start.ts` — `run_id = run_${Date.now().toString(36)}` collides in the same millisecond and is predictable.
+8. `src/commands/run/start.ts` — raw mode is now allocator-based (`run_<base36>_<16-lowercase-hex>` + atomic claim), while planned mode still preserves preflight IDs.
 9. Spec schema already has what linkage needs: `evaluations[]` (id/type/command/success_condition/required), `tasks[].acceptance_checks`, `tool_grants[]` (risk_tier/scope/requires_approval).
 10. Structured-output capture has no fixtures (explicitly deferred).
 
@@ -49,8 +51,13 @@
 
 ### P0.5 run_id entropy
 **Problem.** Millisecond ids collide under the concurrency P1 introduces, and are predictable.
-**Design.** `run_${Date.now().toString(36)}_${randomBytes(4).toString("hex")}`.
-**Effort/risk.** S. **Verify.** 10k-generation uniqueness; `MachineId` still validates.
+**Design.** `run_${timestamp.toString(36)}_${16-lowercase-hex}` where `timestamp` is one non-negative,
+safe-integer `Date.now()` sample, and `16-lowercase-hex` is exactly 8 crypto bytes.
+Allocator flow: create `<workspace>/.loopeix/runs` recursively, then claim candidate run directory with
+non-recursive `mkdirSync`; retry only `EEXIST` up to a bounded internal default of `16`; rethrow all
+other fs errors; throw explicit exhaustion after retries.
+**Effort/risk.** S. **Verify.** Bounded-collision behavior is covered by focused Task 2 tests and `MachineId` compatibility remains.
+**Status.** Shipped in S34 on 2026-07-11 after focused and full automated validation, independent flaw sweeps, final QA `SHIP IT`, and human approval.
 
 ---
 
@@ -69,8 +76,14 @@
 **Verify.** Kill mid-engine → resume completes; truncation → HOLD; resume a terminal run → refuses; double-resume race → lock serializes.
 
 ### P1.3 Wire the lock into the run path
-**Problem.** `lock.ts` was hardened through a BLOCKING review then never connected; `run start` doesn't lock.
-**Design.** `<run-dir>/ledger.lock`; `run start`/`resume`/`report build` take `withLock` around writes; reads stay lock-free (valid-prefix recovery makes torn reads safe).
+**Problem.** A hardening pass completed the lock implementation, but the current sprint does not yet extend
+`ledger.lock` coverage to raw run writes. Planned live starts also have a pre-existing early-return path:
+if prompt rendering returns HOLD after lock acquisition, the command returns before its outer release finalizer.
+**Design.** Keep planned `run start` and `report build` as-is with the existing lock in this sprint; a
+later sprint should extend `ledger.lock` from raw directory reservation through artifact persistence and
+resume handling, and move planned prompt rendering under the existing release finalizer. S34 does not
+change planned lock behavior.
+Read paths remain lock-free (valid-prefix recovery makes torn reads safe).
 **Effort/risk.** S. **Verify.** Concurrent same-run `run start` → one proceeds, one fails closed; stale-steal exercised.
 
 ### P1.4 Capability / tool-grant enforcement at the engine boundary

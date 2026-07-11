@@ -8,6 +8,7 @@ import { ensureSigningKey, publicKeyFingerprint } from "../../keys.js";
 import { acquireLock, LockHeldError, type LockHandle } from "../../lock.js";
 import { buildReceipt } from "../../receipt.js";
 import { extractFinalMessageText, parseJsonlEvents, runEngine } from "../../run/engine.js";
+import { reserveRawRunDirectory } from "../../run/id.js";
 import { assembleRun, type RunInput } from "../../run/orchestrate.js";
 import { preflightPlannedRun } from "../../run/preflight.js";
 import { buildPlannedRunPrompt } from "../../run/prompt.js";
@@ -138,6 +139,25 @@ export default class RunStart extends Command {
         }
       }
 
+      const executionPrompt = flags["events-file"] ? undefined : (plannedPrompt ?? flags.prompt);
+      if (!flags["events-file"] && !executionPrompt) {
+        this.log("ERROR: --prompt is required for a live run (or pass --events-file to replay).");
+        process.exitCode = 1;
+        return;
+      }
+
+      if (!plannedMode) {
+        try {
+          const allocation = reserveRawRunDirectory(flags.workspace);
+          run_id = allocation.run_id;
+          run_dir = allocation.run_dir;
+        } catch (err) {
+          this.log(`ERROR: cannot reserve raw run directory: ${(err as Error).message}`);
+          process.exitCode = 1;
+          return;
+        }
+      }
+
       // Events: replay a captured file, or a live engine call.
       let rawEvents: unknown[];
       let engineStatus: { exit_code: number; timed_out: boolean } | undefined;
@@ -145,15 +165,14 @@ export default class RunStart extends Command {
         rawEvents = parseJsonlEvents(readFileSync(flags["events-file"], "utf8"));
         this.log(`Replaying ${rawEvents.length} captured event(s) from ${flags["events-file"]}`);
       } else {
-        const prompt = plannedPrompt ?? flags.prompt;
-        if (!prompt) {
-          this.log("ERROR: --prompt is required for a live run (or pass --events-file to replay).");
+        if (!executionPrompt) {
+          this.log("ERROR: cannot determine live run prompt.");
           process.exitCode = 1;
           return;
         }
         const engineOptions = { ...(plannedMode ? { cwd: workspace } : {}), ...(maxBudgetUsd === undefined ? {} : { maxBudgetUsd }) };
         this.log(plannedMode ? `Invoking ${engine} with planned prompt (read-only, empty stdin)...` : `Invoking ${engine} (read-only, empty stdin)...`);
-        const res = runEngine(engine, prompt, engineOptions);
+        const res = runEngine(engine, executionPrompt, engineOptions);
         rawEvents = res.rawEvents;
         engineStatus = { exit_code: res.exit_code, timed_out: res.timed_out };
         if (res.exit_code !== 0 || res.timed_out) {
@@ -165,8 +184,11 @@ export default class RunStart extends Command {
 
       const normalized = new (isCodex ? CodexAdapter : ClaudeAdapter)().normalize(rawEvents);
       const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-      run_id = run_id ?? `run_${Date.now().toString(36)}`;
-      run_dir = run_dir ?? `${flags.workspace}/.loopeix/runs/${run_id}`;
+      if (run_id === undefined || run_dir === undefined) {
+        this.log("ERROR: cannot determine run identity.");
+        process.exitCode = 1;
+        return;
+      }
 
       const runInput: RunInput = {
         run_id,

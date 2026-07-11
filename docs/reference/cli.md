@@ -61,7 +61,22 @@ runs in planned mode:
 - The command uses the planned `run_id`, workspace root, and run directory.
 - The command takes `<planned-run-dir>/ledger.lock` before live/replay execution and releases it
   after artifacts are written, so concurrent starts fail closed instead of interleaving writes.
+- Known pre-existing exception: a planned prompt-render HOLD can return before the release finalizer;
+  S34 does not change planned locks, and the hardening plan tracks that correction.
 - Existing execution artifacts are never overwritten.
+
+When the first argument is a raw loop file (raw compatibility mode), the command allocates a local
+run id and run directory after spec, option, sealed-brief, and live-prompt validation, but before
+replay parsing or live engine invocation:
+
+- `run_id` is `run_<lowercase-base36-milliseconds>_<16-lowercase-hex>`.
+- `run_dir` is exactly `<workspace>/.loopeix/runs/<run_id>`.
+- `Date.now()` is evaluated once per run start. The allocator creates `<workspace>/.loopeix/runs`
+  recursively, then claims `<run_dir>` with non-recursive `mkdirSync`.
+- Collisions retry only `EEXIST`, up to 16 attempts by default; non-collision fs errors fail
+  immediately.
+- Allocator failure or exhaustion exits the command with `ERROR: cannot reserve raw run directory: ...`
+  and exit code `1`.
 
 Exit `0` on a completed run; non-zero on engine or integrity failure.
 

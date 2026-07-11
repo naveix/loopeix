@@ -11,8 +11,17 @@ vi.mock("../../src/run/engine.js", async (importOriginal) => {
   };
 });
 
+vi.mock("../../src/run/id.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/run/id.js")>();
+  return {
+    ...actual,
+    reserveRawRunDirectory: vi.fn(actual.reserveRawRunDirectory),
+  };
+});
+
 import RunStart from "../../src/commands/run/start.js";
 import { parseJsonlEvents, runEngine } from "../../src/run/engine.js";
+import { reserveRawRunDirectory } from "../../src/run/id.js";
 import { RUN_DIR_FILES } from "../../src/run/run-dir.js";
 import { buildPlannedRunPrompt, compilePrompt, planRunFromCompilePack, writeCompilePack } from "../../src/index.js";
 
@@ -40,6 +49,7 @@ let dir: string;
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "loopeix-run-start-planned-"));
   vi.mocked(runEngine).mockReset();
+  vi.mocked(reserveRawRunDirectory).mockClear();
 });
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
@@ -81,6 +91,7 @@ describe("loopeix run start <planned-run-dir>", () => {
     const summary = JSON.parse(readFileSync(join(runDir, RUN_DIR_FILES.runSummary), "utf8"));
     expect(summary.run_id).toBe("run_fix_the_failing_date_parser_test_and_prove_the_f");
     expect(runEngine).not.toHaveBeenCalled();
+    expect(reserveRawRunDirectory).not.toHaveBeenCalled();
   });
 
   it("refuses to start when the planned run ledger lock is already held", async () => {
@@ -154,6 +165,7 @@ describe("loopeix run start <planned-run-dir>", () => {
     expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(true);
     expect(existsSync(join(runDir, "ledger.lock"))).toBe(false);
     expect(runEngine).toHaveBeenCalledTimes(1);
+    expect(reserveRawRunDirectory).not.toHaveBeenCalled();
     expect(runEngine).toHaveBeenCalledWith(
       "codex_cli",
       promptResult.prompt,
