@@ -21,7 +21,11 @@ import {
   parseAndValidateRuntimeLedgerStructureV02,
 } from "./runtime-ledger-v02.js";
 import { deriveProgressV02ForRuntime } from "./progress-evaluator.js";
-import { admitRuntimeRecordsV02 } from "./runtime-record-admission-v02.js";
+import {
+  admitRuntimeRecordsV02,
+  isCapturedAuthorityTrustContextV02,
+  verifyAdmittedAuthorityTrustRecordsV02,
+} from "./runtime-record-admission-v02.js";
 import { deriveCompensationProjectionV02 } from "./compensation-projection-v02.js";
 import { projectApplicabilityAndDueV02 } from "./applicability-projection-v02.js";
 import { deriveFailurePolicyProjectionV02 } from "./failure-policy-projection-v02.js";
@@ -396,7 +400,13 @@ export function validateRuntimeProjectionInputV02(
         return failure("RUNTIME_SCHEMA_INVENTORY_INVALID");
       }
     }
-    if (!trustedContexts.has(ownDataProperty(source, "authority_trust_context") as object)) {
+    const authorityTrustContext = ownDataProperty(source, "authority_trust_context");
+    if (!(typeof authorityTrustContext === "object" && authorityTrustContext !== null
+      && (trustedContexts.has(authorityTrustContext) || isCapturedAuthorityTrustContextV02(authorityTrustContext)))) {
+      return failure("AUTHORITY_TRUST_INVALID");
+    }
+    if (isCapturedAuthorityTrustContextV02(authorityTrustContext)
+      && !verifyAdmittedAuthorityTrustRecordsV02(authorityTrustContext, admittedRecords.value.records_by_path, ledger.events).ok) {
       return failure("AUTHORITY_TRUST_INVALID");
     }
 

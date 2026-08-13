@@ -769,7 +769,7 @@ const CanonicalLedgerRefsV02 = z.array(LedgerRefV02).superRefine((refs, ctx) => 
   }
 });
 
-const NonEmptyCanonicalLedgerRefsV02 = CanonicalLedgerRefsV02.refine((refs) => refs.length > 0, {
+export const NonEmptyCanonicalLedgerRefsV02 = CanonicalLedgerRefsV02.refine((refs) => refs.length > 0, {
   message: "must contain at least one canonical ledger reference",
 });
 
@@ -833,9 +833,15 @@ const CanonicalRecordDependencyRefsV02 = z.array(RecordDependencyRefV02).superRe
     }
   }
 });
-const ReviewEvidenceRefsV02 = CanonicalRecordDependencyRefsV02.refine((refs) => refs.length > 0, {
+export const ReviewEvidenceRefsV02 = CanonicalRecordDependencyRefsV02.refine((refs) => refs.length > 0, {
   message: "must contain at least one canonical dependency reference",
 });
+
+/** Recommendation evidence is a closed non-empty canonical tuple of evidence records only. */
+export const AgencyRecommendationEvidenceRefsV02 = ReviewEvidenceRefsV02.refine(
+  (refs) => refs.every((ref) => ref.record_kind === "evidence"),
+  { message: "agency recommendation evidence must contain only evidence records" },
+);
 
 export const ArtifactRecordV02 = strictObject({
   schema_version: z.literal("0.2"),
@@ -2136,7 +2142,7 @@ export const ApprovalRecommendationRecordedEventV02 = RuntimeEventEnvelopeV02.ex
     quorum_requirement_hash: Hash,
     policy_digest: Hash,
     reviewed_through_ref: LedgerRefV02,
-    evidence_refs: ReviewEvidenceRefsV02,
+    evidence_refs: AgencyRecommendationEvidenceRefsV02,
     evidence_independence_keys: CanonicalHashesV02.refine((keys) => keys.length > 0, {
       message: "recommendation requires at least one evidence independence key",
     }),
@@ -2399,7 +2405,7 @@ const AuthorityCostConstraintV02 = z.discriminatedUnion("capture", [
   strictObject({ capture: z.literal("not-applicable"), max_cost_minor_units: z.literal(0), cost_currency: z.null() }),
   strictObject({ capture: z.literal("required"), max_cost_minor_units: safeInteger.nonnegative(), cost_currency: Iso4217CurrencyCodeSyntaxV02 }),
 ]);
-const AuthorityScopeV02 = strictObject({
+export const AuthorityScopeV02 = strictObject({
   authority_subject: AuthoritySubjectV02,
   action_class: z.enum(["gate-waiver", "task", "tool", "artifact-write", "authority-delegation"]),
   capability_constraints: CanonicalAuthorityCapabilityConstraintsV02,
@@ -2431,6 +2437,16 @@ const AuthorityScopeV02 = strictObject({
     max_delegation_depth: z.union([z.literal(0), z.literal(1)]),
   }),
 });
+
+/** Normative V02 authority-scope identity for all new producers. */
+export function hashAuthorityScopeV02(scope: z.infer<typeof AuthorityScopeV02>): string {
+  return hashCanonical({ purpose: "authority-scope-v02", schema_version: "0.2", ...scope });
+}
+
+/** Shipped S35 read-compatibility only; new producers must never emit this hash. */
+function hashLegacyRawAuthorityScopeS35V02(scope: z.infer<typeof AuthorityScopeV02>): string {
+  return hashCanonical(scope);
+}
 
 const AuthorizedRepositoryChangeV02 = strictObject({
   path_bytes_base64: CanonicalBase64V02,
@@ -2556,7 +2572,7 @@ const CanonicalActionEffectRefsV02 = z.array(strictObject({ task_ref: HumanId, e
     }
   }
 });
-const ActionProposalV02 = strictObject({
+export const ActionProposalV02 = strictObject({
   proposal_version: z.literal("0.2"),
   action_proposal_id: MachineId,
   run_id: MachineId,
@@ -2608,10 +2624,12 @@ const ActionProposalV02 = strictObject({
   const chainHash = hashCanonical({ purpose: "action-on-behalf-of-chain-v02", on_behalf_of_chain: proposal.on_behalf_of_chain });
   const changeSetHash = hashCanonical({ purpose: "authorized-repository-change-set-v02", ...proposal.authorized_change_set });
   const dispatchHash = hashCanonical({ purpose: "normalized-action-dispatch-v02", ...proposal.normalized_dispatch });
+  const scopeHashValid = proposal.action_scope_hash === hashAuthorityScopeV02(proposal.action_scope)
+    || proposal.action_scope_hash === hashLegacyRawAuthorityScopeS35V02(proposal.action_scope);
   if (proposal.on_behalf_of_chain_hash !== chainHash
     || proposal.authorized_change_set_hash !== changeSetHash
     || proposal.normalized_dispatch_hash !== dispatchHash
-    || proposal.action_scope_hash !== hashCanonical(proposal.action_scope)) {
+    || !scopeHashValid) {
     ctx.addIssue({ code: "custom", message: "proposal nested hashes must match their exact preimages" });
   }
   const { action_proposal_hash: _ignored, ...preimage } = proposal;
@@ -2803,7 +2821,8 @@ export const AuthorityWaiverRecordedEventV02 = RuntimeEventEnvelopeV02.extend({
   if (payload.approval_evidence_refs.some((ref) => ref.record_kind !== "human-authorization")) {
     ctx.addIssue({ code: "custom", path: ["payload", "approval_evidence_refs"], message: "waiver approval evidence must contain only human authorizations" });
   }
-  if (payload.action_scope_hash !== hashCanonical(payload.authority_scope)) {
+  if (payload.action_scope_hash !== hashAuthorityScopeV02(payload.authority_scope)
+    && payload.action_scope_hash !== hashLegacyRawAuthorityScopeS35V02(payload.authority_scope)) {
     ctx.addIssue({ code: "custom", path: ["payload", "action_scope_hash"], message: "action scope hash must match the complete authority scope" });
   }
   const scope = payload.authority_scope;

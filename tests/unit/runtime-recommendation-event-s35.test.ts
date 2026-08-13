@@ -47,5 +47,9 @@ describe("S35 approval recommendation event", () => {
     expect(schemas.ApprovalRecommendationRecordedEventV02.safeParse(event({
       ...payload, reason_codes: [{ policy_digest: HASH_B, declaration_ref: "allow-evidence" }],
     })).success).toBe(false);
+    expect(schemas.ApprovalRecommendationRecordedEventV02.safeParse(event({
+      ...payload,
+      evidence_refs: [{ record_kind: "human-authorization", record_id: "authorization_1", record_event_ref: ref(1) }],
+    })).success).toBe(false);
   });
 });

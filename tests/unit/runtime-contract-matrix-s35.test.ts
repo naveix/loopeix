@@ -185,6 +185,7 @@ function normalizeFixture(row: ContractRow, event: Record<string, unknown>): voi
     case "approval.recommendation-recorded":
       Object.assign(payload, {
         run_id: event.run_id, phase: "work", compensation_ref: null, decision: "allow", condition_hashes: [],
+        evidence_refs: [{ record_kind: "evidence", record_id: "evidence_1", record_event_ref: ledgerRef(1) }],
         evaluator_actor_ref: "evaluator_1", evaluator_stable_identity_hash: `sha256:${"b".repeat(64)}`,
         issued_at: ISO, expires_at: "2026-08-10T12:05:00Z",
       });

@@ -67,6 +67,11 @@ describe("S35 gate-waiver authority event", () => {
     const event = { schema_version: "0.2", event_id: "event_waiver_authority_1", run_id: "run_main", sequence: 2, recorded_at: "2026-08-10T12:00:00Z", event_type: "authority.waiver-recorded", source: "operator", authority_ref: "principal_1", risk_tier: "T4", related_ids: [], previous_event_hash: HASH_A, event_hash: HASH_B, payload };
     const parsed = schemas.AuthorityWaiverRecordedEventV02.safeParse(event);
     expect(parsed.success, parsed.success ? undefined : JSON.stringify(parsed.error.issues, null, 2)).toBe(true);
+    const normativeScopeHash = hashCanonical({ purpose: "authority-scope-v02", schema_version: "0.2", ...authorityScope });
+    expect(schemas.AuthorityWaiverRecordedEventV02.safeParse({
+      ...event,
+      payload: { ...payload, action_scope_hash: normativeScopeHash },
+    }).success).toBe(true);
     expect(schemas.AuthorityWaiverRecordedEventV02.safeParse({ ...event, payload: { ...payload, action_scope_hash: HASH_B } }).success).toBe(false);
     expect(schemas.AuthorityWaiverRecordedEventV02.safeParse({ ...event, payload: { ...payload, allowed_gate_refs: ["gate-b"] } }).success).toBe(false);
 
