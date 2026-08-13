@@ -1,0 +1,666 @@
+{
+  "commands": {
+    "compile": {
+      "aliases": [],
+      "args": {},
+      "description": "Routes a user prompt through the local item catalog. Safe, clear prompts produce a draft .loop.yaml; risky or ambiguous prompts return HOLD instead of fabricating authority.",
+      "enableJsonFlag": true,
+      "examples": [
+        "<%= config.bin %> compile --prompt \"Fix the failing date parser test and prove the fix\" --pack-dir .loopeix/compiles/date-parser"
+      ],
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        },
+        "out": {
+          "description": "write the generated .loop.yaml to this path",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "out",
+          "type": "option"
+        },
+        "pack-dir": {
+          "description": "write compile records, report, and generated loop if compiled to this directory",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "pack-dir",
+          "type": "option"
+        },
+        "prompt": {
+          "description": "vague or scoped user prompt to compile",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "prompt",
+          "required": true,
+          "type": "option"
+        },
+        "workspace-root": {
+          "default": "<S35_BASELINE_SOURCE_ROOT>",
+          "description": "approved workspace root for the compiled loop",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "workspace-root",
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "compile",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "compile.js"
+      ],
+      "strict": true,
+      "summary": "Compile a vague prompt into a bounded Loopeix loop or an explicit HOLD."
+    },
+    "doctor": {
+      "aliases": [],
+      "args": {},
+      "enableJsonFlag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "doctor",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "doctor.js"
+      ],
+      "strict": true,
+      "summary": "Check the local Loopeix install (Node version, CLI version, bundled schema)."
+    },
+    "init": {
+      "aliases": [],
+      "args": {},
+      "enableJsonFlag": true,
+      "flags": {
+        "dry-run": {
+          "allowNo": false,
+          "description": "print what would be created without writing",
+          "name": "dry-run",
+          "type": "boolean"
+        },
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "init",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "init.js"
+      ],
+      "strict": true,
+      "summary": "Create a .loopeix/ workspace (workspace.yaml + loops/) in the current directory."
+    },
+    "pr": {
+      "aliases": [],
+      "args": {
+        "input": {
+          "description": "path to a receipt.json, or a run directory containing receipt.json (+ ledger.jsonl for the deep check)",
+          "name": "input",
+          "required": true
+        }
+      },
+      "description": "Completely offline — no network access, no GitHub permissions; the output is plain text you paste (or a CI step writes) into the PR body. The receipt is verified FIRST (schema, invariants, doctrine, signature; with a run-dir argument also the deep ledger binding): an unverified receipt gets a failure block naming the failed checks and exit 1 — never a verdict table. Exit 0 when rendered, 1 when the receipt did not verify or the input was unreadable.",
+      "enableJsonFlag": true,
+      "examples": [
+        "<%= config.bin %> pr receipt.json",
+        "<%= config.bin %> pr .loopeix/runs/run_abc123 --card delta-card.svg",
+        "<%= config.bin %> pr receipt.json --out pr-comment.md --json"
+      ],
+      "flags": {
+        "card": {
+          "description": "also write the Delta Card SVG to this path (e.g. delta-card.svg)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "card",
+          "type": "option"
+        },
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        },
+        "out": {
+          "description": "write the Markdown to a file instead of stdout",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "out",
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "pr",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "pr.js"
+      ],
+      "strict": true,
+      "summary": "Render a verified receipt as a PR-body verdict table (Markdown), plus an optional Delta Card SVG."
+    },
+    "report:build": {
+      "aliases": [],
+      "args": {
+        "run-dir": {
+          "description": "path to the run directory (.loopeix/runs/<id>)",
+          "name": "run-dir",
+          "required": true
+        }
+      },
+      "description": "Reads <run-dir>/report-input.json and rebuilds report.md + report.html. The report is derived from the run's recorded evidence/gate/timeline inputs, so it cannot over-claim.",
+      "enableJsonFlag": false,
+      "examples": [
+        "<%= config.bin %> report build .loopeix/runs/run_abc"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "report:build",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "report",
+        "build.js"
+      ],
+      "strict": true,
+      "summary": "Build the Markdown + HTML report for a run from its recorded inputs."
+    },
+    "report:open": {
+      "aliases": [],
+      "args": {
+        "run-dir": {
+          "description": "path to the run directory (.loopeix/runs/<id>)",
+          "name": "run-dir",
+          "required": true
+        }
+      },
+      "enableJsonFlag": false,
+      "examples": [
+        "<%= config.bin %> report open .loopeix/runs/run_abc"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "report:open",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "report",
+        "open.js"
+      ],
+      "strict": true,
+      "summary": "Show the path to a run's HTML report (open it in your browser)."
+    },
+    "run:plan": {
+      "aliases": [],
+      "args": {
+        "pack": {
+          "description": "compile pack directory",
+          "name": "pack",
+          "required": true
+        }
+      },
+      "description": "Consumes a compiled `loopeix compile --pack-dir` output and writes a planned run directory with intake brief and resolved-run-plan.json. HOLD packs are refused.",
+      "enableJsonFlag": true,
+      "examples": [
+        "<%= config.bin %> run plan .loopeix/compiles/date-parser --engine codex --workspace-root ."
+      ],
+      "flags": {
+        "approve-compiled-pack": {
+          "allowNo": false,
+          "description": "confirm the compiled pack was reviewed and approved for planning",
+          "name": "approve-compiled-pack",
+          "type": "boolean"
+        },
+        "engine": {
+          "description": "engine adapter to plan for",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "engine",
+          "options": [
+            "codex",
+            "claude"
+          ],
+          "required": true,
+          "type": "option"
+        },
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        },
+        "workspace-root": {
+          "default": "<S35_BASELINE_SOURCE_ROOT>",
+          "description": "approved workspace root (run dir = <workspace-root>/.loopeix/loops/<family>/runs/<run-id>)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "workspace-root",
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "run:plan",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "run",
+        "plan.js"
+      ],
+      "strict": true,
+      "summary": "Create an approved resolved run plan from a compiled pack."
+    },
+    "run:preflight": {
+      "aliases": [],
+      "args": {
+        "run": {
+          "description": "planned run directory",
+          "name": "run",
+          "required": true
+        }
+      },
+      "description": "Validates planned-run files, engine binding, generated loop validity, and absence of execution artifacts without invoking an engine or mutating files.",
+      "enableJsonFlag": true,
+      "flags": {
+        "engine": {
+          "description": "engine adapter to preflight against",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "engine",
+          "options": [
+            "codex",
+            "claude"
+          ],
+          "required": true,
+          "type": "option"
+        },
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "run:preflight",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "run",
+        "preflight.js"
+      ],
+      "strict": true,
+      "summary": "Check whether a planned run directory is ready to start."
+    },
+    "run:prompt": {
+      "aliases": [],
+      "args": {
+        "run": {
+          "description": "planned run directory",
+          "name": "run",
+          "required": true
+        }
+      },
+      "description": "Renders a deterministic prompt from intake-brief.json and resolved-run-plan.json after the same preflight gate used by run start passes. This does not invoke an engine or write artifacts.",
+      "enableJsonFlag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "run:prompt",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "run",
+        "prompt.js"
+      ],
+      "strict": true,
+      "summary": "Print the bounded engine prompt for a planned run directory."
+    },
+    "run:recover": {
+      "aliases": [],
+      "args": {
+        "run": {
+          "description": "run directory or ledger.jsonl path",
+          "name": "run",
+          "required": true
+        }
+      },
+      "enableJsonFlag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "run:recover",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "run",
+        "recover.js"
+      ],
+      "strict": true,
+      "summary": "Assess and report the recoverability of a run from its ledger (read-only in V1)."
+    },
+    "run:start": {
+      "aliases": [],
+      "args": {
+        "spec": {
+          "description": "path to the Loopeix YAML",
+          "name": "spec",
+          "required": true
+        }
+      },
+      "enableJsonFlag": false,
+      "examples": [
+        "<%= config.bin %> run start my-loop.yaml --engine codex --prompt \"Reply with ok\"",
+        "<%= config.bin %> run start .loopeix/loops/minimal-bugfix/runs/run_abc --engine codex",
+        "<%= config.bin %> run start my-loop.yaml --engine claude --events-file captured.jsonl",
+        "<%= config.bin %> run start my-loop.yaml --engine codex --events-file captured.jsonl --seal brief.yaml"
+      ],
+      "flags": {
+        "engine": {
+          "description": "engine to run",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "engine",
+          "options": [
+            "codex",
+            "claude"
+          ],
+          "required": true,
+          "type": "option"
+        },
+        "events-file": {
+          "description": "replay a pre-captured JSONL event file instead of a live call",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "events-file",
+          "type": "option"
+        },
+        "max-budget-usd": {
+          "description": "Claude budget cap in USD (default 0.10)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "max-budget-usd",
+          "type": "option"
+        },
+        "prompt": {
+          "description": "prompt / work item for raw YAML live runs; refused for planned run directories",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "prompt",
+          "type": "option"
+        },
+        "seal": {
+          "description": "brief YAML to seal into the ledger; emits a signed receipt.json",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "seal",
+          "type": "option"
+        },
+        "workspace": {
+          "default": ".",
+          "description": "workspace root (run dir = <workspace>/.loopeix/runs/<id>)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "workspace",
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "run:start",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "run",
+        "start.js"
+      ],
+      "strict": true,
+      "summary": "Execute a loop through an engine (or replay captured events) into a run directory."
+    },
+    "run:status": {
+      "aliases": [],
+      "args": {
+        "run": {
+          "description": "run directory or ledger.jsonl path",
+          "name": "run",
+          "required": true
+        }
+      },
+      "description": "Reads the run's ledger.jsonl, recovers it, and reports. Exit 4 if integrity is not valid.",
+      "enableJsonFlag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "run:status",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "run",
+        "status.js"
+      ],
+      "strict": true,
+      "summary": "Show a run's state, integrity, and findings from its ledger."
+    },
+    "spec:inspect": {
+      "aliases": [],
+      "args": {
+        "file": {
+          "description": "path to the Loopeix YAML file",
+          "name": "file",
+          "required": true
+        }
+      },
+      "enableJsonFlag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "spec:inspect",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "spec",
+        "inspect.js"
+      ],
+      "strict": true,
+      "summary": "Show the roles, tasks, gates, and risk controls of a Loopeix."
+    },
+    "spec:validate": {
+      "aliases": [],
+      "args": {
+        "file": {
+          "description": "path to the Loopeix YAML file",
+          "name": "file",
+          "required": true
+        }
+      },
+      "description": "Runs structural (schema) then relational (invariant) validation. Exit 0 if valid, 1 if invalid.",
+      "enableJsonFlag": true,
+      "examples": [
+        "<%= config.bin %> spec validate ./my-loop.loop.yaml"
+      ],
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "spec:validate",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "spec",
+        "validate.js"
+      ],
+      "strict": true,
+      "summary": "Validate a Loopeix file against the schema contract."
+    },
+    "verify": {
+      "aliases": [],
+      "args": {
+        "receipt": {
+          "description": "path to the receipt JSON file",
+          "name": "receipt",
+          "required": true
+        }
+      },
+      "description": "Completely offline — no network access, no account, no server. Checks the receipt's schema, cross-field invariants, the conservative-verdict doctrine (CONTRADICTED/PROMISE_BROKEN must cite evidence), and the embedded ECDSA P-256 signature. With --run-dir, additionally re-derives the ledger binding from the run's ledger.jsonl (bytes hash, chain head, full chain integrity). Exit 0 if every check passes, 1 if any check fails.",
+      "enableJsonFlag": true,
+      "examples": [
+        "<%= config.bin %> verify receipt.json",
+        "<%= config.bin %> verify receipt.json --run-dir .loopeix/runs/run_abc123"
+      ],
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        },
+        "run-dir": {
+          "description": "run directory containing ledger.jsonl, for the deep ledger check",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "run-dir",
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "verify",
+      "isESM": true,
+      "pluginAlias": "loopeix",
+      "pluginName": "loopeix",
+      "pluginType": "core",
+      "relativePath": [
+        "dist",
+        "commands",
+        "verify.js"
+      ],
+      "strict": true,
+      "summary": "Verify a signed Loopeix receipt offline (schema, invariants, doctrine, signature)."
+    }
+  },
+  "version": "0.1.0"
+}

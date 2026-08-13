@@ -1,8 +1,14 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { resolve } from "node:path";
 import { Args, Command } from "@oclif/core";
 import { parseLedgerText, recoverLedger, type RecoveryResult } from "../../ledger.js";
 import { ResolvedRunPlan } from "../../schema/runtime.js";
+import {
+  capturePlannedRunV02,
+  consumeCapturedPlannedRunV02,
+} from "../../run/capture-planned-v02.js";
+import { presentPlannedRunV02, type PlannedRunPresentationV02 } from "../../run/present-planned-v02.js";
 
 export type RunStatusResult =
   | (RecoveryResult & { source: "ledger"; ledger_path: string })
@@ -17,6 +23,25 @@ export type RunStatusResult =
       run_dir: string;
       engine: string | null;
       next_action: string;
+    }
+  | (PlannedRunPresentationV02 & {
+      source: "planned";
+      integrity_status: "unknown";
+      last_valid_sequence: 0;
+      terminated: false;
+      findings: [];
+      run_dir: string;
+      engine: string;
+    })
+  | {
+      source: "planned";
+      run_state: "planned";
+      integrity_status: "invalid";
+      last_valid_sequence: 0;
+      terminated: false;
+      findings: string[];
+      run_dir: string;
+      reason: "V02_RUN_LAYOUT_CONTAMINATED" | "INVALID_RESOLVED_RUN_PLAN_DOCUMENT";
     };
 
 function resolveLedgerPath(p: string): string {
@@ -54,6 +79,59 @@ export default class RunStatus extends Command {
 
   public async run(): Promise<RunStatusResult> {
     const { args } = await this.parse(RunStatus);
+    const runDir = resolve(args.run);
+    const captured = await capturePlannedRunV02(runDir);
+    if (captured.ok) {
+      const value = consumeCapturedPlannedRunV02(captured.captured);
+      if (value === null) {
+        const result: RunStatusResult = {
+          source: "planned",
+          run_state: "planned",
+          integrity_status: "invalid",
+          last_valid_sequence: 0,
+          terminated: false,
+          findings: ["The captured V02 planned run could not be consumed safely."],
+          run_dir: runDir,
+          reason: "INVALID_RESOLVED_RUN_PLAN_DOCUMENT",
+        };
+        process.exitCode = 4;
+        return result;
+      }
+      const result: RunStatusResult = {
+        ...presentPlannedRunV02(value.plan),
+        source: "planned",
+        integrity_status: "unknown",
+        last_valid_sequence: 0,
+        terminated: false,
+        findings: [],
+        run_dir: runDir,
+        engine: value.plan.adapter_plan.engine,
+      };
+      if (!this.jsonEnabled()) {
+        this.log("run_state:     planned");
+        this.log("execution:     NOT EXECUTED");
+        this.log("enforcement:   NOT ENFORCED");
+        this.log(`reason:        ${result.reason}`);
+      }
+      return result;
+    }
+    if (captured.reason !== "NOT_V02_PLANNED_RUN") {
+      const result: RunStatusResult = {
+        source: "planned",
+        run_state: "planned",
+        integrity_status: "invalid",
+        last_valid_sequence: 0,
+        terminated: false,
+        findings: [captured.message],
+        run_dir: runDir,
+        reason: captured.reason === "V02_RUN_LAYOUT_CONTAMINATED"
+          ? "V02_RUN_LAYOUT_CONTAMINATED"
+          : "INVALID_RESOLVED_RUN_PLAN_DOCUMENT",
+      };
+      if (!this.jsonEnabled()) this.log(`HOLD  ${result.reason}`);
+      process.exitCode = 4;
+      return result;
+    }
     const ledgerPath = resolveLedgerPath(args.run);
     const plannedPlanPath = plannedRunPath(args.run);
     if (!existsSync(ledgerPath)) {

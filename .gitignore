@@ -17,6 +17,7 @@ coverage/
 
 # Loopeix local runtime output (runs are local, not committed)
 .loopeix/runs/
+.loopeix/compiles/**
 
 # OS / editor noise
 .DS_Store

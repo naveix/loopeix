@@ -1,0 +1,612 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loopeix.dev/schemas/receipt-0.1.schema.json",
+  "title": "Loopeix Receipt",
+  "x-loopeix-schema-version": "0.1",
+  "x-compatibility-policy": "additive within a minor version; breaking changes bump the version",
+  "type": "object",
+  "properties": {
+    "receipt_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "run": {
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "loop_family": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "loopeix_version": {
+          "type": "string",
+          "pattern": "^v\\d{3}$"
+        },
+        "engine": {
+          "type": "string",
+          "enum": [
+            "codex_cli",
+            "claude_code_cli"
+          ]
+        },
+        "run_state": {
+          "type": "string",
+          "enum": [
+            "planned",
+            "ready",
+            "running",
+            "interrupted",
+            "recovering",
+            "held",
+            "failed",
+            "completed",
+            "archived"
+          ]
+        },
+        "integrity_status": {
+          "type": "string",
+          "enum": [
+            "unknown",
+            "valid",
+            "hold",
+            "failed"
+          ]
+        },
+        "sealed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        }
+      },
+      "required": [
+        "run_id",
+        "loop_family",
+        "loopeix_version",
+        "engine",
+        "run_state",
+        "integrity_status",
+        "sealed_at"
+      ],
+      "additionalProperties": false
+    },
+    "brief": {
+      "type": "object",
+      "properties": {
+        "brief_version": {
+          "type": "string",
+          "const": "0.1"
+        },
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acceptance": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema2"
+          }
+        },
+        "forbidden": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/__schema1"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "delete_paths",
+                      "write_paths"
+                    ]
+                  },
+                  "globs": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema3"
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "kind",
+                  "globs"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/__schema1"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "freeform"
+                  }
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "kind"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "brief_hash": {
+          "$ref": "#/$defs/__schema4"
+        }
+      },
+      "required": [
+        "brief_version",
+        "task",
+        "acceptance",
+        "forbidden",
+        "scope",
+        "brief_hash"
+      ],
+      "additionalProperties": false
+    },
+    "ledger_binding": {
+      "type": "object",
+      "properties": {
+        "event_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "head_event_hash": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "ledger_sha256": {
+          "$ref": "#/$defs/__schema4"
+        }
+      },
+      "required": [
+        "event_count",
+        "head_event_hash",
+        "ledger_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "claim_id": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "family": {
+                "$ref": "#/$defs/__schema5"
+              },
+              "text": {
+                "$ref": "#/$defs/__schema6"
+              },
+              "evidence_ids": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema7"
+                }
+              },
+              "reason": {
+                "$ref": "#/$defs/__schema8"
+              },
+              "verdict": {
+                "type": "string",
+                "const": "CONTRADICTED"
+              }
+            },
+            "required": [
+              "claim_id",
+              "family",
+              "text",
+              "evidence_ids",
+              "verdict"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "claim_id": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "family": {
+                "$ref": "#/$defs/__schema5"
+              },
+              "text": {
+                "$ref": "#/$defs/__schema6"
+              },
+              "evidence_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reason": {
+                "$ref": "#/$defs/__schema8"
+              },
+              "verdict": {
+                "type": "string",
+                "enum": [
+                  "VERIFIED",
+                  "UNSUPPORTED"
+                ]
+              }
+            },
+            "required": [
+              "claim_id",
+              "family",
+              "text",
+              "evidence_ids",
+              "verdict"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "brief_clauses": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "clause_id": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "clause_type": {
+                "$ref": "#/$defs/__schema9"
+              },
+              "text": {
+                "$ref": "#/$defs/__schema10"
+              },
+              "evidence_ids": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema11"
+                }
+              },
+              "reason": {
+                "$ref": "#/$defs/__schema12"
+              },
+              "verdict": {
+                "type": "string",
+                "const": "PROMISE_BROKEN"
+              }
+            },
+            "required": [
+              "clause_id",
+              "clause_type",
+              "text",
+              "evidence_ids",
+              "verdict"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "clause_id": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "clause_type": {
+                "$ref": "#/$defs/__schema9"
+              },
+              "text": {
+                "$ref": "#/$defs/__schema10"
+              },
+              "evidence_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reason": {
+                "$ref": "#/$defs/__schema12"
+              },
+              "verdict": {
+                "type": "string",
+                "enum": [
+                  "KEPT",
+                  "UNEVALUATED"
+                ]
+              }
+            },
+            "required": [
+              "clause_id",
+              "clause_type",
+              "text",
+              "evidence_ids",
+              "verdict"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "evidence_id": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "command",
+              "file",
+              "artifact",
+              "approval",
+              "test",
+              "gate",
+              "adapter_event",
+              "human_note",
+              "source_citation",
+              "browser"
+            ]
+          },
+          "sha256": {
+            "$ref": "#/$defs/__schema4"
+          },
+          "capture_level": {
+            "type": "string",
+            "enum": [
+              "full",
+              "partial"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "wrapper",
+              "engine_stream"
+            ]
+          }
+        },
+        "required": [
+          "evidence_id",
+          "type",
+          "capture_level",
+          "source"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "capture_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "engine": {
+            "type": "string"
+          },
+          "capability": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine",
+          "capability",
+          "level",
+          "note"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "claims": {
+          "type": "object",
+          "properties": {
+            "verified": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "contradicted": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "unsupported": {
+              "$ref": "#/$defs/__schema13"
+            }
+          },
+          "required": [
+            "verified",
+            "contradicted",
+            "unsupported"
+          ],
+          "additionalProperties": false
+        },
+        "clauses": {
+          "type": "object",
+          "properties": {
+            "kept": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "promise_broken": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "unevaluated": {
+              "$ref": "#/$defs/__schema13"
+            }
+          },
+          "required": [
+            "kept",
+            "promise_broken",
+            "unevaluated"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "claims",
+        "clauses"
+      ],
+      "additionalProperties": false
+    },
+    "signature": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "ecdsa-p256-sha256"
+        },
+        "encoding": {
+          "type": "string",
+          "const": "der-base64"
+        },
+        "public_key_spki_b64": {
+          "$ref": "#/$defs/__schema14"
+        },
+        "signature_b64": {
+          "$ref": "#/$defs/__schema14"
+        }
+      },
+      "required": [
+        "algorithm",
+        "encoding",
+        "public_key_spki_b64",
+        "signature_b64"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "receipt_version",
+    "run",
+    "brief",
+    "ledger_binding",
+    "claims",
+    "brief_clauses",
+    "evidence",
+    "capture_gaps",
+    "summary",
+    "signature"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "type": "string",
+      "pattern": "^[a-z]+_[a-z0-9]+(_[a-z0-9]+)*$"
+    },
+    "__schema1": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "__schema2": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "tests-pass",
+            "freeform"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "__schema3": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema4": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "__schema5": {
+      "type": "string",
+      "enum": [
+        "tests-ran",
+        "recognized-assertion"
+      ]
+    },
+    "__schema6": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema7": {
+      "type": "string"
+    },
+    "__schema8": {
+      "type": "string"
+    },
+    "__schema9": {
+      "type": "string",
+      "enum": [
+        "acceptance",
+        "forbidden",
+        "scope"
+      ]
+    },
+    "__schema10": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema11": {
+      "type": "string"
+    },
+    "__schema12": {
+      "type": "string"
+    },
+    "__schema13": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "__schema14": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+    }
+  }
+}

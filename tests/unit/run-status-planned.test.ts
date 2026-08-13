@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RunStart from "../../src/commands/run/start.js";
 import RunStatus, { type RunStatusResult } from "../../src/commands/run/status.js";
-import { compilePrompt, planRunFromCompilePack, writeCompilePack } from "../../src/index.js";
+import { planRunFromCompilePack } from "../../src/index.js";
+import { compilePrompt } from "../../src/compiler/compile.js";
+import { writeCompilePack } from "../../src/compiler/pack.js";
 
 const repoRoot = join(import.meta.dirname, "..", "..");
 const codexEvents = join(repoRoot, "tests", "fixtures", "adapter-events", "codex", "s1-codex-exec-json.redacted.jsonl");

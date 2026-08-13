@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RunPreflight, { type RunPreflightCommandResult } from "../../src/commands/run/preflight.js";
 import RunStart from "../../src/commands/run/start.js";
-import { compilePrompt, preflightPlannedRun, writeCompilePack, planRunFromCompilePack } from "../../src/index.js";
+import { preflightPlannedRun, planRunFromCompilePack } from "../../src/index.js";
+import { compilePrompt } from "../../src/compiler/compile.js";
+import { writeCompilePack } from "../../src/compiler/pack.js";
 
 const repoRoot = join(import.meta.dirname, "..", "..");
 const codexEvents = join(repoRoot, "tests", "fixtures", "adapter-events", "codex", "s1-codex-exec-json.redacted.jsonl");

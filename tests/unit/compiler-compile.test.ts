@@ -1,6 +1,7 @@
 import { parse as parseYaml } from "yaml";
 import { describe, expect, it } from "vitest";
-import { compilePrompt, DEFAULT_LOOP_CATALOG, hashCanonical, validateLoopeix } from "../../src/index.js";
+import { DEFAULT_LOOP_CATALOG, hashCanonical, validateLoopeix } from "../../src/index.js";
+import { compilePrompt } from "../../src/compiler/compile.js";
 
 const hash = "sha256:3333333333333333333333333333333333333333333333333333333333333333";
 

@@ -1,0 +1,27 @@
+{
+  "schema_version": "0.1",
+  "intake_brief_id": "ib_fix_the_failing_date_parser_test_and_prove_the_f",
+  "objective": "Fix the failing date parser test and prove the fix.",
+  "scope": [
+    "Diagnose, fix, and validate a scoped bug without laundering unsupported claims."
+  ],
+  "allowed_context": [
+    "Project instructions",
+    "Approved user prompt"
+  ],
+  "forbidden_context": [
+    ".env contents unless explicitly approved",
+    "Unapproved connector write actions"
+  ],
+  "allowed_tools": [
+    "workspace-shell"
+  ],
+  "allowed_connectors": [],
+  "max_risk_tier": "T2",
+  "approval_bindings": [
+    "compiler-pack-approved"
+  ],
+  "terminal_states": [
+    "compiled"
+  ]
+}

@@ -23,7 +23,9 @@ import RunStart from "../../src/commands/run/start.js";
 import { parseJsonlEvents, runEngine } from "../../src/run/engine.js";
 import { reserveRawRunDirectory } from "../../src/run/id.js";
 import { RUN_DIR_FILES } from "../../src/run/run-dir.js";
-import { buildPlannedRunPrompt, compilePrompt, planRunFromCompilePack, writeCompilePack } from "../../src/index.js";
+import { buildPlannedRunPrompt, planRunFromCompilePack } from "../../src/index.js";
+import { compilePrompt } from "../../src/compiler/compile.js";
+import { writeCompilePack } from "../../src/compiler/pack.js";
 
 const repoRoot = join(import.meta.dirname, "..", "..");
 const codexEvents = join(repoRoot, "tests", "fixtures", "adapter-events", "codex", "s1-codex-exec-json.redacted.jsonl");

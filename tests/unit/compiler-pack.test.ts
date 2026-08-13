@@ -3,7 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { compilePrompt, validateLoopeix, writeCompilePack } from "../../src/index.js";
+import { validateLoopeix } from "../../src/index.js";
+import { compilePrompt } from "../../src/compiler/compile.js";
+import { writeCompilePack } from "../../src/compiler/pack.js";
 
 let dir: string;
 beforeEach(() => {

@@ -1,0 +1,13 @@
+{
+  "schema_version": "0.2",
+  "intake_id": "intake_42_deadbeefcafebabe",
+  "work_item_id": "wi_42_deadbeefcafebabe",
+  "objective": "Fix the diagnosed defect and preserve regression evidence.",
+  "requested_outcome": "Fix the failing parser bug and prove the correction.",
+  "candidate_scope": [],
+  "forbidden_actions": [],
+  "required_inputs": [],
+  "risk_flags": [],
+  "ambiguities": [],
+  "untrusted_source_refs": []
+}

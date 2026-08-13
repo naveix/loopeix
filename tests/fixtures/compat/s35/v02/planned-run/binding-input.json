@@ -1,0 +1,690 @@
+{
+  "schema_version": "0.2",
+  "binding_input_id": "binding_42_deadbeefcafebabe",
+  "work_item_id": "wi_42_deadbeefcafebabe",
+  "submitted_at": "1970-01-01T00:00:00Z",
+  "bindings": [
+    {
+      "key": "project.compensations",
+      "source": "operator",
+      "value": [],
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.engine",
+      "source": "operator",
+      "value": {
+        "engine": "codex",
+        "command": "codex exec --json",
+        "permission_mode": "workspace-write",
+        "known_gaps": [
+          "Usage totals require separate admitted evidence."
+        ]
+      },
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.evidence-requirements",
+      "source": "operator",
+      "value": [
+        {
+          "id": "bugfix-evidence",
+          "minimum_independent_roots": 1,
+          "evidence_kinds": [
+            "command-capture"
+          ],
+          "source_acquisition_policy": null
+        },
+        {
+          "id": "control-evidence",
+          "minimum_independent_roots": 1,
+          "evidence_kinds": [
+            "manual-observation"
+          ],
+          "source_acquisition_policy": null
+        }
+      ],
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.forbidden-context",
+      "source": "operator",
+      "value": [
+        "Private customer records."
+      ],
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.goal",
+      "source": "operator",
+      "value": {
+        "statement": "Fix the diagnosed defect and preserve regression evidence.",
+        "success_criteria": [
+          {
+            "id": "project-success",
+            "description": "The item-specific evaluation passes with admitted evidence.",
+            "evaluation_refs": [
+              "project-validation"
+            ],
+            "required": true
+          }
+        ]
+      },
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.hard-limits",
+      "source": "operator",
+      "value": {
+        "max_loop_attempts": 4,
+        "max_elapsed_ms": 60000,
+        "max_tool_calls": 32,
+        "max_workers": 1,
+        "max_output_bytes": 6000000000,
+        "control_plane_output_reserve_bytes": 5000000000,
+        "max_tokens": null,
+        "max_cost_minor_units": null,
+        "cost_currency": null
+      },
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.objective",
+      "source": "operator",
+      "value": "Fix the diagnosed defect and preserve regression evidence.",
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.progress",
+      "source": "operator",
+      "value": {
+        "observations": [
+          {
+            "id": "project-progress",
+            "description": "Track the item-specific evaluation result.",
+            "source": "evaluation",
+            "source_ref": "project-validation",
+            "value_pointer": "/passed",
+            "value_type": "boolean",
+            "improves_when": {
+              "operator": "equals",
+              "target": true
+            },
+            "target": {
+              "operator": "equals",
+              "value": true
+            }
+          }
+        ],
+        "stall_after_loop_attempts": 2
+      },
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.recovery-policy",
+      "source": "operator",
+      "value": {
+        "resume_from": "last-durable-boundary",
+        "require_input_hash_match": true,
+        "require_policy_hash_match": true,
+        "on_unknown_outcome": "hold",
+        "terminal_compensation": "before-terminal-seal",
+        "activation_reasons": [
+          "terminal-failure",
+          "terminal-exhaustion",
+          "terminal-stall",
+          "abort-recovery"
+        ],
+        "max_compensation_workers": 1,
+        "reserve": {
+          "max_elapsed_ms": 0,
+          "max_tool_calls": 0,
+          "max_output_bytes": 0,
+          "max_tokens": null,
+          "max_cost_minor_units": null
+        }
+      },
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.required-context",
+      "source": "operator",
+      "value": [
+        "Approved repository files."
+      ],
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.retry-policy",
+      "source": "operator",
+      "value": {
+        "rules": [
+          {
+            "task_ref": "diagnose-root-cause",
+            "failure_class": "transient-adapter",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "diagnose-root-cause",
+            "failure_class": "transient-network",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "diagnose-root-cause",
+            "failure_class": "contention",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "diagnose-root-cause",
+            "failure_class": "verification-failed",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "diagnose-root-cause",
+            "failure_class": "policy-hold",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "diagnose-root-cause",
+            "failure_class": "invalid-input",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "diagnose-root-cause",
+            "failure_class": "permanent-execution",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "implement-change",
+            "failure_class": "transient-adapter",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "implement-change",
+            "failure_class": "transient-network",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "implement-change",
+            "failure_class": "contention",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "implement-change",
+            "failure_class": "verification-failed",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "implement-change",
+            "failure_class": "policy-hold",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "implement-change",
+            "failure_class": "invalid-input",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "implement-change",
+            "failure_class": "permanent-execution",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "validate-change",
+            "failure_class": "transient-adapter",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "validate-change",
+            "failure_class": "transient-network",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "validate-change",
+            "failure_class": "contention",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "validate-change",
+            "failure_class": "verification-failed",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "validate-change",
+            "failure_class": "policy-hold",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "validate-change",
+            "failure_class": "invalid-input",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "validate-change",
+            "failure_class": "permanent-execution",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "review-regression-risk",
+            "failure_class": "transient-adapter",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "review-regression-risk",
+            "failure_class": "transient-network",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "review-regression-risk",
+            "failure_class": "contention",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "review-regression-risk",
+            "failure_class": "verification-failed",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "review-regression-risk",
+            "failure_class": "policy-hold",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "review-regression-risk",
+            "failure_class": "invalid-input",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          },
+          {
+            "task_ref": "review-regression-risk",
+            "failure_class": "permanent-execution",
+            "retryable": false,
+            "max_task_executions": 1,
+            "backoff": "none",
+            "base_delay_ms": 0,
+            "max_delay_ms": 0
+          }
+        ]
+      },
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.side-effects",
+      "source": "operator",
+      "value": [
+        {
+          "task_id": "diagnose-root-cause",
+          "effects": [
+            {
+              "effect_id": "effect-diagnose-root-cause",
+              "effect_class": "workspace-write",
+              "description": "Perform only the declared bounded task effect.",
+              "inspectable": true,
+              "reversible": false,
+              "idempotency": "required",
+              "last_safe_stop": {
+                "kind": "before-task",
+                "task_ref": "diagnose-root-cause"
+              },
+              "compensation_ref": null
+            }
+          ]
+        },
+        {
+          "task_id": "implement-change",
+          "effects": [
+            {
+              "effect_id": "effect-implement-change",
+              "effect_class": "workspace-write",
+              "description": "Perform only the declared bounded task effect.",
+              "inspectable": true,
+              "reversible": false,
+              "idempotency": "required",
+              "last_safe_stop": {
+                "kind": "before-task",
+                "task_ref": "implement-change"
+              },
+              "compensation_ref": null
+            }
+          ]
+        },
+        {
+          "task_id": "validate-change",
+          "effects": [
+            {
+              "effect_id": "effect-validate-change",
+              "effect_class": "workspace-write",
+              "description": "Perform only the declared bounded task effect.",
+              "inspectable": true,
+              "reversible": false,
+              "idempotency": "required",
+              "last_safe_stop": {
+                "kind": "before-task",
+                "task_ref": "validate-change"
+              },
+              "compensation_ref": null
+            }
+          ]
+        },
+        {
+          "task_id": "review-regression-risk",
+          "effects": [
+            {
+              "effect_id": "effect-review-regression-risk",
+              "effect_class": "workspace-write",
+              "description": "Perform only the declared bounded task effect.",
+              "inspectable": true,
+              "reversible": false,
+              "idempotency": "required",
+              "last_safe_stop": {
+                "kind": "before-task",
+                "task_ref": "review-regression-risk"
+              },
+              "compensation_ref": null
+            }
+          ]
+        }
+      ],
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.stop-policy",
+      "source": "operator",
+      "value": {
+        "terminal_states": [
+          {
+            "state": "aborted",
+            "condition_mode": "any",
+            "conditions": [
+              {
+                "source": "control",
+                "ref": "abort-requested",
+                "outcome": "present"
+              }
+            ],
+            "priority": 700
+          },
+          {
+            "state": "failed",
+            "condition_mode": "any",
+            "conditions": [
+              {
+                "source": "failure",
+                "task_ref": "diagnose-root-cause",
+                "ref": "invalid-input",
+                "outcome": "observed"
+              }
+            ],
+            "priority": 600
+          },
+          {
+            "state": "exhausted",
+            "condition_mode": "any",
+            "conditions": [
+              {
+                "source": "limit",
+                "ref": "max-loop-attempts",
+                "outcome": "reached"
+              }
+            ],
+            "priority": 500
+          },
+          {
+            "state": "stalled",
+            "condition_mode": "any",
+            "conditions": [
+              {
+                "source": "progress",
+                "ref": "project-progress",
+                "outcome": "stalled"
+              }
+            ],
+            "priority": 400
+          },
+          {
+            "state": "held",
+            "condition_mode": "any",
+            "conditions": [
+              {
+                "source": "gate",
+                "ref": "change-before-validation",
+                "outcome": "hold"
+              }
+            ],
+            "priority": 300
+          },
+          {
+            "state": "blocked",
+            "condition_mode": "any",
+            "conditions": [
+              {
+                "source": "failure",
+                "task_ref": "diagnose-root-cause",
+                "ref": "contention",
+                "outcome": "observed"
+              }
+            ],
+            "priority": 200
+          },
+          {
+            "state": "completed",
+            "condition_mode": "all",
+            "conditions": [
+              {
+                "source": "success-criterion",
+                "ref": "project-success",
+                "outcome": "satisfied"
+              }
+            ],
+            "priority": 100
+          }
+        ]
+      },
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.validation",
+      "source": "operator",
+      "value": [
+        {
+          "id": "control-review",
+          "type": "manual-review",
+          "required": true,
+          "success_condition": "Every required control is supported by admitted evidence.",
+          "applicability": {
+            "mode": "always"
+          },
+          "prerequisites": [
+            {
+              "kind": "run-initialized"
+            }
+          ],
+          "evidence_requirement_refs": [
+            "control-evidence"
+          ],
+          "evaluator_binding": {
+            "role_ref": "diagnostician",
+            "evaluator_identity_ref": "evaluator_safe_bugfix",
+            "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+            "export_check_role": null
+          }
+        },
+        {
+          "id": "project-validation",
+          "type": "manual-review",
+          "required": true,
+          "success_condition": "The item-specific acceptance contract is satisfied.",
+          "applicability": {
+            "mode": "always"
+          },
+          "prerequisites": [
+            {
+              "kind": "run-initialized"
+            }
+          ],
+          "evidence_requirement_refs": [
+            "bugfix-evidence"
+          ],
+          "evaluator_binding": {
+            "role_ref": "diagnostician",
+            "evaluator_identity_ref": "evaluator_safe_bugfix",
+            "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+            "export_check_role": null
+          }
+        }
+      ],
+      "source_ref": null,
+      "source_hash": null,
+      "approved_by": "operator"
+    },
+    {
+      "key": "project.workspace-root",
+      "source": "workspace-observation",
+      "value": {
+        "root": "/private/var/folders/0v/vg80y63d7fb92wj3ynpkfyfm0000gn/T/loopeix-s35-v02-fixture-repository-w16DCX",
+        "read": [
+          "src"
+        ],
+        "write": [
+          "artifacts"
+        ]
+      },
+      "source_ref": "workspace:root",
+      "source_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "approved_by": "operator"
+    }
+  ]
+}

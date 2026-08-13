@@ -130,3 +130,5 @@ export function resolveCatalog(
     needs_clarification: false,
   };
 }
+
+export const resolveCatalogV01 = resolveCatalog;

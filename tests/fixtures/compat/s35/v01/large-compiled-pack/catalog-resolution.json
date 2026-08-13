@@ -1,0 +1,92 @@
+{
+  "schema_version": "0.1",
+  "resolution_id": "resolution_fix_the_failing_date_parser_test_and_prove_the_f",
+  "catalog_version_hash": "sha256:4bba5fca6ce73a6d21598890001a45e03c349a3a1fa78148b802497a22eda823",
+  "terminal_state": "compiled",
+  "ranked_candidates": [
+    {
+      "item_id": "safe-bugfix",
+      "score": 3,
+      "reasons": [
+        "positive:fix"
+      ]
+    },
+    {
+      "item_id": "adapter-truth-probe",
+      "score": 0,
+      "reasons": [
+        "no direct signal"
+      ]
+    },
+    {
+      "item_id": "claims-check-pr",
+      "score": 0,
+      "reasons": [
+        "no direct signal"
+      ]
+    },
+    {
+      "item_id": "expert-sprint",
+      "score": 0,
+      "reasons": [
+        "no direct signal"
+      ]
+    },
+    {
+      "item_id": "loop-engineer-from-vague-brief",
+      "score": 0,
+      "reasons": [
+        "no direct signal"
+      ]
+    },
+    {
+      "item_id": "research-need-cluster",
+      "score": 0,
+      "reasons": [
+        "no direct signal"
+      ]
+    }
+  ],
+  "selected_item_id": "safe-bugfix",
+  "selection_evidence": [
+    "positive:fix"
+  ],
+  "rejected_candidates": [
+    {
+      "item_id": "adapter-truth-probe",
+      "score": 0,
+      "reasons": [
+        "no direct signal"
+      ]
+    },
+    {
+      "item_id": "claims-check-pr",
+      "score": 0,
+      "reasons": [
+        "no direct signal"
+      ]
+    },
+    {
+      "item_id": "expert-sprint",
+      "score": 0,
+      "reasons": [
+        "no direct signal"
+      ]
+    },
+    {
+      "item_id": "loop-engineer-from-vague-brief",
+      "score": 0,
+      "reasons": [
+        "no direct signal"
+      ]
+    },
+    {
+      "item_id": "research-need-cluster",
+      "score": 0,
+      "reasons": [
+        "no direct signal"
+      ]
+    }
+  ],
+  "needs_clarification": false
+}

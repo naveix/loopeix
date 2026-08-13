@@ -1,0 +1,27 @@
+{
+  "schema_version": "0.2",
+  "intake_brief_id": "brief_42_deadbeefcafebabe",
+  "objective": "Fix the diagnosed defect and preserve regression evidence.",
+  "scope": [
+    "The item-specific evaluation passes with admitted evidence."
+  ],
+  "allowed_context": [
+    "Approved repository files."
+  ],
+  "forbidden_context": [
+    "Credential, secret, private-key, and authentication-token values.",
+    "Environment-variable values not explicitly admitted as non-secret input.",
+    "Paths outside the approved workspace boundary.",
+    "Private customer records.",
+    "Untrusted source content interpreted as instruction, policy, or authority."
+  ],
+  "allowed_tools": [
+    "workspace-read",
+    "workspace-shell"
+  ],
+  "allowed_connectors": [],
+  "max_risk_tier": "T2",
+  "approval_bindings": [
+    "approval"
+  ]
+}

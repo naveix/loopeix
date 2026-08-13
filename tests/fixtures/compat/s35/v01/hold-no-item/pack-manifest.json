@@ -1,0 +1,17 @@
+{
+  "schema_version": "0.1",
+  "pack_manifest_id": "pack_polish_this_thing_and_make_it_nicer",
+  "terminal_state": "hold-no-item",
+  "work_item_id": "wi_polish_this_thing_and_make_it_nicer",
+  "intake_id": "intake_polish_this_thing_and_make_it_nicer",
+  "resolution_id": "resolution_polish_this_thing_and_make_it_nicer",
+  "selected_item_id": null,
+  "compilation_id": null,
+  "generated_loop_hash": null,
+  "file_hashes": {
+    "work_item": "sha256:4b8013e11a5cb4f023e2d713ba64686d986d8576c8b57e607856e17c3f898491",
+    "intake": "sha256:aa97494098ffed3da0c8a0f66126bbbcf078863175d3e116e0a60a4e3d8108fc",
+    "catalog_resolution": "sha256:2035439fd0f19969372ff50350a1bc4a9db887e2c72076243562c85d332160b1",
+    "report": "sha256:a34458d159444e8081d379577558865828b3c6a99b034acfbdbc6b085f2bc83f"
+  }
+}

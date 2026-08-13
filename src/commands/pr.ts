@@ -5,6 +5,14 @@ import { renderDeltaCard } from "../render/delta-card.js";
 import { renderPrMarkdown, type PrModel } from "../render/pr.js";
 import { gateReceipt, type RenderGateOptions } from "../render/shared.js";
 import { RUN_DIR_FILES } from "../run/run-dir.js";
+import {
+  captureV01LedgerForReceipt,
+  invalidLegacyPolicyUse,
+  LEGACY_POLICY_FAILURE_PRESENTATION,
+  loadLegacyReplayPolicy,
+  selectV01ReceiptRunId,
+  type LegacyPolicyCommandFailure,
+} from "../io/legacy-policy.js";
 
 /**
  * `loopeix pr <receipt.json | run-dir>` — render a VERIFIED receipt as the PR verdict table
@@ -18,7 +26,8 @@ import { RUN_DIR_FILES } from "../run/run-dir.js";
  */
 export type PrCommandResult =
   | ({ ok: true } & PrModel)
-  | { ok: false; failed_checks: { id: string; detail: string }[] };
+  | { ok: false; failed_checks: { id: string; detail: string }[] }
+  | LegacyPolicyCommandFailure;
 
 export default class Pr extends Command {
   static summary = "Render a verified receipt as a PR-body verdict table (Markdown), plus an optional Delta Card SVG.";
@@ -37,6 +46,9 @@ export default class Pr extends Command {
   static flags = {
     out: Flags.string({ description: "write the Markdown to a file instead of stdout" }),
     card: Flags.string({ description: "also write the Delta Card SVG to this path (e.g. delta-card.svg)" }),
+    "legacy-replay-policy": Flags.string({
+      description: "strict finite resource policy JSON for a confirmed V01 ledger",
+    }),
   };
   static examples = [
     "<%= config.bin %> pr receipt.json",
@@ -60,6 +72,11 @@ export default class Pr extends Command {
       // Missing path: fall through — the receipt read below fails the parse check, fail-closed.
     }
 
+    const policyPath = flags["legacy-replay-policy"];
+    if (policyPath !== undefined && ledgerPath === undefined) {
+      return this.failLegacyPolicy(invalidLegacyPolicyUse());
+    }
+
     let text = "";
     const opts: RenderGateOptions = {};
     try {
@@ -68,10 +85,20 @@ export default class Pr extends Command {
       opts.receiptError = (err as Error).message;
     }
     if (ledgerPath !== undefined) {
-      try {
-        opts.ledgerText = readFileSync(ledgerPath, "utf8");
-      } catch (err) {
-        opts.ledgerError = (err as Error).message;
+      if (policyPath === undefined) {
+        try {
+          opts.ledgerText = readFileSync(ledgerPath, "utf8");
+        } catch (err) {
+          opts.ledgerError = (err as Error).message;
+        }
+      } else {
+        const policy = await loadLegacyReplayPolicy(policyPath);
+        if (!policy.ok) return this.failLegacyPolicy(policy);
+        const runId = selectV01ReceiptRunId(text);
+        if (runId === null) return this.failLegacyPolicy(invalidLegacyPolicyUse());
+        const ledger = await captureV01LedgerForReceipt(ledgerPath, runId, policy.policy);
+        if (!ledger.ok) return this.failLegacyPolicy(ledger);
+        opts.ledgerText = ledger.ledgerText;
       }
     }
 
@@ -118,5 +145,12 @@ export default class Pr extends Command {
       if (flags.card !== undefined) this.log(`Wrote ${flags.card}`);
     }
     return { ok: true, ...rendered.model };
+  }
+
+  private failLegacyPolicy(failure: LegacyPolicyCommandFailure): LegacyPolicyCommandFailure {
+    const presentation = LEGACY_POLICY_FAILURE_PRESENTATION[failure.reason];
+    if (!this.jsonEnabled()) this.log(presentation.message);
+    process.exitCode = presentation.exit;
+    return { ok: false, reason: failure.reason, message: presentation.message };
   }
 }

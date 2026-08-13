@@ -26,3 +26,8 @@ export function hashCanonical(value: unknown): string {
 export function hashBytes(input: string): string {
   return `sha256:${sha256Hex(input)}`;
 }
+
+/** Hash an exact raw byte capture without decoding or normalizing it. */
+export function hashRawBytes(input: Uint8Array): string {
+  return `sha256:${createHash("sha256").update(input).digest("hex")}`;
+}

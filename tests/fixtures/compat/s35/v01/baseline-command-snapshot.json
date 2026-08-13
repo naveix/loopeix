@@ -1,0 +1,543 @@
+{
+  "baseline_commit": "13a8906fdd32b005d29c1eb07ee54f55f80c7fc2",
+  "commands": [
+    {
+      "aliases": [],
+      "args": {},
+      "enable_json_flag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        },
+        "out": {
+          "description": "write the generated .loop.yaml to this path",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "out",
+          "type": "option"
+        },
+        "pack-dir": {
+          "description": "write compile records, report, and generated loop if compiled to this directory",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "pack-dir",
+          "type": "option"
+        },
+        "prompt": {
+          "description": "vague or scoped user prompt to compile",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "prompt",
+          "required": true,
+          "type": "option"
+        },
+        "workspace-root": {
+          "default": "<S35_BASELINE_SOURCE_ROOT>",
+          "description": "approved workspace root for the compiled loop",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "workspace-root",
+          "type": "option"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "compile",
+      "relative_path": [
+        "dist",
+        "commands",
+        "compile.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {},
+      "enable_json_flag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "doctor",
+      "relative_path": [
+        "dist",
+        "commands",
+        "doctor.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {},
+      "enable_json_flag": true,
+      "flags": {
+        "dry-run": {
+          "allowNo": false,
+          "description": "print what would be created without writing",
+          "name": "dry-run",
+          "type": "boolean"
+        },
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "init",
+      "relative_path": [
+        "dist",
+        "commands",
+        "init.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {
+        "input": {
+          "description": "path to a receipt.json, or a run directory containing receipt.json (+ ledger.jsonl for the deep check)",
+          "name": "input",
+          "required": true
+        }
+      },
+      "enable_json_flag": true,
+      "flags": {
+        "card": {
+          "description": "also write the Delta Card SVG to this path (e.g. delta-card.svg)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "card",
+          "type": "option"
+        },
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        },
+        "out": {
+          "description": "write the Markdown to a file instead of stdout",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "out",
+          "type": "option"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "pr",
+      "relative_path": [
+        "dist",
+        "commands",
+        "pr.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {
+        "run-dir": {
+          "description": "path to the run directory (.loopeix/runs/<id>)",
+          "name": "run-dir",
+          "required": true
+        }
+      },
+      "enable_json_flag": false,
+      "flags": {},
+      "hidden_aliases": [],
+      "id": "report:build",
+      "relative_path": [
+        "dist",
+        "commands",
+        "report",
+        "build.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {
+        "run-dir": {
+          "description": "path to the run directory (.loopeix/runs/<id>)",
+          "name": "run-dir",
+          "required": true
+        }
+      },
+      "enable_json_flag": false,
+      "flags": {},
+      "hidden_aliases": [],
+      "id": "report:open",
+      "relative_path": [
+        "dist",
+        "commands",
+        "report",
+        "open.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {
+        "pack": {
+          "description": "compile pack directory",
+          "name": "pack",
+          "required": true
+        }
+      },
+      "enable_json_flag": true,
+      "flags": {
+        "approve-compiled-pack": {
+          "allowNo": false,
+          "description": "confirm the compiled pack was reviewed and approved for planning",
+          "name": "approve-compiled-pack",
+          "type": "boolean"
+        },
+        "engine": {
+          "description": "engine adapter to plan for",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "engine",
+          "options": [
+            "codex",
+            "claude"
+          ],
+          "required": true,
+          "type": "option"
+        },
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        },
+        "workspace-root": {
+          "default": "<S35_BASELINE_SOURCE_ROOT>",
+          "description": "approved workspace root (run dir = <workspace-root>/.loopeix/loops/<family>/runs/<run-id>)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "workspace-root",
+          "type": "option"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "run:plan",
+      "relative_path": [
+        "dist",
+        "commands",
+        "run",
+        "plan.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {
+        "run": {
+          "description": "planned run directory",
+          "name": "run",
+          "required": true
+        }
+      },
+      "enable_json_flag": true,
+      "flags": {
+        "engine": {
+          "description": "engine adapter to preflight against",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "engine",
+          "options": [
+            "codex",
+            "claude"
+          ],
+          "required": true,
+          "type": "option"
+        },
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "run:preflight",
+      "relative_path": [
+        "dist",
+        "commands",
+        "run",
+        "preflight.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {
+        "run": {
+          "description": "planned run directory",
+          "name": "run",
+          "required": true
+        }
+      },
+      "enable_json_flag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "run:prompt",
+      "relative_path": [
+        "dist",
+        "commands",
+        "run",
+        "prompt.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {
+        "run": {
+          "description": "run directory or ledger.jsonl path",
+          "name": "run",
+          "required": true
+        }
+      },
+      "enable_json_flag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "run:recover",
+      "relative_path": [
+        "dist",
+        "commands",
+        "run",
+        "recover.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {
+        "spec": {
+          "description": "path to the Loopeix YAML",
+          "name": "spec",
+          "required": true
+        }
+      },
+      "enable_json_flag": false,
+      "flags": {
+        "engine": {
+          "description": "engine to run",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "engine",
+          "options": [
+            "codex",
+            "claude"
+          ],
+          "required": true,
+          "type": "option"
+        },
+        "events-file": {
+          "description": "replay a pre-captured JSONL event file instead of a live call",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "events-file",
+          "type": "option"
+        },
+        "max-budget-usd": {
+          "description": "Claude budget cap in USD (default 0.10)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "max-budget-usd",
+          "type": "option"
+        },
+        "prompt": {
+          "description": "prompt / work item for raw YAML live runs; refused for planned run directories",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "prompt",
+          "type": "option"
+        },
+        "seal": {
+          "description": "brief YAML to seal into the ledger; emits a signed receipt.json",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "seal",
+          "type": "option"
+        },
+        "workspace": {
+          "default": ".",
+          "description": "workspace root (run dir = <workspace>/.loopeix/runs/<id>)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "workspace",
+          "type": "option"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "run:start",
+      "relative_path": [
+        "dist",
+        "commands",
+        "run",
+        "start.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {
+        "run": {
+          "description": "run directory or ledger.jsonl path",
+          "name": "run",
+          "required": true
+        }
+      },
+      "enable_json_flag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "run:status",
+      "relative_path": [
+        "dist",
+        "commands",
+        "run",
+        "status.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {
+        "file": {
+          "description": "path to the Loopeix YAML file",
+          "name": "file",
+          "required": true
+        }
+      },
+      "enable_json_flag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "spec:inspect",
+      "relative_path": [
+        "dist",
+        "commands",
+        "spec",
+        "inspect.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {
+        "file": {
+          "description": "path to the Loopeix YAML file",
+          "name": "file",
+          "required": true
+        }
+      },
+      "enable_json_flag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "spec:validate",
+      "relative_path": [
+        "dist",
+        "commands",
+        "spec",
+        "validate.js"
+      ],
+      "strict": true
+    },
+    {
+      "aliases": [],
+      "args": {
+        "receipt": {
+          "description": "path to the receipt JSON file",
+          "name": "receipt",
+          "required": true
+        }
+      },
+      "enable_json_flag": true,
+      "flags": {
+        "json": {
+          "allowNo": false,
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "type": "boolean"
+        },
+        "run-dir": {
+          "description": "run directory containing ledger.jsonl, for the deep ledger check",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "name": "run-dir",
+          "type": "option"
+        }
+      },
+      "hidden_aliases": [],
+      "id": "verify",
+      "relative_path": [
+        "dist",
+        "commands",
+        "verify.js"
+      ],
+      "strict": true
+    }
+  ],
+  "manifest_file": "baseline-oclif-manifest.normalized.json",
+  "normalization": {
+    "commands.compile.flags.workspace-root.default": "<S35_BASELINE_SOURCE_ROOT>",
+    "commands.run:plan.flags.workspace-root.default": "<S35_BASELINE_SOURCE_ROOT>"
+  },
+  "snapshot_version": "s35-v01-command-inventory-v1"
+}

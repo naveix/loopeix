@@ -1,0 +1,2517 @@
+{
+  "schema_version": "0.2",
+  "execution_profile": "bounded-v02",
+  "run_id": "run_msq2nla8_0102030405060708",
+  "loop_family": "minimal-bugfix",
+  "loopeix_version": "v001",
+  "loopeix_version_hash": "sha256:67fc0e76ca0ccb8d8a2a40cb76dd3b3e06ef3c3193aa1e1eec31627e851a8cf1",
+  "source_authoring_hash": "sha256:67fc0e76ca0ccb8d8a2a40cb76dd3b3e06ef3c3193aa1e1eec31627e851a8cf1",
+  "compiler_bundle_id": "compiler_s35_v02_1",
+  "catalog_version_hash": "sha256:8247aa4bb07e599ea889607b007b76fb787d356e70c817e6429c827a67a3726a",
+  "binding_input_id": "binding_42_deadbeefcafebabe",
+  "binding_input_hash": "sha256:9f9ca3bbe4dd8e76e5df69f13123675e699eb44a062c35ce35cc777c35326cb7",
+  "compile_pack_manifest_hash": "sha256:461a13b0a08da9c0ff535e741011c4edace2479675facafa6a47867c56ce657e",
+  "work_item_id": "wi_42_deadbeefcafebabe",
+  "intake_brief_id": "brief_42_deadbeefcafebabe",
+  "created_at": "2026-08-12T12:34:56Z",
+  "trigger": {
+    "type": "operator-invoked",
+    "entrypoint": "run-start"
+  },
+  "goal": {
+    "statement": "Fix the diagnosed defect and preserve regression evidence.",
+    "success_criteria": [
+      {
+        "id": "project-success",
+        "description": "The item-specific evaluation passes with admitted evidence.",
+        "evaluation_refs": [
+          "project-validation"
+        ],
+        "required": true
+      }
+    ]
+  },
+  "roles": [
+    {
+      "id": "diagnostician",
+      "owns": [
+        "root-cause diagnosis"
+      ],
+      "must_not": [
+        "edit before tracing the failure"
+      ],
+      "allowed_tools": [
+        "workspace-shell"
+      ],
+      "handoff": "Evidence-backed root cause and blast radius."
+    },
+    {
+      "id": "implementer",
+      "owns": [
+        "scoped change"
+      ],
+      "must_not": [
+        "delete or weaken validation"
+      ],
+      "allowed_tools": [
+        "workspace-shell"
+      ],
+      "handoff": "Minimal change with affected dependencies."
+    },
+    {
+      "id": "validator",
+      "owns": [
+        "project validation"
+      ],
+      "must_not": [
+        "modify implementation under evaluation"
+      ],
+      "allowed_tools": [
+        "workspace-shell"
+      ],
+      "handoff": "Exact commands, outcomes, and remaining gaps."
+    },
+    {
+      "id": "independent-reviewer",
+      "owns": [
+        "regression-risk review"
+      ],
+      "must_not": [
+        "silently repair reviewed code"
+      ],
+      "allowed_tools": [
+        "workspace-read"
+      ],
+      "handoff": "Independent correctness and fragility findings."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "diagnose-root-cause",
+      "role": "diagnostician",
+      "artifacts": [
+        "diagnosis"
+      ],
+      "depends_on": [],
+      "acceptance_checks": [
+        "The root cause and affected dependency path are evidenced."
+      ],
+      "kind": "work",
+      "pre_task_gate_refs": [
+        "intake-boundedness",
+        "workspace-boundary"
+      ]
+    },
+    {
+      "id": "implement-change",
+      "role": "implementer",
+      "artifacts": [
+        "change-summary"
+      ],
+      "depends_on": [
+        "diagnose-root-cause"
+      ],
+      "acceptance_checks": [
+        "The change is limited to the diagnosed cause and declared scope."
+      ],
+      "kind": "work",
+      "pre_task_gate_refs": [
+        "change-before-validation",
+        "tool-grant-adherence"
+      ]
+    },
+    {
+      "id": "validate-change",
+      "role": "validator",
+      "artifacts": [
+        "validation-results"
+      ],
+      "depends_on": [
+        "implement-change"
+      ],
+      "acceptance_checks": [
+        "Required checks run without deletion, weakening, or silent skip."
+      ],
+      "kind": "work",
+      "pre_task_gate_refs": [
+        "change-before-validation",
+        "evidence-integrity"
+      ]
+    },
+    {
+      "id": "review-regression-risk",
+      "role": "independent-reviewer",
+      "artifacts": [
+        "regression-review"
+      ],
+      "depends_on": [
+        "validate-change"
+      ],
+      "acceptance_checks": [
+        "The review challenges correctness, edge cases, and missing coverage."
+      ],
+      "kind": "work",
+      "pre_task_gate_refs": [
+        "claim-support",
+        "report-truthfulness"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "diagnosis",
+      "path": "artifacts/content/diagnosis.md",
+      "type": "markdown",
+      "required": true,
+      "producer_task": "diagnose-root-cause",
+      "acceptance_checks": [
+        "Root cause, evidence, and dependency impact are explicit."
+      ]
+    },
+    {
+      "id": "change-summary",
+      "path": "artifacts/content/change-summary.md",
+      "type": "markdown",
+      "required": true,
+      "producer_task": "implement-change",
+      "acceptance_checks": [
+        "Changed files and behavior are exact."
+      ]
+    },
+    {
+      "id": "validation-results",
+      "path": "artifacts/content/validation-results.json",
+      "type": "json",
+      "required": true,
+      "producer_task": "validate-change",
+      "acceptance_checks": [
+        "Commands, exit status, and result evidence are recorded."
+      ]
+    },
+    {
+      "id": "regression-review",
+      "path": "artifacts/content/regression-review.md",
+      "type": "markdown",
+      "required": true,
+      "producer_task": "review-regression-risk",
+      "acceptance_checks": [
+        "Material findings and residual risks are visible."
+      ]
+    }
+  ],
+  "gates": [
+    {
+      "id": "manifest-completeness",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'manifest-completeness' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'manifest-completeness' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'manifest-completeness' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'manifest-completeness' control.",
+      "waiver_allowed": false,
+      "control_kind": "manifest-completeness",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "risk-tier-consistency",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'risk-tier-consistency' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'risk-tier-consistency' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'risk-tier-consistency' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'risk-tier-consistency' control.",
+      "waiver_allowed": false,
+      "control_kind": "risk-tier-consistency",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "approval",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'approval' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'approval' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'approval' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'approval' control.",
+      "waiver_allowed": false,
+      "control_kind": "approval",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "workspace-boundary",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'workspace-boundary' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'workspace-boundary' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'workspace-boundary' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'workspace-boundary' control.",
+      "waiver_allowed": false,
+      "control_kind": "workspace-boundary",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "context-and-source-freshness",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'context-and-source-freshness' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'context-and-source-freshness' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'context-and-source-freshness' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'context-and-source-freshness' control.",
+      "waiver_allowed": false,
+      "control_kind": "context-and-source-freshness",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "tool-grant-adherence",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'tool-grant-adherence' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'tool-grant-adherence' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'tool-grant-adherence' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'tool-grant-adherence' control.",
+      "waiver_allowed": false,
+      "control_kind": "tool-grant-adherence",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "evidence-integrity",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'evidence-integrity' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'evidence-integrity' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'evidence-integrity' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'evidence-integrity' control.",
+      "waiver_allowed": false,
+      "control_kind": "evidence-integrity",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "claim-support",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'claim-support' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'claim-support' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'claim-support' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'claim-support' control.",
+      "waiver_allowed": false,
+      "control_kind": "claim-support",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "unresolved-findings",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'unresolved-findings' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'unresolved-findings' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'unresolved-findings' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'unresolved-findings' control.",
+      "waiver_allowed": false,
+      "control_kind": "unresolved-findings",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "secrets-privacy",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'secrets-privacy' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'secrets-privacy' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'secrets-privacy' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'secrets-privacy' control.",
+      "waiver_allowed": false,
+      "control_kind": "secrets-privacy",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "redaction-retention",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'redaction-retention' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'redaction-retention' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'redaction-retention' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'redaction-retention' control.",
+      "waiver_allowed": false,
+      "control_kind": "redaction-retention",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "adapter-capability",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'adapter-capability' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'adapter-capability' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'adapter-capability' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'adapter-capability' control.",
+      "waiver_allowed": false,
+      "control_kind": "adapter-capability",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "report-truthfulness",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'report-truthfulness' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'report-truthfulness' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'report-truthfulness' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'report-truthfulness' control.",
+      "waiver_allowed": false,
+      "control_kind": "report-truthfulness",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "ad-hoc-task-provenance",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'ad-hoc-task-provenance' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'ad-hoc-task-provenance' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'ad-hoc-task-provenance' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'ad-hoc-task-provenance' control.",
+      "waiver_allowed": false,
+      "control_kind": "ad-hoc-task-provenance",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "no-t5",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'no-t5' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'no-t5' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'no-t5' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'no-t5' control.",
+      "waiver_allowed": false,
+      "control_kind": "no-t5",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "intake-boundedness",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'intake-boundedness' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'intake-boundedness' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'intake-boundedness' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'intake-boundedness' control.",
+      "waiver_allowed": false,
+      "control_kind": "intake-boundedness",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "catalog-selection-evidence",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'catalog-selection-evidence' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'catalog-selection-evidence' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'catalog-selection-evidence' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'catalog-selection-evidence' control.",
+      "waiver_allowed": false,
+      "control_kind": "catalog-selection-evidence",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "untrusted-instruction-provenance",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'untrusted-instruction-provenance' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'untrusted-instruction-provenance' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'untrusted-instruction-provenance' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'untrusted-instruction-provenance' control.",
+      "waiver_allowed": false,
+      "control_kind": "untrusted-instruction-provenance",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "autonomy-escalation",
+      "blocking": true,
+      "inputs_required": [
+        "validated plan projection"
+      ],
+      "evidence_rule": "The 'autonomy-escalation' control is judged only from admitted control evidence.",
+      "pass_condition": "The 'autonomy-escalation' control is satisfied by admitted evidence.",
+      "hold_condition": "Evidence for the 'autonomy-escalation' control is incomplete or unavailable.",
+      "fail_condition": "Admitted evidence contradicts the 'autonomy-escalation' control.",
+      "waiver_allowed": false,
+      "control_kind": "autonomy-escalation",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T2",
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "change-before-validation",
+      "blocking": true,
+      "inputs_required": [
+        "diagnosis",
+        "declared change scope"
+      ],
+      "evidence_rule": "Validation is evaluated only against a diagnosed and recorded change.",
+      "pass_condition": "Diagnosis precedes the scoped change and validation follows it.",
+      "hold_condition": "Diagnosis, change scope, or validation evidence is incomplete.",
+      "fail_condition": "Validation was weakened, deleted, skipped, or run against an untracked change.",
+      "waiver_allowed": false,
+      "control_kind": "project-specific",
+      "applicability": {
+        "mode": "always"
+      },
+      "risk_tier": "T3a",
+      "prerequisites": [
+        {
+          "kind": "artifact-recorded",
+          "artifact_ref": "diagnosis"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "bugfix-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    }
+  ],
+  "evaluations": [
+    {
+      "id": "control-review",
+      "type": "manual-review",
+      "required": true,
+      "success_condition": "Every required control is supported by admitted evidence.",
+      "applicability": {
+        "mode": "always"
+      },
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "control-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    },
+    {
+      "id": "project-validation",
+      "type": "manual-review",
+      "required": true,
+      "success_condition": "The item-specific acceptance contract is satisfied.",
+      "applicability": {
+        "mode": "always"
+      },
+      "prerequisites": [
+        {
+          "kind": "run-initialized"
+        }
+      ],
+      "evidence_requirement_refs": [
+        "bugfix-evidence"
+      ],
+      "evaluator_binding": {
+        "role_ref": "diagnostician",
+        "evaluator_identity_ref": "evaluator_safe_bugfix",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "export_check_role": null
+      }
+    }
+  ],
+  "evidence_requirements": [
+    {
+      "id": "bugfix-evidence",
+      "minimum_independent_roots": 1,
+      "evidence_kinds": [
+        "command-capture"
+      ],
+      "source_acquisition_policy": null
+    },
+    {
+      "id": "control-evidence",
+      "minimum_independent_roots": 1,
+      "evidence_kinds": [
+        "manual-observation"
+      ],
+      "source_acquisition_policy": null
+    }
+  ],
+  "progress": {
+    "observations": [
+      {
+        "id": "project-progress",
+        "description": "Track the item-specific evaluation result.",
+        "source": "evaluation",
+        "source_ref": "project-validation",
+        "value_pointer": "/passed",
+        "value_type": "boolean",
+        "improves_when": {
+          "operator": "equals",
+          "target": true
+        },
+        "target": {
+          "operator": "equals",
+          "value": true
+        }
+      }
+    ],
+    "stall_after_loop_attempts": 2
+  },
+  "stop_policy": {
+    "terminal_states": [
+      {
+        "state": "aborted",
+        "condition_mode": "any",
+        "conditions": [
+          {
+            "source": "control",
+            "ref": "abort-requested",
+            "outcome": "present"
+          }
+        ],
+        "priority": 700
+      },
+      {
+        "state": "failed",
+        "condition_mode": "any",
+        "conditions": [
+          {
+            "source": "failure",
+            "task_ref": "diagnose-root-cause",
+            "ref": "invalid-input",
+            "outcome": "observed"
+          }
+        ],
+        "priority": 600
+      },
+      {
+        "state": "exhausted",
+        "condition_mode": "any",
+        "conditions": [
+          {
+            "source": "limit",
+            "ref": "max-loop-attempts",
+            "outcome": "reached"
+          }
+        ],
+        "priority": 500
+      },
+      {
+        "state": "stalled",
+        "condition_mode": "any",
+        "conditions": [
+          {
+            "source": "progress",
+            "ref": "project-progress",
+            "outcome": "stalled"
+          }
+        ],
+        "priority": 400
+      },
+      {
+        "state": "held",
+        "condition_mode": "any",
+        "conditions": [
+          {
+            "source": "gate",
+            "ref": "change-before-validation",
+            "outcome": "hold"
+          }
+        ],
+        "priority": 300
+      },
+      {
+        "state": "blocked",
+        "condition_mode": "any",
+        "conditions": [
+          {
+            "source": "failure",
+            "task_ref": "diagnose-root-cause",
+            "ref": "contention",
+            "outcome": "observed"
+          }
+        ],
+        "priority": 200
+      },
+      {
+        "state": "completed",
+        "condition_mode": "all",
+        "conditions": [
+          {
+            "source": "success-criterion",
+            "ref": "project-success",
+            "outcome": "satisfied"
+          }
+        ],
+        "priority": 100
+      }
+    ]
+  },
+  "limit_policy": {
+    "max_loop_attempts": 4,
+    "max_elapsed_ms": 60000,
+    "max_tool_calls": 32,
+    "max_workers": 1,
+    "max_output_bytes": 6000000000,
+    "control_plane_output_reserve_bytes": 5000000000,
+    "max_tokens": null,
+    "max_cost_minor_units": null,
+    "cost_currency": null
+  },
+  "retry_policy": {
+    "rules": [
+      {
+        "task_ref": "diagnose-root-cause",
+        "failure_class": "transient-adapter",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "diagnose-root-cause",
+        "failure_class": "transient-network",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "diagnose-root-cause",
+        "failure_class": "contention",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "diagnose-root-cause",
+        "failure_class": "verification-failed",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "diagnose-root-cause",
+        "failure_class": "policy-hold",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "diagnose-root-cause",
+        "failure_class": "invalid-input",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "diagnose-root-cause",
+        "failure_class": "permanent-execution",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "implement-change",
+        "failure_class": "transient-adapter",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "implement-change",
+        "failure_class": "transient-network",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "implement-change",
+        "failure_class": "contention",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "implement-change",
+        "failure_class": "verification-failed",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "implement-change",
+        "failure_class": "policy-hold",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "implement-change",
+        "failure_class": "invalid-input",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "implement-change",
+        "failure_class": "permanent-execution",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "validate-change",
+        "failure_class": "transient-adapter",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "validate-change",
+        "failure_class": "transient-network",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "validate-change",
+        "failure_class": "contention",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "validate-change",
+        "failure_class": "verification-failed",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "validate-change",
+        "failure_class": "policy-hold",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "validate-change",
+        "failure_class": "invalid-input",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "validate-change",
+        "failure_class": "permanent-execution",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "review-regression-risk",
+        "failure_class": "transient-adapter",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "review-regression-risk",
+        "failure_class": "transient-network",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "review-regression-risk",
+        "failure_class": "contention",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "review-regression-risk",
+        "failure_class": "verification-failed",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "review-regression-risk",
+        "failure_class": "policy-hold",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "review-regression-risk",
+        "failure_class": "invalid-input",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      },
+      {
+        "task_ref": "review-regression-risk",
+        "failure_class": "permanent-execution",
+        "retryable": false,
+        "max_task_executions": 1,
+        "backoff": "none",
+        "base_delay_ms": 0,
+        "max_delay_ms": 0
+      }
+    ]
+  },
+  "recovery_policy": {
+    "resume_from": "last-durable-boundary",
+    "require_input_hash_match": true,
+    "require_policy_hash_match": true,
+    "on_unknown_outcome": "hold",
+    "terminal_compensation": "before-terminal-seal",
+    "activation_reasons": [
+      "terminal-failure",
+      "terminal-exhaustion",
+      "terminal-stall",
+      "abort-recovery"
+    ],
+    "max_compensation_workers": 1,
+    "reserve": {
+      "max_elapsed_ms": 0,
+      "max_tool_calls": 0,
+      "max_output_bytes": 0,
+      "max_tokens": null,
+      "max_cost_minor_units": null
+    }
+  },
+  "side_effects": [
+    {
+      "task_id": "diagnose-root-cause",
+      "effects": [
+        {
+          "effect_id": "effect-diagnose-root-cause",
+          "effect_class": "workspace-write",
+          "description": "Perform only the declared bounded task effect.",
+          "inspectable": true,
+          "reversible": false,
+          "idempotency": "required",
+          "last_safe_stop": {
+            "kind": "before-task",
+            "task_ref": "diagnose-root-cause"
+          },
+          "compensation_ref": null
+        }
+      ]
+    },
+    {
+      "task_id": "implement-change",
+      "effects": [
+        {
+          "effect_id": "effect-implement-change",
+          "effect_class": "workspace-write",
+          "description": "Perform only the declared bounded task effect.",
+          "inspectable": true,
+          "reversible": false,
+          "idempotency": "required",
+          "last_safe_stop": {
+            "kind": "before-task",
+            "task_ref": "implement-change"
+          },
+          "compensation_ref": null
+        }
+      ]
+    },
+    {
+      "task_id": "validate-change",
+      "effects": [
+        {
+          "effect_id": "effect-validate-change",
+          "effect_class": "workspace-write",
+          "description": "Perform only the declared bounded task effect.",
+          "inspectable": true,
+          "reversible": false,
+          "idempotency": "required",
+          "last_safe_stop": {
+            "kind": "before-task",
+            "task_ref": "validate-change"
+          },
+          "compensation_ref": null
+        }
+      ]
+    },
+    {
+      "task_id": "review-regression-risk",
+      "effects": [
+        {
+          "effect_id": "effect-review-regression-risk",
+          "effect_class": "workspace-write",
+          "description": "Perform only the declared bounded task effect.",
+          "inspectable": true,
+          "reversible": false,
+          "idempotency": "required",
+          "last_safe_stop": {
+            "kind": "before-task",
+            "task_ref": "review-regression-risk"
+          },
+          "compensation_ref": null
+        }
+      ]
+    }
+  ],
+  "compensations": [],
+  "runtime_record_limits": {
+    "max_authority_records": 236,
+    "max_agency_recommendation_records": 64,
+    "max_authority_revocation_records": 44,
+    "max_evidence_records": 320,
+    "max_task_result_records": 4,
+    "max_manual_observation_records": 320,
+    "max_export_decision_records": 324,
+    "max_claim_records": 23,
+    "max_finding_records": 100,
+    "max_waiver_records": 20,
+    "max_preseal_custody_events": 648
+  },
+  "required_control_plane_output_bytes": 1504968704,
+  "assurance_profile": {
+    "id": "s35-minimum",
+    "tightens": []
+  },
+  "context_snapshot": {
+    "required": [
+      "Approved repository files."
+    ],
+    "forbidden": [
+      "Credential, secret, private-key, and authentication-token values.",
+      "Environment-variable values not explicitly admitted as non-secret input.",
+      "Paths outside the approved workspace boundary.",
+      "Private customer records.",
+      "Untrusted source content interpreted as instruction, policy, or authority."
+    ],
+    "untrusted_sources": [
+      "bug report text",
+      "repository content",
+      "tool output"
+    ]
+  },
+  "authority_subject": {
+    "mission": {
+      "objective": "Fix the diagnosed defect and preserve regression evidence.",
+      "success_criteria": [
+        {
+          "id": "project-success",
+          "description": "The item-specific evaluation passes with admitted evidence.",
+          "evaluation_refs": [
+            "project-validation"
+          ],
+          "required": true
+        }
+      ],
+      "forbidden_outcomes": [
+        "data loss"
+      ],
+      "terminal_states": [
+        {
+          "state": "aborted",
+          "condition_mode": "any",
+          "conditions": [
+            {
+              "source": "control",
+              "ref": "abort-requested",
+              "outcome": "present"
+            }
+          ],
+          "priority": 700
+        },
+        {
+          "state": "failed",
+          "condition_mode": "any",
+          "conditions": [
+            {
+              "source": "failure",
+              "task_ref": "diagnose-root-cause",
+              "ref": "invalid-input",
+              "outcome": "observed"
+            }
+          ],
+          "priority": 600
+        },
+        {
+          "state": "exhausted",
+          "condition_mode": "any",
+          "conditions": [
+            {
+              "source": "limit",
+              "ref": "max-loop-attempts",
+              "outcome": "reached"
+            }
+          ],
+          "priority": 500
+        },
+        {
+          "state": "stalled",
+          "condition_mode": "any",
+          "conditions": [
+            {
+              "source": "progress",
+              "ref": "project-progress",
+              "outcome": "stalled"
+            }
+          ],
+          "priority": 400
+        },
+        {
+          "state": "held",
+          "condition_mode": "any",
+          "conditions": [
+            {
+              "source": "gate",
+              "ref": "change-before-validation",
+              "outcome": "hold"
+            }
+          ],
+          "priority": 300
+        },
+        {
+          "state": "blocked",
+          "condition_mode": "any",
+          "conditions": [
+            {
+              "source": "failure",
+              "task_ref": "diagnose-root-cause",
+              "ref": "contention",
+              "outcome": "observed"
+            }
+          ],
+          "priority": 200
+        },
+        {
+          "state": "completed",
+          "condition_mode": "all",
+          "conditions": [
+            {
+              "source": "success-criterion",
+              "ref": "project-success",
+              "outcome": "satisfied"
+            }
+          ],
+          "priority": 100
+        }
+      ]
+    },
+    "repository": {
+      "spec_subject": {
+        "source_authoring_hash": "sha256:67fc0e76ca0ccb8d8a2a40cb76dd3b3e06ef3c3193aa1e1eec31627e851a8cf1",
+        "loopeix_version_hash": "sha256:67fc0e76ca0ccb8d8a2a40cb76dd3b3e06ef3c3193aa1e1eec31627e851a8cf1"
+      },
+      "compile_subject": {
+        "compile_pack_manifest_hash": "sha256:461a13b0a08da9c0ff535e741011c4edace2479675facafa6a47867c56ce657e",
+        "compiler_bundle_id": "compiler_s35_v02_1",
+        "catalog_version_hash": "sha256:8247aa4bb07e599ea889607b007b76fb787d356e70c817e6429c827a67a3726a",
+        "binding_input_hash": "sha256:9f9ca3bbe4dd8e76e5df69f13123675e699eb44a062c35ce35cc777c35326cb7"
+      },
+      "repository_root_ref": "repository_c852e1d5edb5c8790d63934a911aea55",
+      "object_format": "sha1",
+      "base_ref": {
+        "kind": "git-ref",
+        "canonical_ref_name": "refs/heads/main",
+        "object_id": {
+          "algorithm": "sha1",
+          "value": "265851334f212a04207262722d0fb79ace8fb4e3"
+        },
+        "identity_hash": "sha256:517b10160109cf6d91f6ac681846816fac730e528200569e4941ad7a097acf80"
+      },
+      "transition_mode": "linear-settled-writes",
+      "initial_state": {
+        "repository_root_ref": "repository_c852e1d5edb5c8790d63934a911aea55",
+        "base_ref_identity_hash": "sha256:517b10160109cf6d91f6ac681846816fac730e528200569e4941ad7a097acf80",
+        "head": {
+          "algorithm": "sha1",
+          "value": "265851334f212a04207262722d0fb79ace8fb4e3"
+        },
+        "merge_base": {
+          "algorithm": "sha1",
+          "value": "265851334f212a04207262722d0fb79ace8fb4e3"
+        },
+        "head_state_hash": "sha256:327c8afe273d3fb96702c7fd446ebf2246e98a51bb577673749730409a5b0ff1",
+        "tracked_diff_hash": "sha256:8518c1c3c598f5d0ac94dc38cdbae6b574af6de3a51c7cc315096f9625a532cd",
+        "staged_diff_hash": "sha256:c19547eb05c54f485457ecdf0f3a86ccf8d26df5c2232ef736e268b207f65170",
+        "untracked_content_hash": "sha256:36d44146a3540f3a7507c4c10c1e5ca2efd07002872986aefbbcbca1c9147e10",
+        "submodule_state_hash": "sha256:85760170278f1feaab2b9fe5f762753bbb08a596933263411bca8f78b8caecdb",
+        "repository_state_hash": "sha256:60902bbfcb0602728db97c33885a1e48a2138b561163c83af35dee1617ba8a22"
+      }
+    },
+    "protection": {
+      "delegation_mode": "none",
+      "action_approval_policy": {
+        "registry_version": "0.1",
+        "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9",
+        "classifier_registry": {
+          "registry_version": "0.1",
+          "rules": [
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "artifact-write",
+                "dispatch_kind": "artifact-write",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "reversible-workspace-edit-action",
+                "capability_definition_hash": "sha256:43f6090c61b0190d9de576bd2b7abb2b720ba7a532ecd2f3b91e42e20acc05eb",
+                "operation": "write",
+                "effective_risk_tier": "T2",
+                "effect_classes": [
+                  "workspace-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": true,
+                "data_access_mode": "local",
+                "repository_transition_intent": "workspace-edit",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "reversible-workspace-edit",
+              "action_approval_class": "agency",
+              "rule_hash": "sha256:460ed1390b28c26720242d2d903a8881403c35f76389ec7c7eddbd9929eaa6a0"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "task",
+                "dispatch_kind": "process",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "planning-action",
+                "capability_definition_hash": "sha256:2115c2132be67dea0ff587876776bf105087fb03222432bbf7c9a807dc45e908",
+                "operation": "read",
+                "effective_risk_tier": "T1",
+                "effect_classes": [
+                  "none"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": true,
+                "data_access_mode": "local",
+                "repository_transition_intent": "none",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "planning",
+              "action_approval_class": "automatic",
+              "rule_hash": "sha256:eec3b64a62ddd495eb21f34a7c7e5fca01f87aee8e2a5349c8ee253893318ba6"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "task",
+                "dispatch_kind": "process",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "deterministic-no-side-effect-check-action",
+                "capability_definition_hash": "sha256:45100b9db50b6308108109f66f57ea6718cff77ee75970091d37e666b7795d78",
+                "operation": "read",
+                "effective_risk_tier": "T1",
+                "effect_classes": [
+                  "none"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": true,
+                "data_access_mode": "local",
+                "repository_transition_intent": "none",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "deterministic-no-side-effect-check",
+              "action_approval_class": "automatic",
+              "rule_hash": "sha256:48f88b3b97c4a248df319fe9b7b1a74b935483e0a91cc9f8c30140cc64d818b6"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "task",
+                "dispatch_kind": "process",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "local-read-action",
+                "capability_definition_hash": "sha256:c5f7d3ed235fb4e9061a4bab9cb93c3801f86c43ee14edd64f874fb96a700b4a",
+                "operation": "read",
+                "effective_risk_tier": "T1",
+                "effect_classes": [
+                  "none"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": true,
+                "data_access_mode": "local",
+                "repository_transition_intent": "none",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "local-read",
+              "action_approval_class": "automatic",
+              "rule_hash": "sha256:f306efda33a49eb9167fb3bd4229c83d9a411a3630e443a0978a40380f1c4e6c"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "host-adapter",
+                "adapter_version_hash": "sha256:96e6e60fc295482c9a487fdfd07a94a583e1b26b15f7b3aa418c7a786852431e",
+                "capability_ref": "uninspectable-side-effect-action",
+                "capability_definition_hash": "sha256:8a889176950a13a04dd8dbb8e7816b01c24767625d8c6952ef6ef14beea90824",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "destructive"
+                ],
+                "all_effects_inspectable": false,
+                "all_effects_reversible": false,
+                "data_access_mode": "network",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "uninspectable-side-effect",
+              "action_approval_class": "blocked",
+              "rule_hash": "sha256:9af711b1a43a9126fe8cabaa5ae9e5f2807ed3a9b6f142f55f70fb5ae0789419"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "host-adapter",
+                "adapter_version_hash": "sha256:96e6e60fc295482c9a487fdfd07a94a583e1b26b15f7b3aa418c7a786852431e",
+                "capability_ref": "release-action",
+                "capability_definition_hash": "sha256:0cd118b6d57bbec9020563d889eba9830aa77be0fda4e1b85fbe423f35db34fe",
+                "operation": "export",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "external-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "export",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "release",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:b8f082d863bf5dc70cd50f3fcd9a2d54c01395b256052673f49604c13fc17c7f"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "host-adapter",
+                "adapter_version_hash": "sha256:96e6e60fc295482c9a487fdfd07a94a583e1b26b15f7b3aa418c7a786852431e",
+                "capability_ref": "publish-action",
+                "capability_definition_hash": "sha256:1adc652a248b1b46f9f6bf6354602f3496ac8ec7974b10bb351fdf5e3c1cb9ab",
+                "operation": "export",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "external-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "export",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "publish",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:1e0b58083c67b79dbf91394cfd60221ee07603c34f04e8d2f9d7f66b76453bfd"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "host-adapter",
+                "adapter_version_hash": "sha256:96e6e60fc295482c9a487fdfd07a94a583e1b26b15f7b3aa418c7a786852431e",
+                "capability_ref": "network-read-action",
+                "capability_definition_hash": "sha256:3ec8ef54a25c64c225e6cfc8b90fb482b0896f6f5692d86c61da6b079af37680",
+                "operation": "read",
+                "effective_risk_tier": "T2",
+                "effect_classes": [
+                  "external-read"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "network",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "network-read",
+              "action_approval_class": "agency",
+              "rule_hash": "sha256:106cf416d95845c7946a5aaf90795173c8584921b80774050a0a0c25aace84cd"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "host-adapter",
+                "adapter_version_hash": "sha256:96e6e60fc295482c9a487fdfd07a94a583e1b26b15f7b3aa418c7a786852431e",
+                "capability_ref": "deploy-action",
+                "capability_definition_hash": "sha256:4614009a8c65fcbbad7a14acc3800f5ed6eb0cad53c884b25da01bf50f660a32",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "external-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "network",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "deploy",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:c354065c6be430036b887cfd4eb860cb47c97bf2d6a3b474b7e6bc8153be1703"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "host-adapter",
+                "adapter_version_hash": "sha256:96e6e60fc295482c9a487fdfd07a94a583e1b26b15f7b3aa418c7a786852431e",
+                "capability_ref": "force-push-action",
+                "capability_definition_hash": "sha256:7f10b2b293c57a509ef4efaf04c8232c7b633567d46b0e43680b7c8c8340eb0d",
+                "operation": "send",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "destructive"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "export",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "force-push",
+              "action_approval_class": "blocked",
+              "rule_hash": "sha256:eaa0ee9e3874540eaa0cadb19be0959704fc5e84af582ee4d3d74d7261f32f2c"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "host-adapter",
+                "adapter_version_hash": "sha256:96e6e60fc295482c9a487fdfd07a94a583e1b26b15f7b3aa418c7a786852431e",
+                "capability_ref": "authenticated-write-action",
+                "capability_definition_hash": "sha256:b102bf64e2ea57c3aa09e74e6d50cbe8e0ca9c87d04183f3f44f523b7486bf63",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "external-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "authenticated",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "authenticated-write",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:73490ecb3581b33bd2ffce7cc3f70cdf735dbb17cba03750f37460bab39d657c"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "host-adapter",
+                "adapter_version_hash": "sha256:96e6e60fc295482c9a487fdfd07a94a583e1b26b15f7b3aa418c7a786852431e",
+                "capability_ref": "send-action",
+                "capability_definition_hash": "sha256:b9d524012c3933a8614ce2c9768dcbb24b84eda8bd2edda3144bdb7b258e3e59",
+                "operation": "send",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "external-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "export",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "send",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:db0066004acdba2ecda5cfa05a87e950894a4b2ad245f4b06774358e594e2e66"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "host-adapter",
+                "adapter_version_hash": "sha256:96e6e60fc295482c9a487fdfd07a94a583e1b26b15f7b3aa418c7a786852431e",
+                "capability_ref": "push-action",
+                "capability_definition_hash": "sha256:c3761d63d96a79f822cb695c5e347710019bf27ae60fbbc7ccc02696a1e27c55",
+                "operation": "send",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "external-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "export",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "push",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:d4776a41bc3b379f558d6534eab454272897e766b0174ac398c8d6d919b18462"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "host-adapter",
+                "adapter_version_hash": "sha256:96e6e60fc295482c9a487fdfd07a94a583e1b26b15f7b3aa418c7a786852431e",
+                "capability_ref": "t4-action-action",
+                "capability_definition_hash": "sha256:db5034721d964102486fc48d3c3a3f954579170fc52d989ee72a5a6a69e79e24",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "external-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "network",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "t4-action",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:d8d35882323c47ff72bf019e4cb8015cdb4f8a2b6bf0442b7606cf51f0edd22d"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "host-adapter",
+                "adapter_version_hash": "sha256:96e6e60fc295482c9a487fdfd07a94a583e1b26b15f7b3aa418c7a786852431e",
+                "capability_ref": "authenticated-read-action",
+                "capability_definition_hash": "sha256:3553370381e597db73db516d8b08ab220f1b789333eb4c718832b1f88533ba0b",
+                "operation": "read",
+                "effective_risk_tier": "T2",
+                "effect_classes": [
+                  "none"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": true,
+                "data_access_mode": "authenticated",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "authenticated-read",
+              "action_approval_class": "agency",
+              "rule_hash": "sha256:e75fc1cb7f49203520317fc03d4d3a0ba4d56a1fca5dfddbeeb7b7d1bb420160"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "connector",
+                "adapter_ref": "host-connector",
+                "adapter_version_hash": "sha256:ae824dbbebf590278aa06f4e0cf5fe5479853acbefa74274d1fe5c24e22b38bf",
+                "capability_ref": "connector-admin-action",
+                "capability_definition_hash": "sha256:0c16fbd80305c44558774959c4d157137de19eae71a2a65648a8ebe93811a0d8",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "external-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "authenticated",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "connector-admin",
+              "action_approval_class": "blocked",
+              "rule_hash": "sha256:bf6b7d958e3d3da56c9e0f428025042dcddc6dcdeeff0b3267fdd3b30b310d11"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "connector",
+                "adapter_ref": "host-connector",
+                "adapter_version_hash": "sha256:ae824dbbebf590278aa06f4e0cf5fe5479853acbefa74274d1fe5c24e22b38bf",
+                "capability_ref": "connector-delete-action",
+                "capability_definition_hash": "sha256:867ae4b38b7a6f5f36af88e141714eb8b8a1146d5284f8d69dfb77958ab6474e",
+                "operation": "delete",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "destructive"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "authenticated",
+                "repository_transition_intent": "none",
+                "cost_mode": "metered"
+              },
+              "policy_action_kind": "connector-delete",
+              "action_approval_class": "blocked",
+              "rule_hash": "sha256:902e347a0768550033d6c2381f86488ca9c4df02e20aa44508d68a528947a6ca"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "irreversible-action-action",
+                "capability_definition_hash": "sha256:16b8b09817e3686f6c73a7f48f7945312fa670dfdd69630d3d71d1af59d4c520",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "external-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "local",
+                "repository_transition_intent": "none",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "irreversible-action",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:270c7ea892d5580d9c6406e7299d5c693770a94c2da316a93f16a9ffe854f8cd"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "package-change-action",
+                "capability_definition_hash": "sha256:19b618ac4e45e326e9fe4e613df2e9c26ed2e94044d751ca9f98dec98defdde1",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "workspace-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "local",
+                "repository_transition_intent": "workspace-edit",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "package-change",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:c93db11ed171ea66402e1ad130ddb44f1d497b1b9a3ce9c597d21b78bad1a09b"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "t5-action-action",
+                "capability_definition_hash": "sha256:2714dfe63f2b823b7a1e66187b3c45ec3a0a63a986da69fb195fa7daf3b0779c",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "destructive"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "local",
+                "repository_transition_intent": "none",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "t5-action",
+              "action_approval_class": "blocked",
+              "rule_hash": "sha256:69369760d47a456f40af051b1d873ae0837a44e73f35591657873548f7a3995b"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "protected-ref-mutation-action",
+                "capability_definition_hash": "sha256:41d23c7521d10e3c5d977d86ca7e05ff8f9bf0fb8f4ba66555b085765731adee",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "external-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "local",
+                "repository_transition_intent": "protected-ref-mutation",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "protected-ref-mutation",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:71cc48f8bd19ae504f500d0d185fd03e7188a01640a8d1ae48f90299415c0062"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "policy-weakening-action",
+                "capability_definition_hash": "sha256:454289f4923587639fbd94e597d2da25fee86ef8d1bdbe977860b145258710c1",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "workspace-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "local",
+                "repository_transition_intent": "workspace-edit",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "policy-weakening",
+              "action_approval_class": "blocked",
+              "rule_hash": "sha256:f8d623e4d633220fdca97be101980f676cfc2224315f8c06efd8c933bea85cd5"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "commit-action",
+                "capability_definition_hash": "sha256:4dd9981f648f7875186c85dd4724058fd9a6ee01cc4597dc64d5308088db933f",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "workspace-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "local",
+                "repository_transition_intent": "commit",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "commit",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:edce9af4c6db858ca9b7ed1360f8bb124d5cc8eb86acde1cd09d3dec5a58f293"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "approval-contract-edit-action",
+                "capability_definition_hash": "sha256:4f327d64977bf60820a9ce816685fc06a4cfe7a97819a17b5938dc22707e2df6",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "workspace-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "local",
+                "repository_transition_intent": "workspace-edit",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "approval-contract-edit",
+              "action_approval_class": "blocked",
+              "rule_hash": "sha256:efd47867139635c280047eb19e8572ae561470c980b76fa55de1d9ff0dc8f12a"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "new-secret-scope-action",
+                "capability_definition_hash": "sha256:656c554f857f7cf2c9d47b05a974fdad40fd0e79c2bb160e3379daaa62ce762d",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "external-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "local",
+                "repository_transition_intent": "none",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "new-secret-scope",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:0d53cfb6494e0b345c10794a7833dbccd7b26fe4a21f97dc3066a4ff2273340e"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "merge-action",
+                "capability_definition_hash": "sha256:6d7272c86a1404e7fdf99e0bdb2b992c80c33aca3a4a5c6a3e4db2e151497fa3",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "workspace-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "local",
+                "repository_transition_intent": "commit",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "merge",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:70a0f02492076fae9aae6c636fad7e32c20ae47f66b4fac1441cfa64229dc89f"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "destructive-action-action",
+                "capability_definition_hash": "sha256:71e5bfa8833b3c5d478ba6feb19a53d5fce02a51225f6f7573d3eec569636154",
+                "operation": "delete",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "destructive"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "local",
+                "repository_transition_intent": "none",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "destructive-action",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:4828b85228df10625bec52ba5f70475fb57192f38d81fbcc51c8865b05c775e3"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "self-widening-action",
+                "capability_definition_hash": "sha256:bad732b81e8a9cc3079dbd77f6ec25e67567f5e964b0afb42ef32b80d934f297",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "workspace-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "local",
+                "repository_transition_intent": "workspace-edit",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "self-widening",
+              "action_approval_class": "blocked",
+              "rule_hash": "sha256:601811a493212909726a5f32e9656a2dd700a9ba543265b2321204c5e5629a45"
+            },
+            {
+              "rule_version": "0.1",
+              "key": {
+                "action_class": "tool",
+                "dispatch_kind": "tool",
+                "adapter_ref": "loopeix-core",
+                "adapter_version_hash": "sha256:5cccd2f3f1a3e8197178b3f9885fc5ce78fec89d0bd9f28b2038ee89a3a6f99b",
+                "capability_ref": "rebase-action",
+                "capability_definition_hash": "sha256:ce66157f1c5a117f17cba8097acfc281dcbb5ba8992d81270939201c624035f4",
+                "operation": "write",
+                "effective_risk_tier": "T4",
+                "effect_classes": [
+                  "workspace-write"
+                ],
+                "all_effects_inspectable": true,
+                "all_effects_reversible": false,
+                "data_access_mode": "local",
+                "repository_transition_intent": "commit",
+                "cost_mode": "none"
+              },
+              "policy_action_kind": "rebase",
+              "action_approval_class": "human_exception",
+              "rule_hash": "sha256:28fb646086c225a2a6bb9d903cb9b2eaa8bf40a21391105a75898d31e164e7ca"
+            }
+          ],
+          "registry_hash": "sha256:ff64b9d559f1a0647538ebf6ff9221f79e1105a34caa4268f4da1398f62a6c5e"
+        },
+        "entries": [
+          {
+            "action_kind": "approval-contract-edit",
+            "approval_class": "blocked",
+            "classifier_rule_hash": "sha256:efd47867139635c280047eb19e8572ae561470c980b76fa55de1d9ff0dc8f12a"
+          },
+          {
+            "action_kind": "authenticated-read",
+            "approval_class": "agency",
+            "classifier_rule_hash": "sha256:e75fc1cb7f49203520317fc03d4d3a0ba4d56a1fca5dfddbeeb7b7d1bb420160"
+          },
+          {
+            "action_kind": "authenticated-write",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:73490ecb3581b33bd2ffce7cc3f70cdf735dbb17cba03750f37460bab39d657c"
+          },
+          {
+            "action_kind": "commit",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:edce9af4c6db858ca9b7ed1360f8bb124d5cc8eb86acde1cd09d3dec5a58f293"
+          },
+          {
+            "action_kind": "connector-admin",
+            "approval_class": "blocked",
+            "classifier_rule_hash": "sha256:bf6b7d958e3d3da56c9e0f428025042dcddc6dcdeeff0b3267fdd3b30b310d11"
+          },
+          {
+            "action_kind": "connector-delete",
+            "approval_class": "blocked",
+            "classifier_rule_hash": "sha256:902e347a0768550033d6c2381f86488ca9c4df02e20aa44508d68a528947a6ca"
+          },
+          {
+            "action_kind": "deploy",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:c354065c6be430036b887cfd4eb860cb47c97bf2d6a3b474b7e6bc8153be1703"
+          },
+          {
+            "action_kind": "destructive-action",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:4828b85228df10625bec52ba5f70475fb57192f38d81fbcc51c8865b05c775e3"
+          },
+          {
+            "action_kind": "deterministic-no-side-effect-check",
+            "approval_class": "automatic",
+            "classifier_rule_hash": "sha256:48f88b3b97c4a248df319fe9b7b1a74b935483e0a91cc9f8c30140cc64d818b6"
+          },
+          {
+            "action_kind": "force-push",
+            "approval_class": "blocked",
+            "classifier_rule_hash": "sha256:eaa0ee9e3874540eaa0cadb19be0959704fc5e84af582ee4d3d74d7261f32f2c"
+          },
+          {
+            "action_kind": "irreversible-action",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:270c7ea892d5580d9c6406e7299d5c693770a94c2da316a93f16a9ffe854f8cd"
+          },
+          {
+            "action_kind": "local-read",
+            "approval_class": "automatic",
+            "classifier_rule_hash": "sha256:f306efda33a49eb9167fb3bd4229c83d9a411a3630e443a0978a40380f1c4e6c"
+          },
+          {
+            "action_kind": "merge",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:70a0f02492076fae9aae6c636fad7e32c20ae47f66b4fac1441cfa64229dc89f"
+          },
+          {
+            "action_kind": "network-read",
+            "approval_class": "agency",
+            "classifier_rule_hash": "sha256:106cf416d95845c7946a5aaf90795173c8584921b80774050a0a0c25aace84cd"
+          },
+          {
+            "action_kind": "new-secret-scope",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:0d53cfb6494e0b345c10794a7833dbccd7b26fe4a21f97dc3066a4ff2273340e"
+          },
+          {
+            "action_kind": "package-change",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:c93db11ed171ea66402e1ad130ddb44f1d497b1b9a3ce9c597d21b78bad1a09b"
+          },
+          {
+            "action_kind": "planning",
+            "approval_class": "automatic",
+            "classifier_rule_hash": "sha256:eec3b64a62ddd495eb21f34a7c7e5fca01f87aee8e2a5349c8ee253893318ba6"
+          },
+          {
+            "action_kind": "policy-weakening",
+            "approval_class": "blocked",
+            "classifier_rule_hash": "sha256:f8d623e4d633220fdca97be101980f676cfc2224315f8c06efd8c933bea85cd5"
+          },
+          {
+            "action_kind": "protected-ref-mutation",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:71cc48f8bd19ae504f500d0d185fd03e7188a01640a8d1ae48f90299415c0062"
+          },
+          {
+            "action_kind": "publish",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:1e0b58083c67b79dbf91394cfd60221ee07603c34f04e8d2f9d7f66b76453bfd"
+          },
+          {
+            "action_kind": "push",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:d4776a41bc3b379f558d6534eab454272897e766b0174ac398c8d6d919b18462"
+          },
+          {
+            "action_kind": "rebase",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:28fb646086c225a2a6bb9d903cb9b2eaa8bf40a21391105a75898d31e164e7ca"
+          },
+          {
+            "action_kind": "release",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:b8f082d863bf5dc70cd50f3fcd9a2d54c01395b256052673f49604c13fc17c7f"
+          },
+          {
+            "action_kind": "reversible-workspace-edit",
+            "approval_class": "agency",
+            "classifier_rule_hash": "sha256:460ed1390b28c26720242d2d903a8881403c35f76389ec7c7eddbd9929eaa6a0"
+          },
+          {
+            "action_kind": "self-widening",
+            "approval_class": "blocked",
+            "classifier_rule_hash": "sha256:601811a493212909726a5f32e9656a2dd700a9ba543265b2321204c5e5629a45"
+          },
+          {
+            "action_kind": "send",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:db0066004acdba2ecda5cfa05a87e950894a4b2ad245f4b06774358e594e2e66"
+          },
+          {
+            "action_kind": "t4-action",
+            "approval_class": "human_exception",
+            "classifier_rule_hash": "sha256:d8d35882323c47ff72bf019e4cb8015cdb4f8a2b6bf0442b7606cf51f0edd22d"
+          },
+          {
+            "action_kind": "t5-action",
+            "approval_class": "blocked",
+            "classifier_rule_hash": "sha256:69369760d47a456f40af051b1d873ae0837a44e73f35591657873548f7a3995b"
+          },
+          {
+            "action_kind": "uninspectable-side-effect",
+            "approval_class": "blocked",
+            "classifier_rule_hash": "sha256:9af711b1a43a9126fe8cabaa5ae9e5f2807ed3a9b6f142f55f70fb5ae0789419"
+          }
+        ],
+        "human_exception_action_kinds": [
+          "authenticated-write",
+          "commit",
+          "deploy",
+          "destructive-action",
+          "irreversible-action",
+          "merge",
+          "new-secret-scope",
+          "package-change",
+          "protected-ref-mutation",
+          "publish",
+          "push",
+          "rebase",
+          "release",
+          "send",
+          "t4-action"
+        ],
+        "blocked_action_kinds": [
+          "approval-contract-edit",
+          "connector-admin",
+          "connector-delete",
+          "force-push",
+          "policy-weakening",
+          "self-widening",
+          "t5-action",
+          "uninspectable-side-effect"
+        ],
+        "registry_hash": "sha256:d8ec8d3342d2af0fe2685e420b6844686946cd782582597781377f7b9d5b5291"
+      },
+      "planning_approval_hash": "sha256:8182e066db5d5a1fc47a3615c074a3700a6dc864a9a55c0bf8f1d2743f63f021",
+      "invalidation_rules": [
+        "spec-subject-changed",
+        "compile-subject-changed",
+        "plan-hash-changed",
+        "planning-approval-changed",
+        "policy-digest-changed",
+        "repository-root-changed",
+        "repository-base-ref-changed",
+        "repository-state-chain-broken",
+        "authorized-change-set-mismatched",
+        "tool-definition-changed",
+        "authority-revoked",
+        "authority-expired"
+      ],
+      "human_exception_destination": {
+        "operator_role_ref": "diagnostician",
+        "operator_actor_ref": "evaluator_safe_bugfix",
+        "operator_stable_identity_hash": "sha256:1fc05ef61a04608f314ed31ce22fdface86ab41b00d870f4d3246719389f4351"
+      }
+    },
+    "policy_digest": "sha256:f9fb5daca837efaf274a0567e70d6b90c690ea7ed0ed69e8089cc16bbf6d0dd9"
+  },
+  "role_assignments": [
+    {
+      "role_ref": "diagnostician",
+      "actor_ref": "evaluator_safe_bugfix",
+      "actor_kind": "operator",
+      "stable_identity_hash": "sha256:1fc05ef61a04608f314ed31ce22fdface86ab41b00d870f4d3246719389f4351"
+    },
+    {
+      "role_ref": "implementer",
+      "actor_ref": "actor_implementer",
+      "actor_kind": "agent",
+      "stable_identity_hash": "sha256:8b3993fa21c33fdaab81032b81a99c7414bb3e1d14e0a6f33f5f41ead97619a9"
+    },
+    {
+      "role_ref": "independent-reviewer",
+      "actor_ref": "actor_independent_reviewer",
+      "actor_kind": "agent",
+      "stable_identity_hash": "sha256:f6dc5a30386c1398a794f6b6aa1d33b9f14032e53e7bc9edc2014760a0f13820"
+    },
+    {
+      "role_ref": "validator",
+      "actor_ref": "actor_validator",
+      "actor_kind": "agent",
+      "stable_identity_hash": "sha256:9cb079eb7915b1a4174173c27c6024a278cbf854527773de3344c94836f30660"
+    }
+  ],
+  "tool_grants": [
+    {
+      "id": "workspace-read",
+      "tool": "workspace",
+      "scope": "Reads contained by the bound workspace boundary.",
+      "risk_tier": "T1",
+      "requires_approval": false
+    },
+    {
+      "id": "workspace-shell",
+      "tool": "local-shell",
+      "scope": "Commands contained by the bound adapter plan, workspace boundary, and task effects.",
+      "risk_tier": "T3a",
+      "requires_approval": true
+    }
+  ],
+  "workspace_boundary": {
+    "workspace_root": "/private/var/folders/0v/vg80y63d7fb92wj3ynpkfyfm0000gn/T/loopeix-s35-v02-fixture-repository-w16DCX",
+    "read": [
+      "src"
+    ],
+    "write": [
+      "artifacts"
+    ]
+  },
+  "adapter_plan": {
+    "engine": "codex_cli",
+    "command": "codex exec --json",
+    "permission_mode": "workspace-write",
+    "known_gaps": [
+      "Usage totals require separate admitted evidence."
+    ]
+  },
+  "risk_controls": {
+    "max_tier_without_approval": "T2",
+    "t5_allowed": false
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": "0.1",
+  "pack_manifest_id": "pack_fix_this_with_an_expert_team",
+  "terminal_state": "hold-ambiguous",
+  "work_item_id": "wi_fix_this_with_an_expert_team",
+  "intake_id": "intake_fix_this_with_an_expert_team",
+  "resolution_id": "resolution_fix_this_with_an_expert_team",
+  "selected_item_id": null,
+  "compilation_id": null,
+  "generated_loop_hash": null,
+  "file_hashes": {
+    "work_item": "sha256:1ab4121302125b99e97ddaefd1f72c965b17f3f929a9c122c2d7d2445d762bfb",
+    "intake": "sha256:9ad631c3de2b6fc8ab6fec6f073149f0f71962c1872c4b7faf82f8add460c30c",
+    "catalog_resolution": "sha256:1917feb866ae6a232da14075fc288f1e1cdca6f225f092bf978800f51bc70e67",
+    "report": "sha256:6dda9c009466fdc8280135569f35f552f1933efb6c5e9e957409eb4dd40fcc59"
+  }
+}

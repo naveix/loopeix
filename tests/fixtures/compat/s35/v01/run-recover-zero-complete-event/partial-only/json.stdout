@@ -1,0 +1,10 @@
+{
+  "integrity_status": "hold",
+  "run_state": "planned",
+  "last_valid_sequence": 0,
+  "terminated": false,
+  "findings": [
+    "dropped a partial final ledger line during recovery"
+  ],
+  "recoverable": false
+}

@@ -2,9 +2,13 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { hashBytes } from "../hash.js";
-import { Hash, HumanId, MachineId, SchemaVersion } from "../schema/scalars.js";
+import { Hash, HumanId, MachineId } from "../schema/scalars.js";
 import type { CompilePromptResult } from "./compile.js";
-import { CompilerTerminalState } from "./records.js";
+import {
+  CompilerReasonCodeV02,
+  CompilerTerminalState,
+  CompilerTerminalStateV02,
+} from "./records.js";
 
 export interface CompilePackPaths {
   work_item: string;
@@ -24,7 +28,7 @@ export interface CompilePackResult {
 
 export const CompilePackManifest = z
   .object({
-    schema_version: SchemaVersion,
+    schema_version: z.literal("0.1"),
     pack_manifest_id: MachineId,
     terminal_state: CompilerTerminalState,
     work_item_id: MachineId,
@@ -62,8 +66,85 @@ export const CompilePackManifest = z
       }
     }
   });
+export const CompilePackManifestV01 = CompilePackManifest;
+
+export const CompilePackManifestV02 = z
+  .object({
+    schema_version: z.literal("0.2"),
+    compiler_bundle_id: MachineId,
+    catalog_version_hash: Hash,
+    pack_manifest_id: MachineId,
+    terminal_state: CompilerTerminalStateV02,
+    reason_code: CompilerReasonCodeV02.nullable(),
+    work_item_id: MachineId,
+    binding_input_id: MachineId,
+    intake_id: MachineId,
+    resolution_id: MachineId,
+    selected_item_id: HumanId.nullable(),
+    compilation_id: MachineId.nullable(),
+    generated_loop_hash: Hash.nullable(),
+    file_hashes: z
+      .object({
+        work_item: Hash,
+        binding_input: Hash,
+        intake: Hash,
+        catalog_resolution: Hash,
+        report: Hash,
+        compilation: Hash.optional(),
+        generated_loop: Hash.optional(),
+      })
+      .strict(),
+  })
+  .strict()
+  .superRefine((manifest, ctx) => {
+    const expectedReason = {
+      compiled: null,
+      "hold-ambiguous": "CATALOG_AMBIGUOUS",
+      "hold-risk": "RISK_BOUNDARY_UNRESOLVED",
+      "hold-no-item": "NO_CATALOG_ITEM",
+      "hold-project-binding-required": "PROJECT_BINDING_REQUIRED",
+    }[manifest.terminal_state];
+    if (manifest.reason_code !== expectedReason) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["reason_code"],
+        message: `terminal_state '${manifest.terminal_state}' requires its exact reason_code`,
+      });
+    }
+
+    const requiresSelectedItem =
+      manifest.terminal_state === "compiled" || manifest.terminal_state === "hold-project-binding-required";
+    if (requiresSelectedItem !== (manifest.selected_item_id !== null)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["selected_item_id"],
+        message: requiresSelectedItem
+          ? `${manifest.terminal_state} requires selected_item_id`
+          : `${manifest.terminal_state} cannot select an item`,
+      });
+    }
+
+    const hasCompiledFiles =
+      manifest.compilation_id !== null &&
+      manifest.generated_loop_hash !== null &&
+      manifest.file_hashes.compilation !== undefined &&
+      manifest.file_hashes.generated_loop !== undefined;
+    const hasAnyCompiledFile =
+      manifest.compilation_id !== null ||
+      manifest.generated_loop_hash !== null ||
+      manifest.file_hashes.compilation !== undefined ||
+      manifest.file_hashes.generated_loop !== undefined;
+    if (manifest.terminal_state === "compiled" && !hasCompiledFiles) {
+      ctx.addIssue({ code: "custom", path: ["file_hashes"], message: "compiled pack requires all compiled artifacts" });
+    }
+    if (manifest.terminal_state !== "compiled" && hasAnyCompiledFile) {
+      ctx.addIssue({ code: "custom", path: ["file_hashes"], message: "HOLD pack cannot reference compiled artifacts" });
+    }
+  });
 
 export type CompilePackManifest = z.infer<typeof CompilePackManifest>;
+export type CompilePackManifestV01 = z.infer<typeof CompilePackManifestV01>;
+export type CompilePackManifestV02 = z.infer<typeof CompilePackManifestV02>;
 
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);

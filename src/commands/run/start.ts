@@ -10,16 +10,78 @@ import { buildReceipt } from "../../receipt.js";
 import { extractFinalMessageText, parseJsonlEvents, runEngine } from "../../run/engine.js";
 import { reserveRawRunDirectory } from "../../run/id.js";
 import { assembleRun, type RunInput } from "../../run/orchestrate.js";
+import {
+  capturePlannedRunV02,
+  consumeCapturedPlannedRunV02,
+} from "../../run/capture-planned-v02.js";
 import { preflightPlannedRun } from "../../run/preflight.js";
 import { buildPlannedRunPrompt } from "../../run/prompt.js";
 import { RUN_DIR_FILES, RUN_LEDGER_LOCK, RUN_WRITE_LOCK_OPTIONS, writeRunDir } from "../../run/run-dir.js";
 import type { Brief } from "../../schema/brief.js";
 import type { Receipt } from "../../schema/receipt.js";
+import { captureStructuredFile, releaseCapturedStructuredFile } from "../../io/captured-file.js";
 import { validateLoopeix } from "../../validate.js";
 import { computeVerdicts } from "../../verdicts.js";
 
 function isPlannedRunDir(path: string): boolean {
   return existsSync(path) && statSync(path).isDirectory() && existsSync(join(path, "resolved-run-plan.json"));
+}
+
+type V02StartSelection =
+  | { selected: false; raw_spec?: Record<string, unknown> }
+  | { selected: true; reason: "UNSUPPORTED_EXECUTION_PROFILE" | "V02_RUN_LAYOUT_CONTAMINATED" | "INVALID_RESOLVED_RUN_PLAN_DOCUMENT" | "INVALID_AUTHORING_DOCUMENT" };
+
+async function selectPlannedV02Start(target: string): Promise<V02StartSelection> {
+  if (!isPlannedRunDir(target)) return { selected: false };
+  const captured = await capturePlannedRunV02(target);
+  if (captured.ok) {
+    if (consumeCapturedPlannedRunV02(captured.captured) === null) return { selected: false };
+    return { selected: true, reason: "UNSUPPORTED_EXECUTION_PROFILE" };
+  }
+  if (captured.reason === "NOT_V02_PLANNED_RUN") return { selected: false };
+  return {
+    selected: true,
+    reason: captured.reason === "V02_RUN_LAYOUT_CONTAMINATED"
+      ? "V02_RUN_LAYOUT_CONTAMINATED"
+      : "INVALID_RESOLVED_RUN_PLAN_DOCUMENT",
+  };
+}
+
+async function selectRawV02Start(target: string): Promise<V02StartSelection> {
+  const captured = await captureStructuredFile(target, {
+    mode: "operator-approved-finite",
+    max_member_bytes: 4_194_304,
+    max_total_bytes: 4_194_304,
+    max_heap_bytes: 16_777_216,
+    max_elapsed_ms: 30_000,
+    approved_by: "operator",
+  });
+  if (!captured.ok) {
+    return { selected: true, reason: "INVALID_AUTHORING_DOCUMENT" };
+  }
+  let selection: V02StartSelection;
+  try {
+    const selected = await captured.capture.selectFamily("authoring");
+    if (!selected.ok) selection = { selected: true, reason: "INVALID_AUTHORING_DOCUMENT" };
+    else if (selected.schema_version === "0.2") selection = { selected: true, reason: "UNSUPPORTED_EXECUTION_PROFILE" };
+    else {
+      const parsed = await captured.capture.parseV01("authoring");
+      selection = parsed.ok && typeof parsed.value === "object" && parsed.value !== null && !Array.isArray(parsed.value)
+        ? { selected: false, raw_spec: parsed.value as Record<string, unknown> }
+        : { selected: true, reason: "INVALID_AUTHORING_DOCUMENT" };
+    }
+  } catch {
+    selection = { selected: true, reason: "INVALID_AUTHORING_DOCUMENT" };
+  }
+  const released = await releaseCapturedStructuredFile(captured.capture);
+  return released.ok ? selection : { selected: true, reason: "INVALID_AUTHORING_DOCUMENT" };
+}
+
+async function selectV02Start(target: string): Promise<V02StartSelection> {
+  const planned = await selectPlannedV02Start(target);
+  if (planned.selected) return planned;
+  if (isPlannedRunDir(target)) return { selected: false };
+  return await selectRawV02Start(target);
 }
 
 /**
@@ -55,6 +117,22 @@ export default class RunStart extends Command {
   public async run(): Promise<void> {
     const { args, flags } = await this.parse(RunStart);
     const target = resolve(args.spec);
+    const v02Selection = await selectV02Start(target);
+    if (v02Selection.selected) {
+      this.log("terminal: held");
+      this.log(`reason: ${v02Selection.reason}`);
+      this.log(
+        `message: ${v02Selection.reason === "UNSUPPORTED_EXECUTION_PROFILE"
+          ? "This execution profile is not available in S35."
+          : v02Selection.reason === "V02_RUN_LAYOUT_CONTAMINATED"
+            ? "Planned V02 run directory layout is contaminated."
+            : v02Selection.reason === "INVALID_AUTHORING_DOCUMENT"
+              ? "The authoring document could not be captured and validated safely."
+              : "The planned V02 run could not be captured and validated safely."}`,
+      );
+      process.exitCode = v02Selection.reason === "UNSUPPORTED_EXECUTION_PROFILE" ? 1 : 4;
+      return;
+    }
     const plannedMode = isPlannedRunDir(target);
     const isCodex = flags.engine === "codex";
     const engine: EngineId = isCodex ? "codex_cli" : "claude_code_cli";
@@ -106,7 +184,8 @@ export default class RunStart extends Command {
     }
 
     try {
-      const spec = parseYaml(readFileSync(specSource, "utf8")) as Record<string, unknown>;
+      const spec = v02Selection.raw_spec
+        ?? parseYaml(readFileSync(specSource, "utf8")) as Record<string, unknown>;
 
       const validation = validateLoopeix(spec);
       if (!validation.ok) {

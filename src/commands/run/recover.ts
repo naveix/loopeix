@@ -1,7 +1,29 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { resolve } from "node:path";
 import { Args, Command } from "@oclif/core";
 import { parseLedgerText, recoverLedger, type RecoveryResult } from "../../ledger.js";
+import {
+  capturePlannedRunV02,
+  consumeCapturedPlannedRunV02,
+} from "../../run/capture-planned-v02.js";
+import { presentPlannedRunV02, type PlannedRunPresentationV02 } from "../../run/present-planned-v02.js";
+
+export type RunRecoverResult =
+  | (RecoveryResult & { recoverable: boolean })
+  | (PlannedRunPresentationV02 & {
+      recoverable: false;
+      integrity_status: "unknown";
+      findings: [];
+      run_dir: string;
+    })
+  | {
+      recoverable: false;
+      integrity_status: "invalid";
+      findings: string[];
+      run_dir: string;
+      reason: "V02_RUN_LAYOUT_CONTAMINATED" | "INVALID_RESOLVED_RUN_PLAN_DOCUMENT";
+    };
 
 function resolveLedgerPath(p: string): string {
   if (existsSync(p) && statSync(p).isDirectory()) return join(p, "ledger.jsonl");
@@ -20,8 +42,54 @@ export default class RunRecover extends Command {
   };
   static enableJsonFlag = true;
 
-  public async run(): Promise<RecoveryResult & { recoverable: boolean }> {
+  public async run(): Promise<RunRecoverResult> {
     const { args } = await this.parse(RunRecover);
+    const candidateRunDir = resolve(args.run);
+    const directLedgerInput = !(existsSync(args.run) && statSync(args.run).isDirectory());
+    if (!directLedgerInput) {
+      const captured = await capturePlannedRunV02(candidateRunDir);
+      if (captured.ok) {
+        const value = consumeCapturedPlannedRunV02(captured.captured);
+        if (value === null) {
+          const result: RunRecoverResult = {
+            recoverable: false,
+            integrity_status: "invalid",
+            findings: ["The captured V02 planned run could not be consumed safely."],
+            run_dir: candidateRunDir,
+            reason: "INVALID_RESOLVED_RUN_PLAN_DOCUMENT",
+          };
+          process.exitCode = 4;
+          return result;
+        }
+        const result: RunRecoverResult = {
+          ...presentPlannedRunV02(value.plan),
+          recoverable: false,
+          integrity_status: "unknown",
+          findings: [],
+          run_dir: candidateRunDir,
+        };
+        if (!this.jsonEnabled()) {
+          this.log("verdict:    HOLD — V02 execution is not available in S35");
+          this.log(`reason:     ${result.reason}`);
+        }
+        process.exitCode = 1;
+        return result;
+      }
+      if (captured.reason !== "NOT_V02_PLANNED_RUN") {
+        const result: RunRecoverResult = {
+          recoverable: false,
+          integrity_status: "invalid",
+          findings: [captured.message],
+          run_dir: candidateRunDir,
+          reason: captured.reason === "V02_RUN_LAYOUT_CONTAMINATED"
+            ? "V02_RUN_LAYOUT_CONTAMINATED"
+            : "INVALID_RESOLVED_RUN_PLAN_DOCUMENT",
+        };
+        if (!this.jsonEnabled()) this.log(`HOLD  ${result.reason}`);
+        process.exitCode = 4;
+        return result;
+      }
+    }
     const ledgerPath = resolveLedgerPath(args.run);
     if (!existsSync(ledgerPath)) {
       this.error(`ledger not found: ${ledgerPath}`, { exit: 2 });

@@ -4,12 +4,12 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   ApprovedIntakeBrief,
-  compilePrompt,
   hashBytes,
   planRunFromCompilePack,
   ResolvedRunPlan,
-  writeCompilePack,
 } from "../../src/index.js";
+import { compilePrompt } from "../../src/compiler/compile.js";
+import { writeCompilePack } from "../../src/compiler/pack.js";
 
 let dir: string;
 beforeEach(() => {

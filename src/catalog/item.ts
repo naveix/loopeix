@@ -76,10 +76,14 @@ export const LoopCatalogSchema = z.array(LoopCatalogEntrySchema).superRefine((en
   }
 });
 
+export const LoopCatalogEntrySchemaV01 = LoopCatalogEntrySchema;
+export const LoopCatalogSchemaV01 = LoopCatalogSchema;
+
 export type LoopCatalogEntry = z.infer<typeof LoopCatalogEntrySchema>;
 export type LoopCatalog = z.infer<typeof LoopCatalogSchema>;
+export type LoopCatalogEntryV01 = LoopCatalogEntry;
+export type LoopCatalogV01 = LoopCatalog;
 
 export function validateCatalogEntry(input: unknown): LoopCatalogEntry {
   return LoopCatalogEntrySchema.parse(input);
 }
-

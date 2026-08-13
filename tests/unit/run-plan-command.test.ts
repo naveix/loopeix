@@ -3,7 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RunPlan, { type RunPlanCommandResult } from "../../src/commands/run/plan.js";
-import { compilePrompt, ResolvedRunPlan, writeCompilePack } from "../../src/index.js";
+import { ResolvedRunPlan } from "../../src/index.js";
+import { compilePrompt } from "../../src/compiler/compile.js";
+import { writeCompilePack } from "../../src/compiler/pack.js";
 
 const repoRoot = join(import.meta.dirname, "..", "..");
 

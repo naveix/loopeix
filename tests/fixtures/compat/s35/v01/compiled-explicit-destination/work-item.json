@@ -1,0 +1,9 @@
+{
+  "schema_version": "0.1",
+  "work_item_id": "wi_fix_the_failing_date_parser_test_and_prove_the_f",
+  "submitted_at": "2026-07-09T12:00:00Z",
+  "prompt": "Fix the failing date parser test and prove the fix.",
+  "workspace_root": "/workspace/loopeix-fixture",
+  "operator_constraints": [],
+  "source_context": []
+}
