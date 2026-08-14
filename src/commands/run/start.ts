@@ -7,7 +7,7 @@ import { loadBrief } from "../../brief.js";
 import { ensureSigningKey, publicKeyFingerprint } from "../../keys.js";
 import { acquireLock, LockHeldError, type LockHandle } from "../../lock.js";
 import { buildReceipt } from "../../receipt.js";
-import { extractFinalMessageText, parseJsonlEvents, runEngine } from "../../run/engine.js";
+import { extractFinalMessageText, parseJsonlEvents } from "../../run/engine.js";
 import { reserveRawRunDirectory } from "../../run/id.js";
 import { assembleRun, type RunInput } from "../../run/orchestrate.js";
 import {
@@ -22,6 +22,7 @@ import type { Receipt } from "../../schema/receipt.js";
 import { captureStructuredFile, releaseCapturedStructuredFile } from "../../io/captured-file.js";
 import { validateLoopeix } from "../../validate.js";
 import { computeVerdicts } from "../../verdicts.js";
+import { prohibitS37GeneralAgentSpawnV02 } from "../../run/pre-spawn-capability-broker-v02.js";
 
 function isPlannedRunDir(path: string): boolean {
   return existsSync(path) && statSync(path).isDirectory() && existsSync(join(path, "resolved-run-plan.json"));
@@ -85,9 +86,9 @@ async function selectV02Start(target: string): Promise<V02StartSelection> {
 }
 
 /**
- * `loopeix run start <spec>` — execute a loop end-to-end into a run directory.
- * Validates the spec, gets the engine event stream (a live Codex/Claude call, or `--events-file`
- * replay), normalizes it, seals a ledger, evaluates gates, and writes a truthful report + manifest.
+ * `loopeix run start <spec>` — replay a captured engine event stream into a run directory.
+ * Validates the spec, normalizes `--events-file` input, seals a ledger, evaluates gates, and writes
+ * a truthful report + manifest. S37 holds every live Codex/Claude path before process creation.
  * With `--seal <brief.yaml>` (Claims Check M2) the brief is sealed as ledger event 1, the verdict
  * engine adjudicates it, and a signed `receipt.json` lands in the run dir — for FAILED runs too
  * (a truthful record of a failed run is still a record).
@@ -95,22 +96,21 @@ async function selectV02Start(target: string): Promise<V02StartSelection> {
  * unchanged by sealing (verdicts inform, the gate engine decides).
  */
 export default class RunStart extends Command {
-  static summary = "Execute a loop through an engine (or replay captured events) into a run directory.";
+  static summary = "Replay captured engine events into a run directory; live execution is held in S37.";
   static args = {
     spec: Args.string({ description: "path to the Loopeix YAML", required: true }),
   };
   static flags = {
-    engine: Flags.string({ options: ["codex", "claude"], required: true, description: "engine to run" }),
-    prompt: Flags.string({ description: "prompt / work item for raw YAML live runs; refused for planned run directories" }),
-    "events-file": Flags.string({ description: "replay a pre-captured JSONL event file instead of a live call" }),
+    engine: Flags.string({ options: ["codex", "claude"], required: true, description: "captured engine identity used to normalize replay events" }),
+    prompt: Flags.string({ description: "legacy live-run input; all live execution is held in S37" }),
+    "events-file": Flags.string({ description: "captured JSONL event file required for executable S37 replay" }),
     workspace: Flags.string({ default: ".", description: "workspace root (run dir = <workspace>/.loopeix/runs/<id>)" }),
-    "max-budget-usd": Flags.string({ description: "Claude budget cap in USD (default 0.10)" }),
+    "max-budget-usd": Flags.string({ description: "legacy Claude live-run budget; all live execution is held in S37" }),
     seal: Flags.string({ description: "brief YAML to seal into the ledger; emits a signed receipt.json" }),
   };
   static examples = [
-    '<%= config.bin %> run start my-loop.yaml --engine codex --prompt "Reply with ok"',
-    "<%= config.bin %> run start .loopeix/loops/minimal-bugfix/runs/run_abc --engine codex",
     "<%= config.bin %> run start my-loop.yaml --engine claude --events-file captured.jsonl",
+    "<%= config.bin %> run start .loopeix/loops/minimal-bugfix/runs/run_abc --engine codex --events-file captured.jsonl",
     "<%= config.bin %> run start my-loop.yaml --engine codex --events-file captured.jsonl --seal brief.yaml",
   ];
 
@@ -225,6 +225,15 @@ export default class RunStart extends Command {
         return;
       }
 
+      if (!flags["events-file"]) {
+        const blocked = prohibitS37GeneralAgentSpawnV02(engine);
+        this.log("terminal: held");
+        this.log(`reason: ${blocked.reason}`);
+        this.log("message: S37 prohibits general-agent execution. The separate inert-probe enforcement interface has no verified host backend; no process was started.");
+        process.exitCode = 1;
+        return;
+      }
+
       if (!plannedMode) {
         try {
           const allocation = reserveRawRunDirectory(flags.workspace);
@@ -237,29 +246,10 @@ export default class RunStart extends Command {
         }
       }
 
-      // Events: replay a captured file, or a live engine call.
-      let rawEvents: unknown[];
-      let engineStatus: { exit_code: number; timed_out: boolean } | undefined;
-      if (flags["events-file"]) {
-        rawEvents = parseJsonlEvents(readFileSync(flags["events-file"], "utf8"));
-        this.log(`Replaying ${rawEvents.length} captured event(s) from ${flags["events-file"]}`);
-      } else {
-        if (!executionPrompt) {
-          this.log("ERROR: cannot determine live run prompt.");
-          process.exitCode = 1;
-          return;
-        }
-        const engineOptions = { ...(plannedMode ? { cwd: workspace } : {}), ...(maxBudgetUsd === undefined ? {} : { maxBudgetUsd }) };
-        this.log(plannedMode ? `Invoking ${engine} with planned prompt (read-only, empty stdin)...` : `Invoking ${engine} (read-only, empty stdin)...`);
-        const res = runEngine(engine, executionPrompt, engineOptions);
-        rawEvents = res.rawEvents;
-        engineStatus = { exit_code: res.exit_code, timed_out: res.timed_out };
-        if (res.exit_code !== 0 || res.timed_out) {
-          this.warn(
-            `engine exited ${res.exit_code}${res.timed_out ? " (timed out)" : ""}; captured ${rawEvents.length} event(s) — the run will seal run.failed, not run.completed.`,
-          );
-        }
-      }
+      // S37 permits only operator-supplied captured-event replay. The live path
+      // returned above, and this command intentionally has no engine call site.
+      const rawEvents = parseJsonlEvents(readFileSync(flags["events-file"] as string, "utf8"));
+      this.log(`Replaying ${rawEvents.length} captured event(s) from ${flags["events-file"]}`);
 
       const normalized = new (isCodex ? CodexAdapter : ClaudeAdapter)().normalize(rawEvents);
       const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
@@ -290,7 +280,6 @@ export default class RunStart extends Command {
         tool_grant_tiers: asArray(spec.tool_grants).map((t) => String((t as Record<string, unknown>).risk_tier)),
         workspace_root: workspace,
         run_dir,
-        engine_status: engineStatus,
         brief,
       };
 

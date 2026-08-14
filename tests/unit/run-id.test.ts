@@ -90,16 +90,9 @@ describe("loopeix run start raw replay run ids", () => {
     }
   });
 
-  it("fails directory reservation before invoking a live engine", async () => {
+  it("S37 holds a raw live run before directory reservation or engine invocation", async () => {
     const blockedWorkspace = join(workspace, "workspace-file");
     writeFileSync(blockedWorkspace, "not a directory\n");
-    vi.mocked(runEngine).mockReturnValue({
-      engine: "codex_cli",
-      rawEvents: parseJsonlEvents(readFileSync(eventsPath, "utf8")),
-      exit_code: 0,
-      timed_out: false,
-      stderr: "",
-    });
 
     const result = await runStart([
       specPath,
@@ -112,7 +105,8 @@ describe("loopeix run start raw replay run ids", () => {
     ]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.out).toContain("ERROR: cannot reserve raw run directory:");
+    expect(result.out).toContain("reason: GENERAL_AGENT_PROHIBITED");
+    expect(result.out).not.toContain("cannot reserve raw run directory");
     expect(runEngine).not.toHaveBeenCalled();
   });
 

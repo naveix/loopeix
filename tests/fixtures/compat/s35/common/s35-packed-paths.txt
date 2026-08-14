@@ -369,6 +369,10 @@ dist/run/planned-directory-classifier.d.ts
 dist/run/planned-directory-classifier.d.ts.map
 dist/run/planned-directory-classifier.js
 dist/run/planned-directory-classifier.js.map
+dist/run/pre-spawn-capability-broker-v02.d.ts
+dist/run/pre-spawn-capability-broker-v02.d.ts.map
+dist/run/pre-spawn-capability-broker-v02.js
+dist/run/pre-spawn-capability-broker-v02.js.map
 dist/run/preflight.d.ts
 dist/run/preflight.d.ts.map
 dist/run/preflight.js

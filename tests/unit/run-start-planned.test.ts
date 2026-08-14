@@ -20,16 +20,15 @@ vi.mock("../../src/run/id.js", async (importOriginal) => {
 });
 
 import RunStart from "../../src/commands/run/start.js";
-import { parseJsonlEvents, runEngine } from "../../src/run/engine.js";
+import { runEngine } from "../../src/run/engine.js";
 import { reserveRawRunDirectory } from "../../src/run/id.js";
 import { RUN_DIR_FILES } from "../../src/run/run-dir.js";
-import { buildPlannedRunPrompt, planRunFromCompilePack } from "../../src/index.js";
+import { planRunFromCompilePack } from "../../src/index.js";
 import { compilePrompt } from "../../src/compiler/compile.js";
 import { writeCompilePack } from "../../src/compiler/pack.js";
 
 const repoRoot = join(import.meta.dirname, "..", "..");
 const codexEvents = join(repoRoot, "tests", "fixtures", "adapter-events", "codex", "s1-codex-exec-json.redacted.jsonl");
-const claudeEvents = join(repoRoot, "tests", "fixtures", "adapter-events", "claude-code", "s1-claude-stream-json.redacted.jsonl");
 
 async function runStart(argv: string[]): Promise<{ exitCode: number; out: string }> {
   const before = process.exitCode;
@@ -78,6 +77,18 @@ function createPlannedRun(engine: "codex" | "claude" = "codex"): string {
 }
 
 describe("loopeix run start <planned-run-dir>", () => {
+  it("advertises replay-only S37 behavior without live-run examples", () => {
+    expect(RunStart.summary).toBe(
+      "Replay captured engine events into a run directory; live execution is held in S37.",
+    );
+    expect(RunStart.flags.engine.description).toContain("captured engine identity");
+    expect(RunStart.flags["events-file"].description).toContain("required for executable S37 replay");
+    expect(RunStart.flags.prompt.description).toContain("all live execution is held in S37");
+    expect(RunStart.flags["max-budget-usd"].description).toContain("all live execution is held in S37");
+    expect(RunStart.examples).toHaveLength(3);
+    expect(RunStart.examples.every((example) => example.includes("--events-file"))).toBe(true);
+  });
+
   it("replays captured events into the planned run directory", async () => {
     const runDir = createPlannedRun();
 
@@ -147,59 +158,32 @@ describe("loopeix run start <planned-run-dir>", () => {
     expect(runEngine).not.toHaveBeenCalled();
   });
 
-  it("live-runs a planned run directory with the generated approved prompt", async () => {
+  it("S37 holds a Codex planned live run before the legacy engine boundary", async () => {
     const runDir = createPlannedRun();
-    const promptResult = buildPlannedRunPrompt({ runDir });
-    expect(promptResult.ok).toBe(true);
-    vi.mocked(runEngine).mockReturnValue({
-      engine: "codex_cli",
-      rawEvents: parseJsonlEvents(readFileSync(codexEvents, "utf8")),
-      exit_code: 0,
-      timed_out: false,
-      stderr: "",
-    });
 
     const { exitCode, out } = await runStart([runDir, "--engine", "codex"]);
 
-    expect(exitCode).toBe(4);
-    expect(out).toContain("Invoking codex_cli with planned prompt");
-    expect(out).toContain(`Run dir: ${runDir}`);
-    expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(true);
+    expect(exitCode).toBe(1);
+    expect(out).toContain("reason: GENERAL_AGENT_PROHIBITED");
+    expect(out).toContain("S37 prohibits general-agent execution");
+    expect(out).not.toContain("Invoking");
+    expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(false);
     expect(existsSync(join(runDir, "ledger.lock"))).toBe(false);
-    expect(runEngine).toHaveBeenCalledTimes(1);
+    expect(runEngine).not.toHaveBeenCalled();
     expect(reserveRawRunDirectory).not.toHaveBeenCalled();
-    expect(runEngine).toHaveBeenCalledWith(
-      "codex_cli",
-      promptResult.prompt,
-      expect.objectContaining({ cwd: dir }),
-    );
-    expect(vi.mocked(runEngine).mock.calls[0]?.[1]).toContain("Fix the failing date parser test and prove the fix.");
   });
 
-  it("live-runs a Claude planned run with generated prompt, workspace cwd, and budget", async () => {
+  it("S37 holds a Claude planned live run before budget or engine invocation", async () => {
     const runDir = createPlannedRun("claude");
-    const promptResult = buildPlannedRunPrompt({ runDir });
-    expect(promptResult.ok).toBe(true);
-    vi.mocked(runEngine).mockReturnValue({
-      engine: "claude_code_cli",
-      rawEvents: parseJsonlEvents(readFileSync(claudeEvents, "utf8")),
-      exit_code: 0,
-      timed_out: false,
-      stderr: "",
-    });
 
     const { exitCode, out } = await runStart([runDir, "--engine", "claude", "--max-budget-usd", "0.25"]);
 
-    expect(exitCode).toBe(4);
-    expect(out).toContain("Invoking claude_code_cli with planned prompt");
-    expect(out).toContain(`Run dir: ${runDir}`);
-    expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(true);
+    expect(exitCode).toBe(1);
+    expect(out).toContain("reason: GENERAL_AGENT_PROHIBITED");
+    expect(out).not.toContain("Invoking");
+    expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(false);
     expect(existsSync(join(runDir, "ledger.lock"))).toBe(false);
-    expect(runEngine).toHaveBeenCalledWith(
-      "claude_code_cli",
-      promptResult.prompt,
-      expect.objectContaining({ cwd: dir, maxBudgetUsd: 0.25 }),
-    );
+    expect(runEngine).not.toHaveBeenCalled();
   });
 
   it("refuses prompt overrides for planned run directories", async () => {
