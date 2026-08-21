@@ -124,6 +124,24 @@ function passEnvelope(times = fixtureTimes()) {
       max_memory_psi_some_avg10: "Prevents trials during memory pressure.",
       max_io_psi_some_avg10: "Prevents trials during IO pressure.",
     },
+    resource_limits: {
+      cpu_quota_percent: 25,
+      memory_max_bytes: 64_000_000,
+      tasks_max: 8,
+      io_weight: 10,
+      timeout_ms: 1_000,
+      stdout_bytes: 1_024,
+      stderr_bytes: 1_024,
+    },
+    resource_limit_reasons: {
+      cpu_quota_percent: "Caps the inert probe to one quarter of one CPU.",
+      memory_max_bytes: "Caps the static launcher and probe below the approved reserve.",
+      tasks_max: "Allows only the launcher, Bubblewrap, probe, and bounded setup helpers.",
+      io_weight: "Gives the conformance unit the lowest practical relative IO priority.",
+      timeout_ms: "Matches the frozen hard runtime deadline.",
+      stdout_bytes: "Matches the frozen per-stream stdout custody cap.",
+      stderr_bytes: "Matches the frozen per-stream stderr custody cap.",
+    },
     envelope_sha256: "",
   }, "envelope_sha256");
 }
@@ -369,6 +387,35 @@ describe("S37.1-B passive readiness gate", () => {
     expect(result.stderr).toContain(
       "HOLD: threshold_reasons.max_io_psi_some_avg10:missing-or-invalid",
     );
+  });
+
+  it("holds runtime ceilings that drift from the frozen timeout and output contract", () => {
+    const envelope = passEnvelope();
+    envelope.resource_limits.timeout_ms = 1_001;
+    envelope.resource_limits.stdout_bytes = 1_025;
+    seal(envelope, "envelope_sha256");
+    const result = runReadiness(passEvidence(), envelope);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("HOLD: resource_limits.timeout_ms:expected-1000:actual-1001");
+    expect(result.stderr).toContain("HOLD: resource_limits.stdout_bytes:expected-1024:actual-1025");
+  });
+
+  it("holds a transient task limit above the approved shared-host ceiling", () => {
+    const envelope = passEnvelope();
+    envelope.resource_limits.tasks_max = envelope.task_ceiling + 1;
+    seal(envelope, "envelope_sha256");
+    const result = runReadiness(passEvidence(), envelope);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("HOLD: resource_limits.tasks_max:exceeds-task-ceiling");
+  });
+
+  it("requires a rationale for every operator-approved transient-unit limit", () => {
+    const envelope = passEnvelope();
+    envelope.resource_limit_reasons.io_weight = "";
+    seal(envelope, "envelope_sha256");
+    const result = runReadiness(passEvidence(), envelope);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("HOLD: resource_limit_reasons.io_weight:missing-or-invalid");
   });
 
   it("evaluates every sample and the task ceiling", () => {

@@ -12,7 +12,7 @@ const SHA256 = /^[a-f0-9]{64}$/u;
 
 const KEYS = Object.freeze({
   evidence: ["schema_version", "observed_at", "host_tuple", "preflight", "package_review", "capacity_samples", "evidence_sha256"],
-  envelope: ["schema_version", "approved_at", "approved_by", "valid_from", "valid_to", "measurement_window_seconds", "sample_interval_seconds", "min_sample_count", "concurrency", "task_ceiling", "host_requirements", "package_requirements", "thresholds", "threshold_reasons", "envelope_sha256"],
+  envelope: ["schema_version", "approved_at", "approved_by", "valid_from", "valid_to", "measurement_window_seconds", "sample_interval_seconds", "min_sample_count", "concurrency", "task_ceiling", "host_requirements", "package_requirements", "thresholds", "threshold_reasons", "resource_limits", "resource_limit_reasons", "envelope_sha256"],
   host: ["platform", "architecture", "distro_id", "distro_version_id", "kernel_release", "systemd_version", "cgroup_version", "cgroup_controllers", "unprivileged_userns_clone", "user_manager_status"],
   hostRequirements: ["platform", "architecture", "distro_id", "distro_version_id", "kernel_release", "systemd_version", "cgroup_version", "required_cgroup_controllers", "unprivileged_userns_clone", "user_manager_status"],
   preflight: ["apt_dpkg_locks_clear", "reboot_required", "shutdown", "maintenance_conflict", "port_evidence"],
@@ -22,6 +22,7 @@ const KEYS = Object.freeze({
   artifact: ["path", "sha256", "setuid"],
   sample: ["timestamp", "cpu_cores", "memory_available_bytes", "swap_used_bytes", "load1", "load5", "cpu_psi_some_avg10", "memory_psi_some_avg10", "io_psi_some_avg10", "tasks"],
   thresholds: ["min_cpu_cores", "min_memory_available_bytes", "max_swap_used_bytes", "max_swap_growth_bytes", "max_load1", "max_load5", "max_cpu_psi_some_avg10", "max_memory_psi_some_avg10", "max_io_psi_some_avg10"],
+  resourceLimits: ["cpu_quota_percent", "memory_max_bytes", "tasks_max", "io_weight", "timeout_ms", "stdout_bytes", "stderr_bytes"],
 });
 
 function usage(message) {
@@ -257,6 +258,26 @@ function validateCapacity(evidence, envelope, observedAt, validWindow, violation
   const minSamples = number(envelope.min_sample_count, "envelope.min_sample_count", violations, { integer: true, minimum: 2 });
   const concurrency = number(envelope.concurrency, "envelope.concurrency", violations, { integer: true, minimum: 1 });
   const taskCeiling = number(envelope.task_ceiling, "envelope.task_ceiling", violations, { integer: true, minimum: 1 });
+  const resourceLimits = strictRecord(envelope.resource_limits, KEYS.resourceLimits, "resource_limits", violations);
+  const resourceLimitReasons = strictRecord(envelope.resource_limit_reasons, KEYS.resourceLimits, "resource_limit_reasons", violations);
+  if (resourceLimitReasons !== null) {
+    for (const key of KEYS.resourceLimits) string(resourceLimitReasons[key], `resource_limit_reasons.${key}`, violations);
+  }
+  if (resourceLimits !== null) {
+    const cpuQuota = number(resourceLimits.cpu_quota_percent, "resource_limits.cpu_quota_percent", violations, { minimum: 1 });
+    const memoryMax = number(resourceLimits.memory_max_bytes, "resource_limits.memory_max_bytes", violations, { integer: true, minimum: 1 });
+    const tasksMax = number(resourceLimits.tasks_max, "resource_limits.tasks_max", violations, { integer: true, minimum: 1 });
+    number(resourceLimits.io_weight, "resource_limits.io_weight", violations, { integer: true, minimum: 1 });
+    exact(number(resourceLimits.timeout_ms, "resource_limits.timeout_ms", violations, { integer: true, minimum: 1 }), 1_000, "resource_limits.timeout_ms", violations);
+    exact(number(resourceLimits.stdout_bytes, "resource_limits.stdout_bytes", violations, { integer: true, minimum: 1 }), 1_024, "resource_limits.stdout_bytes", violations);
+    exact(number(resourceLimits.stderr_bytes, "resource_limits.stderr_bytes", violations, { integer: true, minimum: 1 }), 1_024, "resource_limits.stderr_bytes", violations);
+    const minCpuCores = thresholds === null ? null : number(thresholds.min_cpu_cores, "thresholds.min_cpu_cores", violations, { minimum: 1 });
+    const minMemoryAvailable = thresholds === null ? null : number(thresholds.min_memory_available_bytes, "thresholds.min_memory_available_bytes", violations, { minimum: 1 });
+    if (cpuQuota !== null && minCpuCores !== null && cpuQuota > minCpuCores * 100) violations.push("resource_limits.cpu_quota_percent:exceeds-host-reserve");
+    if (memoryMax !== null && minMemoryAvailable !== null && memoryMax > minMemoryAvailable) violations.push("resource_limits.memory_max_bytes:exceeds-host-reserve");
+    if (tasksMax !== null && taskCeiling !== null && tasksMax > taskCeiling) violations.push("resource_limits.tasks_max:exceeds-task-ceiling");
+    if (resourceLimits.io_weight > 10_000) violations.push("resource_limits.io_weight:above-systemd-maximum");
+  }
   if (concurrency !== null && concurrency !== 1) violations.push("envelope.concurrency:expected-1");
   if (observedAt !== null && intervalSeconds !== null && Date.now() - observedAt > intervalSeconds * 1000) {
     violations.push("evidence.observed_at:stale");
