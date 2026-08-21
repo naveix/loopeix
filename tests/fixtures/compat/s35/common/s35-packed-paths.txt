@@ -333,6 +333,10 @@ dist/run/authority-planning-input-v02.d.ts
 dist/run/authority-planning-input-v02.d.ts.map
 dist/run/authority-planning-input-v02.js
 dist/run/authority-planning-input-v02.js.map
+dist/run/bounded-linux-probe-v02.d.ts
+dist/run/bounded-linux-probe-v02.d.ts.map
+dist/run/bounded-linux-probe-v02.js
+dist/run/bounded-linux-probe-v02.js.map
 dist/run/capture-planned-v02.d.ts
 dist/run/capture-planned-v02.d.ts.map
 dist/run/capture-planned-v02.js
@@ -353,6 +357,10 @@ dist/run/id.d.ts
 dist/run/id.d.ts.map
 dist/run/id.js
 dist/run/id.js.map
+dist/run/linux-host-enforcement-v02.d.ts
+dist/run/linux-host-enforcement-v02.d.ts.map
+dist/run/linux-host-enforcement-v02.js
+dist/run/linux-host-enforcement-v02.js.map
 dist/run/orchestrate.d.ts
 dist/run/orchestrate.d.ts.map
 dist/run/orchestrate.js

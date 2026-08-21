@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { hashCanonical } from "../../src/hash.js";
 import {
   S35_BUILT_IN_ACTION_APPROVAL_POLICY_DIGEST_V02,
   simulateAuthorityDecisionV02,
@@ -7,10 +8,26 @@ import {
 import {
   S37_ADAPTER_CAPABILITY_MATRIX_V02,
   buildS37ActionInterpositionProfileV02,
+  consumeS37LinuxProbeAdmissionV02,
   enforceS37PreSpawnProbeV02,
+  prepareS37LinuxProbeAdmissionV02,
 } from "../../src/run/pre-spawn-capability-broker-v02.js";
 
 const H = `sha256:${"a".repeat(64)}`;
+const DENY_ROWS = [
+  "ambient-credentials",
+  "child-process",
+  "durable-state",
+  "environment",
+  "filesystem-write",
+  "network",
+  "output-limits",
+  "retry",
+  "stdin",
+  "timeout",
+  "tool-server",
+  "unknown-outcome",
+] as const;
 
 function authorityInput() {
   return {
@@ -62,6 +79,100 @@ function validRequest() {
     simulated_lease: simulated.value.simulated_lease,
     observed_at: "2026-08-14T10:00:30Z",
     host: { platform: "darwin" as const, architecture: "arm64", available_backends: [] },
+  };
+}
+
+function validProfile() {
+  return buildS37ActionInterpositionProfileV02({
+    actor_identity_hash: H,
+    on_behalf_of_chain_hash: H,
+    executable: { path: "/s37/inert-probe", sha256: H },
+    cwd: { path: "/s37/empty", identity_hash: H },
+  });
+}
+
+function validLinuxHostTuple(
+  overrides: Partial<{
+    tuple_version: "0.1";
+    platform: "linux";
+    architecture: string;
+    kernel_release: string;
+    systemd_version: string;
+    cgroup_version: "v2";
+    observed_at: string;
+  }> = {},
+) {
+  return {
+    tuple_version: "0.1" as const,
+    platform: "linux" as const,
+    architecture: "x64",
+    kernel_release: "6.12.0-1-amd64",
+    systemd_version: "257.8",
+    cgroup_version: "v2" as const,
+    observed_at: "2026-08-14T10:00:20Z",
+    ...overrides,
+  };
+}
+
+function validLinuxBackendIdentityReceipt(
+  tuple = validLinuxHostTuple(),
+  profile = validProfile(),
+  overrides: Partial<{
+    receipt_version: "0.1";
+    host_tuple_hash: string;
+    profile_hash: string;
+    launcher_sha256: string;
+    bwrap: { path: string; version: string; sha256: string; setuid: false | true };
+    seccomp_policy_sha256: string;
+    deny_rows: readonly string[];
+    skipped_rows: readonly string[];
+    issued_at: string;
+    expires_at: string;
+    receipt_hash: string;
+  }> = {},
+) {
+  const withoutHash = {
+    receipt_version: "0.1" as const,
+    host_tuple_hash: hashCanonical({ purpose: "s37-linux-host-tuple-v02", ...tuple }),
+    profile_hash: hashCanonical(profile),
+    launcher_sha256: H,
+    bwrap: {
+      path: "/usr/bin/bwrap",
+      version: "0.11.0",
+      sha256: H,
+      setuid: false as const,
+    },
+    seccomp_policy_sha256: H,
+    deny_rows: [...DENY_ROWS],
+    skipped_rows: [] as const,
+    issued_at: "2026-08-14T10:00:25Z",
+    expires_at: "2026-08-14T10:00:45Z",
+    ...overrides,
+  };
+  return {
+    ...withoutHash,
+    receipt_hash: overrides.receipt_hash
+      ?? hashCanonical({ purpose: "s37-linux-backend-identity-receipt-v02", ...withoutHash }),
+  };
+}
+
+function validLinuxAdmissionInput() {
+  const request = validRequest();
+  const profile = validProfile();
+  const hostTuple = validLinuxHostTuple();
+  return {
+    request: {
+      ...request,
+      observed_at: "2026-08-14T10:00:30Z",
+      host: {
+        platform: "linux" as const,
+        architecture: hostTuple.architecture,
+        available_backends: ["s37-linux-v02"],
+      },
+    },
+    profile,
+    host_tuple: hostTuple,
+    backend_receipt: validLinuxBackendIdentityReceipt(hostTuple, profile),
   };
 }
 
@@ -186,5 +297,144 @@ describe("S37 pre-spawn enforcement point", () => {
         retryable: false,
       });
     }
+  });
+});
+
+describe("S37 Linux probe admission", () => {
+  it("mints a single-use opaque admission and returns a deep-frozen consumed payload", () => {
+    const prepared = prepareS37LinuxProbeAdmissionV02(validLinuxAdmissionInput());
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) throw new Error("expected S37.1 Linux admission");
+
+    const consumed = consumeS37LinuxProbeAdmissionV02(prepared.value);
+    expect(consumed).toMatchObject({
+      profile: validLinuxAdmissionInput().profile,
+      host_tuple: validLinuxAdmissionInput().host_tuple,
+      backend_receipt: validLinuxAdmissionInput().backend_receipt,
+    });
+    expect(consumed).not.toBeNull();
+    expect(Object.isFrozen(consumed)).toBe(true);
+    expect(Object.isFrozen(consumed?.profile)).toBe(true);
+    expect(Object.isFrozen(consumed?.profile.filesystem.readable_paths)).toBe(true);
+    expect(Object.isFrozen(consumed?.host_tuple)).toBe(true);
+    expect(Object.isFrozen(consumed?.backend_receipt)).toBe(true);
+    expect(Object.isFrozen(consumed?.backend_receipt.deny_rows)).toBe(true);
+    expect(consumeS37LinuxProbeAdmissionV02(prepared.value)).toBeNull();
+  });
+
+  it("returns null for forged or caller-authored opaque values", () => {
+    expect(consumeS37LinuxProbeAdmissionV02(Object.freeze({}) as never)).toBeNull();
+  });
+
+  it("preserves the existing general-agent prohibition and Linux-host binding checks", () => {
+    const valid = validLinuxAdmissionInput();
+    for (const adapter of ["codex_cli", "claude_code_cli"] as const) {
+      expect(prepareS37LinuxProbeAdmissionV02({
+        ...valid,
+        request: { ...valid.request, adapter },
+      })).toMatchObject({
+        ok: false,
+        reason: "GENERAL_AGENT_PROHIBITED",
+        process_started: false,
+      });
+    }
+
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      request: {
+        ...valid.request,
+        host: { ...valid.request.host, available_backends: [] },
+      },
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      request: {
+        ...valid.request,
+        host: { ...valid.request.host, architecture: "arm64" },
+      },
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+  });
+
+  it("rejects profile, tuple, and receipt drift before any process could start", () => {
+    const valid = validLinuxAdmissionInput();
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      profile: buildS37ActionInterpositionProfileV02({
+        actor_identity_hash: H,
+        on_behalf_of_chain_hash: H,
+        executable: { path: "/s37/inert-probe-alt", sha256: H },
+        cwd: { path: "/s37/empty", identity_hash: H },
+      }),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      host_tuple: validLinuxHostTuple({ observed_at: "2026-08-14T10:00:31Z" }),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      backend_receipt: validLinuxBackendIdentityReceipt(valid.host_tuple, valid.profile, {
+        issued_at: "2026-08-14T10:00:31Z",
+      }),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      backend_receipt: validLinuxBackendIdentityReceipt(valid.host_tuple, valid.profile, {
+        expires_at: "2026-08-14T10:00:30Z",
+      }),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+  });
+
+  it("rejects receipt hash and deny-set drift, skipped rows, and setuid bubblewrap", () => {
+    const valid = validLinuxAdmissionInput();
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      backend_receipt: validLinuxBackendIdentityReceipt(valid.host_tuple, valid.profile, {
+        host_tuple_hash: H.replace(/a/g, "b"),
+      }),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      backend_receipt: validLinuxBackendIdentityReceipt(valid.host_tuple, valid.profile, {
+        profile_hash: H.replace(/a/g, "c"),
+      }),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      backend_receipt: validLinuxBackendIdentityReceipt(valid.host_tuple, valid.profile, {
+        deny_rows: DENY_ROWS.slice(0, -1),
+      }),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      backend_receipt: validLinuxBackendIdentityReceipt(valid.host_tuple, valid.profile, {
+        skipped_rows: ["network"],
+      }),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      backend_receipt: validLinuxBackendIdentityReceipt(valid.host_tuple, valid.profile, {
+        bwrap: {
+          path: "/usr/bin/bwrap",
+          version: "0.11.0",
+          sha256: H,
+          setuid: true,
+        },
+      }),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      backend_receipt: validLinuxBackendIdentityReceipt(valid.host_tuple, valid.profile, {
+        receipt_hash: H.replace(/a/g, "d"),
+      }),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
   });
 });
