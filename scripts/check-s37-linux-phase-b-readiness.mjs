@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const EVIDENCE_SCHEMA = "s37-linux-phase-b-readiness-evidence-v1";
 const ENVELOPE_SCHEMA = "s37-linux-phase-b-readiness-envelope-v1";
@@ -352,30 +353,42 @@ function validateCapacity(evidence, envelope, observedAt, evaluationAt, validWin
   }
 }
 
-function main() {
-  const paths = cli();
+function decision(violations) {
+  const unique = [...new Set(violations)].sort((left, right) => left.localeCompare(right));
+  return { ok: unique.length === 0, violations: unique };
+}
+
+export function evaluateS37LinuxPhaseBReadiness({ evidence: evidenceInput, envelope: envelopeInput, asOf }) {
   const violations = [];
-  const evidence = strictRecord(readJson(paths.evidence, "evidence"), KEYS.evidence, "evidence", violations);
-  const envelope = strictRecord(readJson(paths.envelope, "envelope"), KEYS.envelope, "envelope", violations);
-  if (evidence === null || envelope === null) fail(violations);
+  const evidence = strictRecord(evidenceInput, KEYS.evidence, "evidence", violations);
+  const envelope = strictRecord(envelopeInput, KEYS.envelope, "envelope", violations);
+  if (evidence === null || envelope === null) return decision(violations);
   exact(string(evidence.schema_version, "evidence.schema_version", violations), EVIDENCE_SCHEMA, "evidence.schema_version", violations);
   exact(string(envelope.schema_version, "envelope.schema_version", violations), ENVELOPE_SCHEMA, "envelope.schema_version", violations);
   validateSelfHash(evidence, "evidence_sha256", "evidence", violations);
   validateSelfHash(envelope, "envelope_sha256", "envelope", violations);
   const observedAt = timestamp(evidence.observed_at, "evidence.observed_at", violations);
-  const evaluationAt = paths.asOf === null
-    ? Date.now()
-    : timestamp(paths.asOf, "as_of", violations);
+  const evaluationAt = timestamp(asOf, "as_of", violations);
   const validWindow = validateEnvelopeTimes(envelope, observedAt, evaluationAt, violations);
   validateHost(evidence, envelope, violations);
   validatePreflight(evidence, observedAt, violations);
   validatePackage(evidence, envelope, violations);
   validateCapacity(evidence, envelope, observedAt, evaluationAt, validWindow, violations);
-  if (violations.length > 0) fail(violations);
+  return decision(violations);
+}
+
+function main() {
+  const paths = cli();
+  const result = evaluateS37LinuxPhaseBReadiness({
+    evidence: readJson(paths.evidence, "evidence"),
+    envelope: readJson(paths.envelope, "envelope"),
+    asOf: paths.asOf ?? new Date().toISOString(),
+  });
+  if (!result.ok) fail(result.violations);
   process.stdout.write("S37.1-B passive readiness gate: PASS\n");
   process.stdout.write(paths.asOf === null
     ? "readiness only; live host conformance not executed\n"
     : "historical readiness validation only; not current execution readiness\n");
 }
 
-main();
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

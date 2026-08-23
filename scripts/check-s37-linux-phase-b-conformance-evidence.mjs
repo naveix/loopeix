@@ -1,10 +1,9 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+import { evaluateS37LinuxPhaseBReadiness } from "./check-s37-linux-phase-b-readiness.mjs";
 
 const REQUIRED_FLAGS = ["--manifest", "--readiness-evidence", "--readiness-envelope", "--profile", "--evidence", "--receipt"];
 const DENY_ROWS = Object.freeze([
@@ -403,55 +402,45 @@ function validateProductProfile(profile, manifest, evidence, receipt, violations
   exact(receipt.profile_hash, expectedHash, "receipt.profile_hash:product-binding", violations);
 }
 
-function validateReadinessGate(paths, evidence, violations) {
-  const readinessScript = resolve(SCRIPT_DIR, "check-s37-linux-phase-b-readiness.mjs");
-  const readinessArgs = [readinessScript, "--evidence", paths["--readiness-evidence"], "--envelope", paths["--readiness-envelope"]];
-  if (typeof evidence.host_tuple?.observed_at === "string") readinessArgs.push("--as-of", evidence.host_tuple.observed_at);
-  const result = spawnSync(
-    process.execPath,
-    readinessArgs,
-    {
-      cwd: process.cwd(),
-      encoding: "utf8",
-      shell: false,
-      timeout: 15_000,
-      maxBuffer: 2 * 1024 * 1024,
-    },
-  );
-  if (result.error) {
-    violations.push(`readiness_gate:spawn-failed:${result.error.message}`);
-    return;
-  }
-  if (result.status === 0) return;
-  const lines = result.stderr
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith("HOLD: "));
-  if (lines.length > 0) {
-    for (const line of lines) violations.push(`readiness_gate:${line.slice("HOLD: ".length)}`);
-    return;
-  }
-  violations.push(`readiness_gate:nonzero-exit:${String(result.status)}`);
+function validateReadinessGate(readiness, envelope, evidence, asOf, violations) {
+  const result = evaluateS37LinuxPhaseBReadiness({
+    evidence: readiness,
+    envelope,
+    asOf: typeof evidence.host_tuple?.observed_at === "string" ? evidence.host_tuple.observed_at : asOf,
+  });
+  for (const violation of result.violations) violations.push(`readiness_gate:${violation}`);
 }
 
-function main() {
-  const paths = cli();
-  const manifest = readJson(paths["--manifest"], "manifest");
-  const readiness = readJson(paths["--readiness-evidence"], "readiness-evidence");
-  const envelope = readJson(paths["--readiness-envelope"], "readiness-envelope");
-  const profile = readJson(paths["--profile"], "profile");
-  const evidence = readJson(paths["--evidence"], "evidence");
-  const receipt = readJson(paths["--receipt"], "receipt");
+function decision(violations) {
+  const unique = [...new Set(violations)].sort((left, right) => left.localeCompare(right));
+  return { ok: unique.length === 0, violations: unique };
+}
+
+export function evaluateS37LinuxPhaseBConformanceEvidence({ manifest, readiness, envelope, profile, evidence, receipt, asOf }) {
   const violations = [];
-  validateReadinessGate(paths, evidence, violations);
+  validateReadinessGate(readiness, envelope, evidence, asOf, violations);
   validateManifest(manifest, violations);
   validateReceipt(receipt, evidence, manifest, envelope, violations);
   validateProductProfile(profile, manifest, evidence, receipt, violations);
   validateLiveEvidence(evidence, manifest, receipt, readiness, envelope, violations);
   validateReadiness(readiness, envelope, manifest, evidence, violations);
-  if (violations.length > 0) fail(violations);
+  return decision(violations);
+}
+
+function main() {
+  const paths = cli();
+  const result = evaluateS37LinuxPhaseBConformanceEvidence({
+    manifest: readJson(paths["--manifest"], "manifest"),
+    readiness: readJson(paths["--readiness-evidence"], "readiness-evidence"),
+    envelope: readJson(paths["--readiness-envelope"], "readiness-envelope"),
+    profile: readJson(paths["--profile"], "profile"),
+    evidence: readJson(paths["--evidence"], "evidence"),
+    receipt: readJson(paths["--receipt"], "receipt"),
+    asOf: new Date().toISOString(),
+  });
+  if (!result.ok) fail(result.violations);
   process.stdout.write("S37.1-B conformance evidence gate: PASS\n");
   process.stdout.write("sealed evidence only; no live host action performed\n");
 }
 
-main();
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
