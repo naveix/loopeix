@@ -27,7 +27,7 @@ const KEYS = Object.freeze({
 
 function usage(message) {
   if (message) process.stderr.write(`${message}\n`);
-  process.stderr.write("usage: node scripts/check-s37-linux-phase-b-readiness.mjs --evidence <path> --envelope <path>\n");
+  process.stderr.write("usage: node scripts/check-s37-linux-phase-b-readiness.mjs --evidence <path> --envelope <path> [--as-of <ISO timestamp>]\n");
   process.exit(64);
 }
 
@@ -135,22 +135,28 @@ function cli() {
   const args = process.argv.slice(2);
   let evidence = null;
   let envelope = null;
+  let asOf = null;
   for (let index = 0; index < args.length; index += 1) {
     const flag = args[index];
     const value = args[index + 1];
-    if (flag !== "--evidence" && flag !== "--envelope") usage(`unknown argument: ${flag}`);
-    if (value === undefined || value.startsWith("--")) usage(`${flag} requires a path`);
+    if (flag !== "--evidence" && flag !== "--envelope" && flag !== "--as-of") usage(`unknown argument: ${flag}`);
+    if (value === undefined || value.startsWith("--")) {
+      usage(flag === "--as-of" ? "--as-of requires an ISO timestamp" : `${flag} requires a path`);
+    }
     if (flag === "--evidence") {
       if (evidence !== null) usage("duplicate argument: --evidence");
       evidence = value;
-    } else {
+    } else if (flag === "--envelope") {
       if (envelope !== null) usage("duplicate argument: --envelope");
       envelope = value;
+    } else {
+      if (asOf !== null) usage("duplicate argument: --as-of");
+      asOf = value;
     }
     index += 1;
   }
   if (evidence === null || envelope === null) usage("both --evidence and --envelope are required");
-  return { evidence, envelope };
+  return { evidence, envelope, asOf };
 }
 
 function exact(actual, expected, label, violations) {
@@ -233,21 +239,21 @@ function validatePackage(evidence, envelope, violations) {
   if (bool(artifact.setuid, "package_review.selected_artifact.setuid", violations) === true) violations.push("package_review.selected_artifact.setuid:expected-false");
 }
 
-function validateEnvelopeTimes(envelope, observedAt, violations) {
+function validateEnvelopeTimes(envelope, observedAt, evaluationAt, violations) {
   string(envelope.approved_by, "envelope.approved_by", violations);
   const approvedAt = timestamp(envelope.approved_at, "envelope.approved_at", violations);
   const validFrom = timestamp(envelope.valid_from, "envelope.valid_from", violations);
   const validTo = timestamp(envelope.valid_to, "envelope.valid_to", violations);
   if (approvedAt !== null && validFrom !== null && approvedAt > validFrom) violations.push("envelope.approved_at:after-valid-from");
   if (validFrom !== null && validTo !== null && validFrom >= validTo) violations.push("envelope.valid_window:invalid");
-  if (validTo !== null && validTo < Date.now()) violations.push("envelope.valid_to:expired");
-  if (observedAt !== null && observedAt > Date.now()) violations.push("evidence.observed_at:future");
+  if (validTo !== null && evaluationAt !== null && validTo < evaluationAt) violations.push("envelope.valid_to:expired");
+  if (observedAt !== null && evaluationAt !== null && observedAt > evaluationAt) violations.push("evidence.observed_at:future");
   if (observedAt !== null && validFrom !== null && observedAt < validFrom) violations.push("evidence.observed_at:before-valid-from");
   if (observedAt !== null && validTo !== null && observedAt > validTo) violations.push("evidence.observed_at:after-valid-to");
   return { validFrom, validTo };
 }
 
-function validateCapacity(evidence, envelope, observedAt, validWindow, violations) {
+function validateCapacity(evidence, envelope, observedAt, evaluationAt, validWindow, violations) {
   const thresholds = strictRecord(envelope.thresholds, KEYS.thresholds, "thresholds", violations);
   const thresholdReasons = strictRecord(envelope.threshold_reasons, KEYS.thresholds, "threshold_reasons", violations);
   if (thresholdReasons !== null) {
@@ -279,7 +285,7 @@ function validateCapacity(evidence, envelope, observedAt, validWindow, violation
     if (resourceLimits.io_weight > 10_000) violations.push("resource_limits.io_weight:above-systemd-maximum");
   }
   if (concurrency !== null && concurrency !== 1) violations.push("envelope.concurrency:expected-1");
-  if (observedAt !== null && intervalSeconds !== null && Date.now() - observedAt > intervalSeconds * 1000) {
+  if (observedAt !== null && evaluationAt !== null && intervalSeconds !== null && evaluationAt - observedAt > intervalSeconds * 1000) {
     violations.push("evidence.observed_at:stale");
   }
   if (!Array.isArray(evidence.capacity_samples)) {
@@ -357,14 +363,19 @@ function main() {
   validateSelfHash(evidence, "evidence_sha256", "evidence", violations);
   validateSelfHash(envelope, "envelope_sha256", "envelope", violations);
   const observedAt = timestamp(evidence.observed_at, "evidence.observed_at", violations);
-  const validWindow = validateEnvelopeTimes(envelope, observedAt, violations);
+  const evaluationAt = paths.asOf === null
+    ? Date.now()
+    : timestamp(paths.asOf, "as_of", violations);
+  const validWindow = validateEnvelopeTimes(envelope, observedAt, evaluationAt, violations);
   validateHost(evidence, envelope, violations);
   validatePreflight(evidence, observedAt, violations);
   validatePackage(evidence, envelope, violations);
-  validateCapacity(evidence, envelope, observedAt, validWindow, violations);
+  validateCapacity(evidence, envelope, observedAt, evaluationAt, validWindow, violations);
   if (violations.length > 0) fail(violations);
   process.stdout.write("S37.1-B passive readiness gate: PASS\n");
-  process.stdout.write("readiness only; live host conformance not executed\n");
+  process.stdout.write(paths.asOf === null
+    ? "readiness only; live host conformance not executed\n"
+    : "historical readiness validation only; not current execution readiness\n");
 }
 
 main();

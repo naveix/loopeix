@@ -1,8 +1,12 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import { dirname, isAbsolute, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const REQUIRED_FLAGS = ["--manifest", "--readiness-evidence", "--readiness-envelope", "--evidence", "--receipt"];
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+
+const REQUIRED_FLAGS = ["--manifest", "--readiness-evidence", "--readiness-envelope", "--profile", "--evidence", "--receipt"];
 const DENY_ROWS = Object.freeze([
   "ambient-credentials", "child-process", "durable-state", "environment",
   "filesystem-write", "network", "output-limits", "retry", "stdin",
@@ -16,10 +20,10 @@ const KEYS = Object.freeze({
   manifest: ["schema_version", "created_at", "sources", "compiler", "artifacts", "bwrap", "seccomp_policy_sha256", "manifest_sha256"],
   sources: ["supervisor", "probe"],
   source: ["path", "sha256"],
-  compiler: ["path", "version", "target", "flags"],
+  compiler: ["path", "version", "target", "sha256", "flags"],
   artifacts: ["supervisor", "probe"],
   artifact: ["path", "sha256", "mode", "setuid"],
-  bwrap: ["path", "version", "sha256", "mode", "setuid"],
+  bwrap: ["path", "version", "package_version", "sha256", "mode", "setuid"],
   evidence: ["schema_version", "observed_at", "host_tuple", "manifest_sha256", "readiness_evidence_sha256", "readiness_envelope_sha256", "execution", "deny_rows", "ports", "neighbors", "cleanup", "capacity", "receipt_hash", "evidence_sha256"],
   host: ["tuple_version", "platform", "architecture", "kernel_release", "systemd_version", "cgroup_version", "observed_at"],
   execution: ["unit_name", "service_type", "scope", "pipe", "standard_input", "standard_output", "standard_error", "no_new_privileges", "kill_mode", "concurrency", "cpu_quota_percent", "memory_max_bytes", "tasks_max", "io_weight", "timeout_ms", "stdout_limit_bytes", "stderr_limit_bytes", "process_started", "exit_code", "probe_duration_ms", "stdout_bytes", "stderr_bytes", "profile_hash", "launcher_sha256", "seccomp_policy_sha256"],
@@ -32,6 +36,14 @@ const KEYS = Object.freeze({
   resourceLimits: ["cpu_quota_percent", "memory_max_bytes", "tasks_max", "io_weight", "timeout_ms", "stdout_bytes", "stderr_bytes"],
   receipt: ["receipt_version", "host_tuple_hash", "profile_hash", "launcher_sha256", "bwrap", "seccomp_policy_sha256", "deny_rows", "skipped_rows", "issued_at", "expires_at", "receipt_hash"],
   receiptBwrap: ["path", "version", "sha256", "setuid"],
+  profile: ["profile_version", "probe_kind", "actor_identity_hash", "on_behalf_of_chain_hash", "executable", "argv", "cwd", "filesystem", "child_process", "network", "tools", "environment", "credentials", "stdin", "limits", "durable_state", "retry"],
+  profileExecutable: ["path", "sha256"],
+  profileCwd: ["path", "identity_hash"],
+  profileFilesystem: ["readable_paths", "writable_paths", "direct_writes"],
+  profileNetwork: ["mode", "allowed_origins"],
+  profileTools: ["built_in", "mcp_servers"],
+  profileEnvironment: ["inherit", "allowed_names", "values"],
+  profileLimits: ["timeout_ms", "stdout_bytes", "stderr_bytes"],
 });
 
 function usage(message) {
@@ -160,6 +172,20 @@ function validateReadiness(readiness, envelope, manifest, evidence, violations) 
   selfHash(envelope, "envelope_sha256", "readiness_envelope", violations, readinessCanonical);
   exact(evidence.readiness_evidence_sha256, readiness.evidence_sha256, "evidence.readiness_evidence_sha256", violations);
   exact(evidence.readiness_envelope_sha256, envelope.envelope_sha256, "evidence.readiness_envelope_sha256", violations);
+  for (const key of ["platform", "architecture", "kernel_release", "systemd_version"]) {
+    exact(
+      evidence.host_tuple?.[key],
+      readiness.host_tuple?.[key],
+      `evidence.host_tuple.${key}:readiness-binding`,
+      violations,
+    );
+  }
+  exact(
+    evidence.host_tuple?.cgroup_version,
+    `v${String(readiness.host_tuple?.cgroup_version ?? "")}`,
+    "evidence.host_tuple.cgroup_version:readiness-binding",
+    violations,
+  );
   bool(readiness.preflight?.apt_dpkg_locks_clear, true, "readiness.preflight.apt_dpkg_locks_clear", violations);
   for (const key of ["reboot_required", "shutdown", "maintenance_conflict"]) bool(readiness.preflight?.[key], false, `readiness.preflight.${key}`, violations);
   exact(envelope.concurrency, 1, "readiness_envelope.concurrency", violations);
@@ -174,11 +200,17 @@ function validateReadiness(readiness, envelope, manifest, evidence, violations) 
   bool(readiness.package_review?.selected_artifact?.setuid, false, "readiness.package_review.selected_artifact.setuid", violations);
   exact(readiness.package_review?.selected_artifact?.path, manifest.bwrap?.path, "readiness.package_review.selected_artifact.path", violations);
   exact(`sha256:${readiness.package_review?.selected_artifact?.sha256 ?? ""}`, manifest.bwrap?.sha256, "readiness.package_review.selected_artifact.sha256", violations);
+  exact(readiness.package_review?.candidate_version, manifest.bwrap?.package_version, "readiness.package_review.candidate_version:manifest-binding", violations);
   const observed = instant(evidence.observed_at, "evidence.observed_at", violations);
   const readyObserved = instant(readiness.observed_at, "readiness.observed_at", violations);
+  const hostObserved = instant(evidence.host_tuple?.observed_at, "evidence.host_tuple.observed_at", violations);
   const validFrom = instant(envelope.valid_from, "readiness_envelope.valid_from", violations);
   const validTo = instant(envelope.valid_to, "readiness_envelope.valid_to", violations);
+  const intervalSeconds = finite(envelope.sample_interval_seconds, "readiness_envelope.sample_interval_seconds", violations, { min: 1 });
   if (readyObserved !== null && observed !== null && readyObserved > observed) violations.push("readiness.observed_at:after-conformance");
+  if (readyObserved !== null && hostObserved !== null && readyObserved > hostObserved) violations.push("evidence.host_tuple.observed_at:before-readiness");
+  if (readyObserved !== null && hostObserved !== null && intervalSeconds !== null && hostObserved - readyObserved > intervalSeconds * 1000) violations.push("evidence.host_tuple.observed_at:readiness-stale-at-activation");
+  if (hostObserved !== null && observed !== null && hostObserved > observed) violations.push("evidence.host_tuple.observed_at:after-conformance");
   if (validFrom !== null && observed !== null && observed < validFrom) violations.push("evidence.observed_at:before-approved-window");
   if (validTo !== null && observed !== null && observed > validTo) violations.push("evidence.observed_at:after-approved-window");
 }
@@ -202,6 +234,7 @@ function validateManifest(manifest, violations) {
   if (compilerPath !== null && !isAbsolute(compilerPath)) violations.push("manifest.compiler.path:not-absolute");
   text(compiler?.version, "manifest.compiler.version", violations);
   exact(compiler?.target, "x86_64-linux-gnu", "manifest.compiler.target", violations);
+  contentHash(compiler?.sha256, "manifest.compiler.sha256", violations);
   if (!Array.isArray(compiler?.flags) || canonical(compiler.flags) !== canonical(BUILD_FLAGS)) violations.push("manifest.compiler.flags:not-exact");
   const artifacts = record(root.artifacts, KEYS.artifacts, "manifest.artifacts", violations);
   for (const name of KEYS.artifacts) {
@@ -216,6 +249,7 @@ function validateManifest(manifest, violations) {
   const bwrap = record(root.bwrap, KEYS.bwrap, "manifest.bwrap", violations);
   text(bwrap?.path, "manifest.bwrap.path", violations);
   text(bwrap?.version, "manifest.bwrap.version", violations);
+  text(bwrap?.package_version, "manifest.bwrap.package_version", violations);
   contentHash(bwrap?.sha256, "manifest.bwrap.sha256", violations);
   exact(bwrap?.mode, "0555", "manifest.bwrap.mode", violations);
   bool(bwrap?.setuid, false, "manifest.bwrap.setuid", violations);
@@ -223,7 +257,7 @@ function validateManifest(manifest, violations) {
   contentHash(root.seccomp_policy_sha256, "manifest.seccomp_policy_sha256", violations);
 }
 
-function validateLiveEvidence(evidence, manifest, receipt, envelope, violations) {
+function validateLiveEvidence(evidence, manifest, receipt, readiness, envelope, violations) {
   const root = record(evidence, KEYS.evidence, "evidence", violations);
   if (root === null) return;
   exact(root.schema_version, "s37-linux-phase-b-conformance-evidence-v1", "evidence.schema_version", violations);
@@ -289,12 +323,17 @@ function validateLiveEvidence(evidence, manifest, receipt, envelope, violations)
   const capacity = record(root.capacity, KEYS.capacity, "evidence.capacity", violations);
   exact(capacity?.envelope_sha256, root.readiness_envelope_sha256, "evidence.capacity.envelope_sha256", violations);
   hash(capacity?.samples_sha256, "evidence.capacity.samples_sha256", violations);
+  if (Array.isArray(readiness.capacity_samples)) {
+    exact(capacity?.samples_sha256, sha(readiness.capacity_samples), "evidence.capacity.samples_sha256:readiness-binding", violations);
+  } else {
+    violations.push("evidence.capacity.samples_sha256:readiness-samples-missing");
+  }
   bool(capacity?.within_envelope, true, "evidence.capacity.within_envelope", violations);
   exact(capacity?.swap_growth_bytes, 0, "evidence.capacity.swap_growth_bytes", violations);
   exact(root.receipt_hash, receipt.receipt_hash, "evidence.receipt_hash", violations);
 }
 
-function validateReceipt(receipt, evidence, manifest, violations) {
+function validateReceipt(receipt, evidence, manifest, envelope, violations) {
   const root = record(receipt, KEYS.receipt, "receipt", violations);
   if (root === null) return;
   exact(root.receipt_version, "0.1", "receipt.receipt_version", violations);
@@ -311,10 +350,88 @@ function validateReceipt(receipt, evidence, manifest, violations) {
   const issued = instant(root.issued_at, "receipt.issued_at", violations);
   const expires = instant(root.expires_at, "receipt.expires_at", violations);
   const observed = instant(evidence.observed_at, "evidence.observed_at", violations);
+  const hostObserved = instant(evidence.host_tuple?.observed_at, "evidence.host_tuple.observed_at", violations);
+  const windowEnd = instant(envelope.valid_to, "readiness_envelope.valid_to", violations);
   if (issued !== null && observed !== null && issued > observed) violations.push("receipt.issued_at:after-observation");
+  if (issued !== null && hostObserved !== null && issued < hostObserved) violations.push("receipt.issued_at:before-host-observation");
   if (expires !== null && observed !== null && observed >= expires) violations.push("receipt.expires_at:not-after-observation");
+  if (expires !== null && windowEnd !== null && expires > windowEnd) violations.push("receipt.expires_at:after-readiness-window");
   const { receipt_hash: _ignored, ...body } = root;
   exact(root.receipt_hash, `sha256:${sha({ purpose: "s37-linux-backend-identity-receipt-v02", ...body })}`, "receipt.receipt_hash", violations);
+}
+
+function validateProductProfile(profile, manifest, evidence, receipt, violations) {
+  const root = record(profile, KEYS.profile, "profile", violations);
+  if (root === null) return;
+  exact(root.profile_version, "0.1", "profile.profile_version", violations);
+  exact(root.probe_kind, "inert-bounded-stdout-stderr", "profile.probe_kind", violations);
+  contentHash(root.actor_identity_hash, "profile.actor_identity_hash", violations);
+  contentHash(root.on_behalf_of_chain_hash, "profile.on_behalf_of_chain_hash", violations);
+  const executable = record(root.executable, KEYS.profileExecutable, "profile.executable", violations);
+  exact(executable?.path, manifest.artifacts?.probe?.path, "profile.executable.path", violations);
+  exact(executable?.sha256, manifest.artifacts?.probe?.sha256, "profile.executable.sha256", violations);
+  if (!Array.isArray(root.argv) || root.argv.length !== 0) violations.push("profile.argv:expected-empty");
+  const cwd = record(root.cwd, KEYS.profileCwd, "profile.cwd", violations);
+  exact(cwd?.path, "/", "profile.cwd.path", violations);
+  contentHash(cwd?.identity_hash, "profile.cwd.identity_hash", violations);
+  const filesystem = record(root.filesystem, KEYS.profileFilesystem, "profile.filesystem", violations);
+  if (!Array.isArray(filesystem?.readable_paths) || canonical(filesystem.readable_paths) !== canonical([manifest.artifacts?.probe?.path])) violations.push("profile.filesystem.readable_paths:not-exact");
+  if (!Array.isArray(filesystem?.writable_paths) || filesystem.writable_paths.length !== 0) violations.push("profile.filesystem.writable_paths:expected-empty");
+  exact(filesystem?.direct_writes, "deny", "profile.filesystem.direct_writes", violations);
+  exact(root.child_process, "deny", "profile.child_process", violations);
+  const network = record(root.network, KEYS.profileNetwork, "profile.network", violations);
+  exact(network?.mode, "deny", "profile.network.mode", violations);
+  if (!Array.isArray(network?.allowed_origins) || network.allowed_origins.length !== 0) violations.push("profile.network.allowed_origins:expected-empty");
+  const tools = record(root.tools, KEYS.profileTools, "profile.tools", violations);
+  exact(tools?.built_in, "deny", "profile.tools.built_in", violations);
+  exact(tools?.mcp_servers, "deny", "profile.tools.mcp_servers", violations);
+  const environment = record(root.environment, KEYS.profileEnvironment, "profile.environment", violations);
+  exact(environment?.inherit, false, "profile.environment.inherit", violations);
+  if (!Array.isArray(environment?.allowed_names) || environment.allowed_names.length !== 0) violations.push("profile.environment.allowed_names:expected-empty");
+  const values = record(environment?.values, [], "profile.environment.values", violations);
+  if (values !== null && Object.keys(values).length !== 0) violations.push("profile.environment.values:expected-empty");
+  exact(root.credentials, "deny", "profile.credentials", violations);
+  exact(root.stdin, "closed", "profile.stdin", violations);
+  const limits = record(root.limits, KEYS.profileLimits, "profile.limits", violations);
+  exact(limits?.timeout_ms, 1_000, "profile.limits.timeout_ms", violations);
+  exact(limits?.stdout_bytes, 1_024, "profile.limits.stdout_bytes", violations);
+  exact(limits?.stderr_bytes, 1_024, "profile.limits.stderr_bytes", violations);
+  exact(root.durable_state, "forbidden-until-s40", "profile.durable_state", violations);
+  exact(root.retry, "forbidden-non-resumable", "profile.retry", violations);
+  const expectedHash = `sha256:${sha(root)}`;
+  exact(evidence.execution?.profile_hash, expectedHash, "evidence.execution.profile_hash:product-binding", violations);
+  exact(receipt.profile_hash, expectedHash, "receipt.profile_hash:product-binding", violations);
+}
+
+function validateReadinessGate(paths, evidence, violations) {
+  const readinessScript = resolve(SCRIPT_DIR, "check-s37-linux-phase-b-readiness.mjs");
+  const readinessArgs = [readinessScript, "--evidence", paths["--readiness-evidence"], "--envelope", paths["--readiness-envelope"]];
+  if (typeof evidence.host_tuple?.observed_at === "string") readinessArgs.push("--as-of", evidence.host_tuple.observed_at);
+  const result = spawnSync(
+    process.execPath,
+    readinessArgs,
+    {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      shell: false,
+      timeout: 15_000,
+      maxBuffer: 2 * 1024 * 1024,
+    },
+  );
+  if (result.error) {
+    violations.push(`readiness_gate:spawn-failed:${result.error.message}`);
+    return;
+  }
+  if (result.status === 0) return;
+  const lines = result.stderr
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("HOLD: "));
+  if (lines.length > 0) {
+    for (const line of lines) violations.push(`readiness_gate:${line.slice("HOLD: ".length)}`);
+    return;
+  }
+  violations.push(`readiness_gate:nonzero-exit:${String(result.status)}`);
 }
 
 function main() {
@@ -322,12 +439,15 @@ function main() {
   const manifest = readJson(paths["--manifest"], "manifest");
   const readiness = readJson(paths["--readiness-evidence"], "readiness-evidence");
   const envelope = readJson(paths["--readiness-envelope"], "readiness-envelope");
+  const profile = readJson(paths["--profile"], "profile");
   const evidence = readJson(paths["--evidence"], "evidence");
   const receipt = readJson(paths["--receipt"], "receipt");
   const violations = [];
+  validateReadinessGate(paths, evidence, violations);
   validateManifest(manifest, violations);
-  validateReceipt(receipt, evidence, manifest, violations);
-  validateLiveEvidence(evidence, manifest, receipt, envelope, violations);
+  validateReceipt(receipt, evidence, manifest, envelope, violations);
+  validateProductProfile(profile, manifest, evidence, receipt, violations);
+  validateLiveEvidence(evidence, manifest, receipt, readiness, envelope, violations);
   validateReadiness(readiness, envelope, manifest, evidence, violations);
   if (violations.length > 0) fail(violations);
   process.stdout.write("S37.1-B conformance evidence gate: PASS\n");

@@ -60,8 +60,7 @@ afterEach(() => {
   }
 });
 
-function fixtureTimes() {
-  const now = Date.now();
+function fixtureTimes(now = Date.now()) {
   const observedAt = new Date(now - 2_000);
   return {
     observedAt: observedAt.toISOString(),
@@ -294,6 +293,46 @@ describe("S37.1-B passive readiness gate", () => {
     const result = runReadiness(evidence, passEnvelope(times));
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("HOLD: evidence.observed_at:stale");
+  });
+
+  it("revalidates sealed historical readiness at an explicit activation time without claiming current readiness", () => {
+    const times = fixtureTimes(Date.parse("2025-01-15T12:00:00.000Z"));
+    const evidence = passEvidence(times);
+    const asOf = new Date(Date.parse(evidence.observed_at) + 5_000).toISOString();
+    const result = runReadiness(evidence, passEnvelope(times), ["--as-of", asOf]);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toBe(
+      "S37.1-B passive readiness gate: PASS\nhistorical readiness validation only; not current execution readiness\n",
+    );
+  });
+
+  it("evaluates historical envelope expiry against --as-of rather than the wall clock", () => {
+    const times = fixtureTimes(Date.parse("2025-01-15T12:00:00.000Z"));
+    const evidence = passEvidence(times);
+    const asOf = new Date(Date.parse(times.validTo) + 1).toISOString();
+    const result = runReadiness(evidence, passEnvelope(times), ["--as-of", asOf]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("HOLD: envelope.valid_to:expired");
+  });
+
+  it.each([
+    ["invalid", ["--as-of", "not-an-iso-timestamp"], 1, "HOLD: as_of:missing-or-invalid"],
+    ["duplicate", ["--as-of", "2025-01-15T12:00:00.000Z", "--as-of", "2025-01-15T12:00:01.000Z"], 64, "duplicate argument: --as-of"],
+    ["missing", ["--as-of"], 64, "--as-of requires an ISO timestamp"],
+  ] as const)("rejects %s --as-of input", (_label, extraArgs, status, message) => {
+    const times = fixtureTimes();
+    const result = runReadiness(passEvidence(times), passEnvelope(times), extraArgs);
+    expect(result.status).toBe(status);
+    expect(result.stderr).toContain(message);
+  });
+
+  it("rejects historical validation before the readiness observation", () => {
+    const times = fixtureTimes();
+    const evidence = passEvidence(times);
+    const asOf = new Date(Date.parse(evidence.observed_at) - 1_000).toISOString();
+    const result = runReadiness(evidence, passEnvelope(times), ["--as-of", asOf]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("HOLD: evidence.observed_at:future");
   });
 
   it("holds when a required cgroup controller is missing", () => {

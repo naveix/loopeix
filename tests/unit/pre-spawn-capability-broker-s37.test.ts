@@ -388,6 +388,31 @@ describe("S37 Linux probe admission", () => {
     })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
   });
 
+  it("rejects stale tuples, pre-observation issuance, and overlong receipts", () => {
+    const valid = validLinuxAdmissionInput();
+    const staleTuple = validLinuxHostTuple({ observed_at: "2026-08-14T10:00:14.999Z" });
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      host_tuple: staleTuple,
+      backend_receipt: validLinuxBackendIdentityReceipt(staleTuple, valid.profile),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      backend_receipt: validLinuxBackendIdentityReceipt(valid.host_tuple, valid.profile, {
+        issued_at: "2026-08-14T10:00:19.999Z",
+      }),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+
+    expect(prepareS37LinuxProbeAdmissionV02({
+      ...valid,
+      backend_receipt: validLinuxBackendIdentityReceipt(valid.host_tuple, valid.profile, {
+        issued_at: "2026-08-14T10:00:20Z",
+        expires_at: "2026-08-14T10:10:20.001Z",
+      }),
+    })).toMatchObject({ ok: false, reason: "ENFORCEMENT_UNAVAILABLE", process_started: false });
+  });
+
   it("rejects receipt hash and deny-set drift, skipped rows, and setuid bubblewrap", () => {
     const valid = validLinuxAdmissionInput();
     expect(prepareS37LinuxProbeAdmissionV02({

@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, statSync } from "node:fs";
+import { readFileSync, existsSync, lstatSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -6,6 +6,7 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = resolve(SCRIPT_DIR, "..");
 const SUPERVISOR_PATH = "scripts/s37-linux-phase-b/supervisor.c";
 const PROBE_PATH = "scripts/s37-linux-phase-b/probe.c";
+const CANONICAL_ENVIRONMENT_TEST_PATH = "scripts/s37-linux-phase-b/test-probe-canonical-environment.sh";
 const REJECTED_FLAGS = new Set(["--live", "--ssh", "--vps"]);
 
 function usage(message) {
@@ -54,7 +55,64 @@ function collectMatches(source, pattern) {
   return [...source.matchAll(new RegExp(pattern.source, flags))].map((match) => match[1]);
 }
 
-function extractCStringArray(source, symbol, violations) {
+function stripCComments(source) {
+  let result = "";
+  let index = 0;
+  while (index < source.length) {
+    const current = source[index];
+    const next = source[index + 1];
+    if (current === "\"" || current === "'") {
+      const quote = current;
+      result += current;
+      index += 1;
+      while (index < source.length) {
+        const value = source[index];
+        result += value;
+        index += 1;
+        if (value === "\\") {
+          if (index < source.length) {
+            result += source[index];
+            index += 1;
+          }
+          continue;
+        }
+        if (value === quote) break;
+      }
+      continue;
+    }
+    if (current === "/" && next === "/") {
+      result += "  ";
+      index += 2;
+      while (index < source.length && source[index] !== "\n") {
+        result += " ";
+        index += 1;
+      }
+      continue;
+    }
+    if (current === "/" && next === "*") {
+      result += "  ";
+      index += 2;
+      while (index < source.length) {
+        const value = source[index];
+        const following = source[index + 1];
+        if (value === "\n") result += "\n";
+        else result += " ";
+        index += 1;
+        if (value === "*" && following === "/") {
+          result += " ";
+          index += 1;
+          break;
+        }
+      }
+      continue;
+    }
+    result += current;
+    index += 1;
+  }
+  return result;
+}
+
+function extractCArrayTokens(source, symbol, violations) {
   const block = collectMatches(source, new RegExp(
     String.raw`char \*const ${symbol}\[\] = \{([\s\S]*?)\};`,
     "u",
@@ -63,13 +121,16 @@ function extractCStringArray(source, symbol, violations) {
     violations.push(`${symbol}:missing-or-ambiguous`);
     return [];
   }
-  const raw = block[0];
-  return [...raw.matchAll(/"(.*?)"/gu)].map((match) => match[1]);
+  return stripCComments(block[0])
+    .split(",")
+    .map((token) => token.replace(/\s+/gu, " ").trim().replace(/^\(char \*\)\s*/u, ""))
+    .filter((token) => token.length > 0);
 }
 
 function validateSupervisor(source, violations) {
   const supervisorFileLabel = "supervisor";
   assertMatch(source, supervisorFileLabel, /enum \{ DEADLINE_MS = 1000,\s*STREAM_CAP = 1024 \}/u, violations, "missing-or-not-exact-constants");
+  assertMatch(source, supervisorFileLabel, /enum \{ POLICY_FD = 3,\s*EXEC_ERRNO_FD = 4,\s*FIRST_CLOSE_FD = 5 \}/u, violations, "exec-errno-fd-not-preserved");
   assertMatch(source, supervisorFileLabel, /struct capture[\s\S]*uint8_t bytes\[STREAM_CAP\];/u, violations, "capture-buffer-width-not-streamcap");
   assertMatch(source, supervisorFileLabel, /int is_absolute_regular_executable\(const char \*path\)/u, violations, "missing-absolute-exec-validation");
   assertMatch(source, supervisorFileLabel, /lstat\(path, &link_status\).*?!S_ISLNK/su, violations, "symlink-executable-not-rejected");
@@ -90,42 +151,59 @@ function validateSupervisor(source, violations) {
   assertMatch(source, supervisorFileLabel, /F_SETFD,\s*flags & ~FD_CLOEXEC/u, violations, "memfd-fd-flag-not-held-open");
   assertMatch(source, supervisorFileLabel, /prctl\(PR_SET_CHILD_SUBREAPER,\s*1\)/u, violations, "missing-child-subreaper");
 
-  const argv = extractCStringArray(source, "bwrap_argv", violations);
+  const bwrapFilterBlocks = collectMatches(
+    source,
+    /static const struct sock_filter bwrap_seccomp_filter\[\] = \{([\s\S]*?)\n\};/u,
+  );
+  if (bwrapFilterBlocks.length !== 1) {
+    violations.push("supervisor:bwrap-filter-missing-or-ambiguous");
+  } else {
+    const bwrapFilter = stripCComments(bwrapFilterBlocks[0]);
+    for (const syscall of [
+      "clone", "clone3", "fork", "vfork", "socket", "socketpair", "connect", "bind",
+      "listen", "accept", "accept4",
+    ]) {
+      assertMatch(
+        bwrapFilter,
+        supervisorFileLabel,
+        new RegExp(`DENY_ERRNO\\(__NR_${syscall}\\)`, "u"),
+        violations,
+        `bwrap-filter-deny-missing:${syscall}`,
+      );
+    }
+  }
+
+  const argv = extractCArrayTokens(source, "bwrap_argv", violations);
   if (argv.length > 0) {
     const expected = [
-      "--unshare-user",
-      "--unshare-ipc",
-      "--unshare-pid",
-      "--unshare-net",
-      "--unshare-uts",
-      "--disable-userns",
-      "--clearenv",
-      "--unsetenv",
-      "PWD",
-      "--new-session",
-      "--die-with-parent",
-      "--cap-drop",
-      "ALL",
-      "--ro-bind",
-      "--remount-ro",
-      "--seccomp",
-      "--",
+      "argv[1]",
+      '"--unshare-user"', '"--unshare-ipc"', '"--unshare-pid"',
+      '"--unshare-net"', '"--unshare-uts"', '"--disable-userns"',
+      '"--clearenv"', '"--unsetenv"', '"PWD"',
+      '"--chdir"', '"/"',
+      '"--new-session"', '"--die-with-parent"',
+      '"--cap-drop"', '"ALL"',
+      '"--ro-bind"', "argv[2]", '"/loopeix-s37-probe"',
+      '"--remount-ro"', '"/"',
+      '"--seccomp"', "policy_text",
+      '"--"', '"/loopeix-s37-probe"', "NULL",
     ];
-    const missing = expected.filter((flag) => !argv.includes(flag));
-    assert(missing.length === 0, supervisorFileLabel, violations, `bwrap-argv-missing:${missing.join(",")}`);
+    assert(JSON.stringify(argv) === JSON.stringify(expected), supervisorFileLabel, violations, "bwrap-argv-not-exact");
     assertMatch(source, supervisorFileLabel, /"--remount-ro",\s*\(char \*\)"\/"/u, violations, "bwrap-ro-root-bind-missing");
+    assertMatch(source, supervisorFileLabel, /"--chdir",\s*\(char \*\)"\/"/u, violations, "bwrap-canonical-chdir-missing");
   assertMatch(source, supervisorFileLabel, /"--seccomp",\s*policy_text,/u, violations, "bwrap-seccomp-missing");
     assertMatch(source, supervisorFileLabel, /"--",/u, violations, "bwrap-exec-separator-missing");
   }
-
   assertMatch(source, supervisorFileLabel, /char \*const empty_env\[\] = \{NULL\};/u, violations, "empty-env-missing");
   assertMatch(source, supervisorFileLabel, /static char policy_text\[\] = "3";/u, violations, "seccomp-fd-not-fixed");
-  assertMatch(source, supervisorFileLabel, /policy_fd != 3 && dup2\(policy_fd, 3\)/u, violations, "seccomp-fd-not-duplicated");
-  assertMatch(source, supervisorFileLabel, /syscall\(SYS_close_range, 4u, ~0u, 0u\)/u, violations, "inherited-fds-not-closed");
+  assertMatch(source, supervisorFileLabel, /policy_fd != POLICY_FD && dup2\(policy_fd, POLICY_FD\)/u, violations, "seccomp-fd-not-duplicated");
+  assertMatch(source, supervisorFileLabel, /exec_errno_pipe\[1\] != EXEC_ERRNO_FD &&[\s\S]*dup2\(exec_errno_pipe\[1\], EXEC_ERRNO_FD\)[\s\S]*fcntl\(EXEC_ERRNO_FD, F_SETFD, FD_CLOEXEC\)/u, violations, "exec-errno-fd-not-preserved");
+  assertMatch(source, supervisorFileLabel, /syscall\(SYS_close_range,\s*\(unsigned int\)FIRST_CLOSE_FD,\s*~0u,\s*0u\)/u, violations, "inherited-fds-not-closed");
   assertMatch(source, supervisorFileLabel, /getrlimit\(RLIMIT_NOFILE, &limit\)/u, violations, "fd-close-fallback-limit-missing");
-  assertMatch(source, supervisorFileLabel, /for \(int fd = 4; fd < \(int\)limit\.rlim_cur; \+\+fd\)/u, violations, "fd-close-fallback-loop-missing");
+  assertMatch(source, supervisorFileLabel, /for \(int fd = FIRST_CLOSE_FD; fd < \(int\)limit\.rlim_cur; \+\+fd\)/u, violations, "fd-close-fallback-loop-missing");
   assertMatch(source, supervisorFileLabel, /pipe2\(stdout_pipe,\s*O_CLOEXEC\)/u, violations, "separate-stdout-pipe-missing");
   assertMatch(source, supervisorFileLabel, /pipe2\(stderr_pipe,\s*O_CLOEXEC\)/u, violations, "separate-stderr-pipe-missing");
+  assertMatch(source, supervisorFileLabel, /pipe2\(exec_errno_pipe,\s*O_CLOEXEC\)/u, violations, "exec-errno-pipe-not-cloexec");
   assertMatch(source, supervisorFileLabel, /setpgid\(0,\s*0\) != 0/u, violations, "child-no-setpgid");
   assertMatch(source, supervisorFileLabel, /setpgid\(child,\s*child\)/u, violations, "parent-no-child-pgrp");
   assertMatch(source, supervisorFileLabel, /PR_SET_CHILD_SUBREAPER/u, violations, "subreaper-custody-missing");
@@ -136,11 +214,20 @@ function validateSupervisor(source, violations) {
   assertMatch(source, supervisorFileLabel, /capture_available\(&err\);/u, violations, "stderr-collection-regressed");
   assertMatch(source, supervisorFileLabel, /err->length != 0 \|\| out->length !=/u, violations, "no-stdout-stderr-quarantine");
   assertMatch(source, supervisorFileLabel, /int report_result\(const struct capture \*out, const struct capture \*err\)/u, violations, "no-output-validation");
+  assertMatch(source, supervisorFileLabel, /const uint32_t bootstrap_checks =[\s\S]*\(UINT32_C\(1\) << 2\) - UINT32_C\(1\);[\s\S]*const uint32_t all_checks = \(UINT32_C\(1\) << 10\) - UINT32_C\(1\);/u, violations, "bootstrap-report-mask-missing");
+  assertMatch(source, supervisorFileLabel, /observed == bootstrap_checks &&[\s\S]*\(report\.failed & \(UINT32_C\(1\) << 1\)\) != 0/u, violations, "partial-bootstrap-report-not-authenticated");
   assertMatch(source, supervisorFileLabel, /SUPERVISOR_PROBE_NO_NEW_PRIVS = 80[\s\S]*SUPERVISOR_PROBE_PRIVATE_MMAP = 89/u, violations, "probe-failure-exit-map-missing");
-  assertMatch(source, supervisorFileLabel, /SUPERVISOR_CHILD_SETPGID = 73[\s\S]*SUPERVISOR_CHILD_CLOSE_RANGE = 77/u, violations, "child-setup-exit-map-missing");
+  assertMatch(source, supervisorFileLabel, /SUPERVISOR_CHILD_EXEC_ERRNO_FD = 72[\s\S]*SUPERVISOR_CHILD_CLOSE_RANGE = 77/u, violations, "exec-errno-child-exit-missing");
+  assertMatch(source, supervisorFileLabel, /SUPERVISOR_BWRAP_SECCOMP_SETUP = 78/u, violations, "bwrap-seccomp-setup-exit-missing");
+  assertMatch(source, supervisorFileLabel, /SUPERVISOR_BWRAP_EXECVE_ERRNO = 79/u, violations, "bwrap-execve-exit-missing");
+  assertMatch(source, supervisorFileLabel, /const uint32_t value = \(uint32_t\)error_number;[\s\S]*write\(EXEC_ERRNO_FD, &value, sizeof\(value\)\)[\s\S]*_exit\(127\)/u, violations, "exec-errno-child-witness-missing");
+  assertMatch(source, supervisorFileLabel, /int is_exact_bwrap_execve_failure\(const struct capture \*out,[\s\S]*out->length != 0 \|\| err->length != 0 \|\| exec_errno->overflow[\s\S]*exec_errno->length != sizeof\(uint32_t\)[\s\S]*error_number > 0 && error_number <= 4095/u, violations, "bwrap-execve-classifier-not-exact");
+  assertMatch(source, supervisorFileLabel, /WEXITSTATUS\(child_status\) == 127 &&[\s\S]*is_exact_bwrap_execve_failure\(&out, &err, &exec_errno\)[\s\S]*return SUPERVISOR_BWRAP_EXECVE_ERRNO/u, violations, "bwrap-execve-classification-missing");
+  assertMatch(source, supervisorFileLabel, /int is_exact_bwrap_seccomp_setup_failure\(const struct capture \*out,[\s\S]*out->length != 0[\s\S]*err->length == diagnostic_length[\s\S]*err->length == diagnostic_length \* 2u/u, violations, "bwrap-seccomp-diagnostic-must-be-exact-and-quarantined");
+  assertMatch(source, supervisorFileLabel, /WEXITSTATUS\(child_status\) == 1 &&[\s\S]*is_exact_bwrap_seccomp_setup_failure\(&out, &err\)[\s\S]*return SUPERVISOR_BWRAP_SECCOMP_SETUP/u, violations, "bwrap-seccomp-setup-classification-missing");
   assertMatch(source, supervisorFileLabel, /WEXITSTATUS\(child_status\) == 122 && report_status >= 80 && report_status <= 89/u, violations, "probe-failure-report-not-preserved");
   assertMatch(source, supervisorFileLabel, /\bexecve\(argv\[1\],\s*bwrap_argv,\s*empty_env\);/u, violations, "supervisor-can-use-shell-wrapper");
-  assertMatch(source, supervisorFileLabel, /_exit\(127\)/u, violations, "exec-failure-path-missing");
+  assertMatch(source, supervisorFileLabel, /const int execve_errno = errno;[\s\S]*exit_with_execve_errno\(execve_errno\)/u, violations, "exec-failure-path-missing");
   assertMatch(source, supervisorFileLabel, /SUPERVISOR_SETUP|SUPERVISOR_TIMEOUT_REAPED|SUPERVISOR_OUTPUT_OVERFLOW|SUPERVISOR_CHILD_FAILURE|SUPERVISOR_REPORT_INVALID/u, violations, "supervisor-exit-enum-drift");
 
   assertAbsent(source, supervisorFileLabel, /\bsystem\s*\(/u, violations, "forbidden-system-call");
@@ -157,10 +244,12 @@ function validateProbe(source, violations) {
   assertMatch(source, probeFileLabel, /AUDIT_ARCH_X86_64/u, violations, "probe-no-arch-gate");
   assertMatch(source, probeFileLabel, /BPF_STMT\(BPF_RET \| BPF_K, SECCOMP_RET_KILL_PROCESS\)/u, violations, "probe-arch-mismatch-not-kill");
   assertMatch(source, probeFileLabel, /prctl\(PR_SET_NO_NEW_PRIVS,\s*1/u, violations, "probe-must-set-no-new-privs");
+  assertAbsent(source, probeFileLabel, /filter_ok && prctl\(PR_GET_NO_NEW_PRIVS/u, violations, "no-new-privs-observation-coupled-to-filter");
+  assertMatch(source, probeFileLabel, /record_check\(&report, CHECK_NO_NEW_PRIVS,\s*prctl\(PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0\) == 1\)/u, violations, "no-new-privs-independent-observation-missing");
   assertMatch(source, probeFileLabel, /SECCOMP_MODE_FILTER/u, violations, "probe-must-install-filter");
   assertMatch(source, probeFileLabel, /CHECK_NO_NEW_PRIVS/u, violations, "probe-check-no-new-privs-missing");
   assertMatch(source, probeFileLabel, /CHECK_SECOND_FILTER/u, violations, "probe-check-second-filter-missing");
-  assertMatch(source, probeFileLabel, /CHECK_EMPTY_ENV/u, violations, "probe-check-empty-env-missing");
+  assertMatch(source, probeFileLabel, /CHECK_CANONICAL_ENVIRONMENT/u, violations, "probe-check-canonical-environment-missing");
   assertMatch(source, probeFileLabel, /CHECK_EXACT_FDS/u, violations, "probe-check-fd-set-missing");
   assertMatch(source, probeFileLabel, /CHECK_FILESYSTEM/u, violations, "probe-check-filesystem-missing");
   assertMatch(source, probeFileLabel, /CHECK_FORK_CLONE/u, violations, "probe-check-process-missing");
@@ -169,8 +258,27 @@ function validateProbe(source, violations) {
   assertMatch(source, probeFileLabel, /CHECK_ABSENT_PATHS/u, violations, "probe-check-paths-missing");
   assertMatch(source, probeFileLabel, /\bCHECK_PRIVATE_MMAP\b/u, violations, "probe-check-mmap-missing");
   assertMatch(source, probeFileLabel, /enum \{ ALL_CHECKS = \(1u << 10\) - 1u \}/u, violations, "probe-not-closed-all-rows");
-  assertMatch(source, probeFileLabel, /static int has_empty_environment\(void\)/u, violations, "probe-empty-env-fn-missing");
-  assertMatch(source, probeFileLabel, /environ != NULL && environ\[0\] == NULL/u, violations, "probe-empty-env-logic-drift");
+  const canonicalEnvironmentBlocks = collectMatches(
+    source,
+    /static int has_canonical_environment\(void\) \{([\s\S]*?)\n\}/u,
+  );
+  assert(canonicalEnvironmentBlocks.length === 1, probeFileLabel, violations, "probe-canonical-environment-fn-missing-or-ambiguous");
+  if (canonicalEnvironmentBlocks.length === 1) {
+    const canonicalEnvironmentBody = stripCComments(canonicalEnvironmentBlocks[0]).replace(/\s+/gu, " ").trim();
+    const expectedCanonicalEnvironmentBody = [
+      "char cwd[2];",
+      "return environ != NULL && environ[0] != NULL &&",
+      'strcmp(environ[0], "PWD=/") == 0 && environ[1] == NULL &&',
+      'getcwd(cwd, sizeof(cwd)) != NULL && strcmp(cwd, "/") == 0;',
+    ].join(" ");
+    assert(canonicalEnvironmentBody === expectedCanonicalEnvironmentBody, probeFileLabel, violations, "probe-canonical-environment-body-not-exact");
+  }
+  assertMatch(source, probeFileLabel, /environ != NULL && environ\[0\] != NULL/u, violations, "probe-canonical-environment-null-guard-missing");
+  assertMatch(source, probeFileLabel, /strcmp\(environ\[0\], "PWD=\/"\) == 0 && environ\[1\] == NULL/u, violations, "probe-canonical-environment-not-exact");
+  assertMatch(source, probeFileLabel, /getcwd\(cwd, sizeof\(cwd\)\) != NULL && strcmp\(cwd, "\/"\) == 0/u, violations, "probe-canonical-cwd-not-exact");
+  assertAbsent(source, probeFileLabel, /\bgetenv\s*\(/u, violations, "probe-canonical-environment-must-not-use-getenv");
+  assertAbsent(source, probeFileLabel, /\bunsetenv\s*\(/u, violations, "probe-canonical-environment-must-not-self-clean");
+  assertMatch(source, probeFileLabel, /record_check\(&report, CHECK_CANONICAL_ENVIRONMENT,\s*has_canonical_environment\(\)\);/u, violations, "probe-canonical-environment-wiring-not-exact");
   assertMatch(source, probeFileLabel, /static int has_exact_file_descriptors\(void\)/u, violations, "probe-fd-check-missing");
   assertMatch(source, probeFileLabel, /for \(int fd = 3; fd < 4096; \+\+fd\)/u, violations, "probe-fd-loop-drift");
   assertMatch(source, probeFileLabel, /static int filesystem_writes_are_denied\(void\)/u, violations, "probe-filesystem-check-missing");
@@ -210,6 +318,7 @@ function main() {
   const rootDir = cli();
   const supervisorPath = resolve(rootDir, SUPERVISOR_PATH);
   const probePath = resolve(rootDir, PROBE_PATH);
+  const canonicalEnvironmentTestPath = resolve(rootDir, CANONICAL_ENVIRONMENT_TEST_PATH);
   const violations = [];
   try {
     const stats = statSync(rootDir);
@@ -217,17 +326,37 @@ function main() {
   } catch {
     usage(`${rootDir} does not exist`);
   }
-  if (!existsSync(supervisorPath) || !existsSync(probePath)) {
+  if (!existsSync(supervisorPath) || !existsSync(probePath) || !existsSync(canonicalEnvironmentTestPath)) {
     if (!existsSync(supervisorPath)) violations.push("supervisor.c:missing");
     if (!existsSync(probePath)) violations.push("probe.c:missing");
+    if (!existsSync(canonicalEnvironmentTestPath)) violations.push("canonical-environment-runtime-test:missing");
     fail(violations);
   }
 
+  const canonicalEnvironmentTestStats = lstatSync(canonicalEnvironmentTestPath);
+  assert(canonicalEnvironmentTestStats.isFile(), "canonical-environment-runtime-test", violations, "not-regular-file");
+  assert(!canonicalEnvironmentTestStats.isSymbolicLink(), "canonical-environment-runtime-test", violations, "symlink-forbidden");
+  assert((canonicalEnvironmentTestStats.mode & 0o111) !== 0, "canonical-environment-runtime-test", violations, "not-executable");
+  assert((canonicalEnvironmentTestStats.mode & 0o022) === 0, "canonical-environment-runtime-test", violations, "group-or-other-writable");
+
   const supervisorSource = readFileSync(supervisorPath, "utf8");
   const probeSource = readFileSync(probePath, "utf8");
+  const canonicalEnvironmentTestSource = readFileSync(canonicalEnvironmentTestPath, "utf8");
+  const normalizedSupervisor = stripCComments(supervisorSource);
+  const normalizedProbe = stripCComments(probeSource);
 
-  validateSupervisor(supervisorSource, violations);
-  validateProbe(probeSource, violations);
+  validateSupervisor(normalizedSupervisor, violations);
+  validateProbe(normalizedProbe, violations);
+  for (const required of [
+    "-DLOOPEIX_S37_CANONICAL_ENVIRONMENT_TEST",
+    "run_case 0 / PWD=/",
+    "run_case 1 /",
+    "run_case 1 / PWD=/ EXTRA=x",
+    "run_case 1 / PWD=/tmp",
+    'run_case 1 "$test_root" PWD=/',
+  ]) {
+    assert(canonicalEnvironmentTestSource.includes(required), "canonical-environment-runtime-test", violations, `contract-missing:${required}`);
+  }
 
   if (violations.length > 0) fail(violations);
 

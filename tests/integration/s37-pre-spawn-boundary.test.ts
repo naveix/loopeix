@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
@@ -108,6 +108,17 @@ describe("S37 static pre-spawn boundary", () => {
     expect(result.stderr).toContain("package-root-forbidden-export:prepareS37LinuxProbeAdmissionV02");
   });
 
+  it("rejects package-root exports of the Phase C local product entry", () => {
+    const root = createBaselineRepo("loopeix-s37-boundary-product-export-", {
+      "src/index.ts": 'export { runS37LocalLinuxProductProbeV02 } from "./run/linux-host-enforcement-v02.js";\n',
+    });
+
+    const result = runBoundary({ cwd: root });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("package-root-linux-export: src/index.ts");
+    expect(result.stderr).toContain("package-root-forbidden-export:runS37LocalLinuxProductProbeV02");
+  });
+
   it("rejects package-root wildcard exports of the package-private broker", () => {
     const root = createBaselineRepo("loopeix-s37-boundary-export-all-", {
       "src/index.ts": 'export * from "./run/pre-spawn-capability-broker-v02.js";\n',
@@ -129,9 +140,13 @@ describe("S37 static pre-spawn boundary", () => {
     expect(result.stderr).toContain("bounded-launcher-import-outside-linux-owner: src/run/not-allowed.ts");
   });
 
-  it("rejects Linux module imports inside the compatibility engine or CLI", () => {
+  it.each([
+    'import "../../run/linux-host-enforcement-v02.js";',
+    'import { runS37LocalLinuxProductProbeV02 } from "../../run/linux-host-enforcement-v02.js";',
+    'import localBackend from "../../run/linux-host-enforcement-v02.js";',
+  ])("rejects real-path Linux module imports inside the compatibility CLI: %s", (statement) => {
     const root = createBaselineRepo("loopeix-s37-boundary-cli-", {
-      "src/commands/run/start.ts": 'import "./linux-host-enforcement-v02.js";\nexport function runStart() { return null; }\n',
+      "src/commands/run/start.ts": `${statement}\nexport function runStart() { return null; }\n`,
     });
 
     const result = runBoundary({ cwd: root });
@@ -150,16 +165,164 @@ describe("S37 static pre-spawn boundary", () => {
     expect(result.stderr).toContain("shell-true-in-linux-module: src/run/linux-host-enforcement-v02.ts");
   });
 
-  it("rejects direct OS and spawn capabilities inside Phase A Linux modules", () => {
+  it("rejects direct OS and spawn capabilities outside the sole Phase C Linux owner", () => {
     const root = createBaselineRepo("loopeix-s37-boundary-linux-os-", {
-      "src/run/linux-host-enforcement-v02.ts": 'import { spawn } from "node:child_process";\nexport const launch = () => spawn("/bin/true");\n',
-      "src/run/bounded-linux-probe-v02.ts": "export function runBoundedS37LinuxProbeV02() { return null; }\n",
+      "src/run/bounded-linux-probe-v02.ts": 'import { spawn } from "node:child_process";\nexport const launch = () => spawn("/bin/true");\n',
     });
 
     const result = runBoundary({ cwd: root });
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("child-process-module: src/run/linux-host-enforcement-v02.ts");
-    expect(result.stderr).toContain("spawn-or-exec: src/run/linux-host-enforcement-v02.ts");
+    expect(result.stderr).toContain("child-process-module: src/run/bounded-linux-probe-v02.ts");
+    expect(result.stderr).toContain("spawn-or-exec: src/run/bounded-linux-probe-v02.ts");
+  });
+
+  it("rejects dynamic loading, scope, pipe, or shell widening in the Phase C owner", () => {
+    const root = createBaselineRepo("loopeix-s37-boundary-owner-widening-", {
+      "src/run/linux-host-enforcement-v02.ts": [
+        'const child = require("node:child_process");',
+        'export const widened = ["--scope", "--pipe", { shell: true }, child];',
+      ].join("\n"),
+    });
+
+    const result = runBoundary({ cwd: root });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("module-loader: src/run/linux-host-enforcement-v02.ts");
+    expect(result.stderr).toContain('forbidden-phase-c-owner-contract:"--scope"');
+    expect(result.stderr).toContain('forbidden-phase-c-owner-contract:"--pipe"');
+    expect(result.stderr).toContain("shell-true-in-linux-module: src/run/linux-host-enforcement-v02.ts");
+  });
+
+  it("rejects manager observation or process creation outside the admitted controller", () => {
+    const root = createBaselineRepo("loopeix-s37-boundary-preadmission-spawn-", {
+      "src/run/linux-host-enforcement-v02.ts": [
+        "export async function observeBeforeAdmission() {",
+        "  await observeSystemdManagerVersion(1001);",
+        "  return spawn('/usr/bin/systemctl', []);",
+        "}",
+      ].join("\n"),
+    });
+
+    const result = runBoundary({ cwd: root });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("phase-c-manager-observation-before-admitted-controller");
+    expect(result.stderr).toContain("phase-c-spawn-outside-admitted-controller:observeBeforeAdmission");
+  });
+
+  it.each([
+    ["manager observer", "      child = spawn(\n        SYSTEMCTL_PATH,", "      void spawn('/bin/sh', ['-c', 'true']);\n      child = spawn(\n        SYSTEMCTL_PATH,"],
+    ["transient controller", "      child = spawn(invocation.command, [...invocation.args], invocation.options);", "      void spawn('/bin/sh', ['-c', 'true']);\n      child = spawn(invocation.command, [...invocation.args], invocation.options);"],
+  ])("rejects an extra spawn inside the allowlisted %s", (_name, needle, replacement) => {
+    const canonical = readFileSync(resolve(process.cwd(), "src/run/linux-host-enforcement-v02.ts"), "utf8");
+    expect(canonical).toContain(needle);
+    const root = createBaselineRepo("loopeix-s37-boundary-extra-owner-spawn-", {
+      "src/run/linux-host-enforcement-v02.ts": canonical.replace(needle, replacement),
+    });
+
+    const result = runBoundary({ cwd: root });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("phase-c-spawn-call-count:expected-2:actual-3");
+  });
+
+  it("rejects local indirection of the spawn capability", () => {
+    const canonical = readFileSync(resolve(process.cwd(), "src/run/linux-host-enforcement-v02.ts"), "utf8");
+    const needle = "      child = spawn(\n        SYSTEMCTL_PATH,";
+    const replacement = "      const launch = spawn;\n      void launch('/bin/sh', []);\n      child = spawn(\n        SYSTEMCTL_PATH,";
+    expect(canonical).toContain(needle);
+    const root = createBaselineRepo("loopeix-s37-boundary-spawn-alias-", {
+      "src/run/linux-host-enforcement-v02.ts": canonical.replace(needle, replacement),
+    });
+
+    const result = runBoundary({ cwd: root });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("phase-c-spawn-reference-must-be-direct-callee");
+  });
+
+  it("rejects an additional aliased child-process import", () => {
+    const canonical = readFileSync(resolve(process.cwd(), "src/run/linux-host-enforcement-v02.ts"), "utf8");
+    const needle = 'import { spawn } from "node:child_process";';
+    const replacement = `${needle}\nimport { spawn as launch } from "node:child_process";`;
+    expect(canonical).toContain(needle);
+    const root = createBaselineRepo("loopeix-s37-boundary-spawn-import-alias-", {
+      "src/run/linux-host-enforcement-v02.ts": canonical.replace(needle, replacement),
+    });
+
+    const result = runBoundary({ cwd: root });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("phase-c-child-process-import-must-be-sole-unaliased-spawn");
+  });
+
+  it("rejects any extra OS-capability import in the Phase C owner", () => {
+    const canonical = readFileSync(resolve(process.cwd(), "src/run/linux-host-enforcement-v02.ts"), "utf8");
+    const needle = 'import { lstatSync, readFileSync } from "node:fs";';
+    const replacement = 'import { lstatSync, readFileSync, writeFileSync } from "node:fs";';
+    expect(canonical).toContain(needle);
+    const root = createBaselineRepo("loopeix-s37-boundary-extra-os-import-", {
+      "src/run/linux-host-enforcement-v02.ts": canonical.replace(needle, replacement),
+    });
+
+    const result = runBoundary({ cwd: root });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("phase-c-owner-import-surface-must-be-exact");
+  });
+
+  it.each([
+    ["getBuiltinModule", '      const load = (process as any)["getBuiltinModule"];\n      const cp = load("node:child_process");\n      void cp["spawn"]("/bin/sh", []);'],
+    ["binding", '      const load = (process as any)["binding"];\n      void load("spawn_sync");'],
+  ])("rejects indirect ambient process capability acquisition through %s", (_name, extraCode) => {
+    const canonical = readFileSync(resolve(process.cwd(), "src/run/linux-host-enforcement-v02.ts"), "utf8");
+    const needle = "      child = spawn(\n        SYSTEMCTL_PATH,";
+    expect(canonical).toContain(needle);
+    const root = createBaselineRepo("loopeix-s37-boundary-process-loader-", {
+      "src/run/linux-host-enforcement-v02.ts": canonical.replace(needle, `${extraCode}\n${needle}`),
+    });
+
+    const result = runBoundary({ cwd: root });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("phase-c-process-reference-must-be-current-uid-only");
+  });
+
+  it.each([
+    ["Function", '      const Build = Function;\n      void Build("return process")();'],
+    ["eval", '      const run = eval;\n      void run("process.getBuiltinModule(\\"node:child_process\\")");'],
+  ])("rejects indirect runtime evaluation through %s", (name, extraCode) => {
+    const canonical = readFileSync(resolve(process.cwd(), "src/run/linux-host-enforcement-v02.ts"), "utf8");
+    const needle = "      child = spawn(\n        SYSTEMCTL_PATH,";
+    expect(canonical).toContain(needle);
+    const root = createBaselineRepo("loopeix-s37-boundary-runtime-eval-", {
+      "src/run/linux-host-enforcement-v02.ts": canonical.replace(needle, `${extraCode}\n${needle}`),
+    });
+
+    const result = runBoundary({ cwd: root });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`phase-c-runtime-evaluation-reference-forbidden:${name}`);
+    expect(result.stderr).toContain("phase-c-owner-source-digest:mismatch");
+  });
+
+  it.each([
+    [
+      'import * as cp from "child_process";',
+      '      void cp["spawn"]("/bin/sh", []);',
+    ],
+    [
+      'import { execFile as launch } from "child_process";',
+      '      void launch("/bin/sh", []);',
+    ],
+  ])("rejects a bare-specifier process-capability bypass: %s", (extraImport, extraCall) => {
+    const canonical = readFileSync(resolve(process.cwd(), "src/run/linux-host-enforcement-v02.ts"), "utf8");
+    const importNeedle = 'import { spawn } from "node:child_process";';
+    const callNeedle = "      child = spawn(\n        SYSTEMCTL_PATH,";
+    expect(canonical).toContain(importNeedle);
+    expect(canonical).toContain(callNeedle);
+    const mutated = canonical
+      .replace(importNeedle, `${importNeedle}\n${extraImport}`)
+      .replace(callNeedle, `${extraCall}\n${callNeedle}`);
+    const root = createBaselineRepo("loopeix-s37-boundary-bare-process-import-", {
+      "src/run/linux-host-enforcement-v02.ts": mutated,
+    });
+
+    const result = runBoundary({ cwd: root });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("phase-c-child-process-import-must-be-sole-unaliased-spawn");
   });
 
   it("rejects broker access to direct OS capability modules", () => {

@@ -1,5 +1,9 @@
 #define _GNU_SOURCE
 
+#include <string.h>
+#include <unistd.h>
+
+#ifndef LOOPEIX_S37_CANONICAL_ENVIRONMENT_TEST
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/audit.h>
@@ -10,21 +14,33 @@
 #include <spawn.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <string.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <unistd.h>
+#endif
 
 extern char **environ;
+
+static int has_canonical_environment(void) {
+  char cwd[2];
+  return environ != NULL && environ[0] != NULL &&
+         strcmp(environ[0], "PWD=/") == 0 && environ[1] == NULL &&
+         getcwd(cwd, sizeof(cwd)) != NULL && strcmp(cwd, "/") == 0;
+}
+
+#ifdef LOOPEIX_S37_CANONICAL_ENVIRONMENT_TEST
+int main(void) {
+  return has_canonical_environment() ? 0 : 1;
+}
+#else
 
 enum probe_check {
   CHECK_NO_NEW_PRIVS = 1u << 0,
   CHECK_SECOND_FILTER = 1u << 1,
-  CHECK_EMPTY_ENV = 1u << 2,
+  CHECK_CANONICAL_ENVIRONMENT = 1u << 2,
   CHECK_EXACT_FDS = 1u << 3,
   CHECK_FILESYSTEM = 1u << 4,
   CHECK_FORK_CLONE = 1u << 5,
@@ -106,10 +122,6 @@ static int install_second_filter(void) {
   if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) return -1;
   if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &program) != 0) return -1;
   return 0;
-}
-
-static int has_empty_environment(void) {
-  return environ != NULL && environ[0] == NULL;
 }
 
 static int has_exact_file_descriptors(void) {
@@ -303,10 +315,11 @@ int main(int argc, char **argv) {
 
   int filter_ok = install_second_filter() == 0;
   record_check(&report, CHECK_NO_NEW_PRIVS,
-               filter_ok && prctl(PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) == 1);
+               prctl(PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) == 1);
   record_check(&report, CHECK_SECOND_FILTER, filter_ok);
   if (filter_ok) {
-    record_check(&report, CHECK_EMPTY_ENV, has_empty_environment());
+    record_check(&report, CHECK_CANONICAL_ENVIRONMENT,
+                 has_canonical_environment());
     record_check(&report, CHECK_EXACT_FDS, has_exact_file_descriptors());
     record_check(&report, CHECK_FILESYSTEM, filesystem_writes_are_denied());
     record_check(&report, CHECK_FORK_CLONE, process_creation_is_denied());
@@ -319,3 +332,4 @@ int main(int argc, char **argv) {
   if (write_full(STDOUT_FILENO, &report, sizeof(report)) != 0) return 121;
   return report.passed == ALL_CHECKS && report.failed == 0 ? 0 : 122;
 }
+#endif

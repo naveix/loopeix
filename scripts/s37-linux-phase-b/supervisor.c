@@ -32,14 +32,17 @@ enum supervisor_exit {
   SUPERVISOR_CHILD_FAILURE = 69,
   SUPERVISOR_REPORT_INVALID = 70,
   SUPERVISOR_REAP_FAILURE = 71,
+  SUPERVISOR_CHILD_EXEC_ERRNO_FD = 72,
   SUPERVISOR_CHILD_SETPGID = 73,
   SUPERVISOR_CHILD_STDOUT = 74,
   SUPERVISOR_CHILD_STDERR = 75,
   SUPERVISOR_CHILD_POLICY_FD = 76,
   SUPERVISOR_CHILD_CLOSE_RANGE = 77,
+  SUPERVISOR_BWRAP_SECCOMP_SETUP = 78,
+  SUPERVISOR_BWRAP_EXECVE_ERRNO = 79,
   SUPERVISOR_PROBE_NO_NEW_PRIVS = 80,
   SUPERVISOR_PROBE_SECOND_FILTER = 81,
-  SUPERVISOR_PROBE_EMPTY_ENV = 82,
+  SUPERVISOR_PROBE_CANONICAL_ENVIRONMENT = 82,
   SUPERVISOR_PROBE_EXACT_FDS = 83,
   SUPERVISOR_PROBE_FILESYSTEM = 84,
   SUPERVISOR_PROBE_FORK_CLONE = 85,
@@ -50,6 +53,7 @@ enum supervisor_exit {
 };
 
 enum { DEADLINE_MS = 1000, STREAM_CAP = 1024 };
+enum { POLICY_FD = 3, EXEC_ERRNO_FD = 4, FIRST_CLOSE_FD = 5 };
 
 struct probe_report {
   uint8_t magic[8];
@@ -66,7 +70,7 @@ _Static_assert(sizeof(struct probe_report) == 64, "probe report ABI drifted");
   BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, (syscall_number), 0, 1),                 \
       BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA))
 
-static const struct sock_filter outer_filter[] = {
+static const struct sock_filter bwrap_seccomp_filter[] = {
     BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, arch)),
     BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, AUDIT_ARCH_X86_64, 1, 0),
     BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
@@ -131,8 +135,8 @@ static int make_policy_memfd(void) {
   int fd = (int)syscall(SYS_memfd_create, "loopeix-s37-seccomp",
                         MFD_CLOEXEC | MFD_ALLOW_SEALING);
   if (fd < 0) return -1;
-  const uint8_t *cursor = (const uint8_t *)outer_filter;
-  size_t remaining = sizeof(outer_filter);
+  const uint8_t *cursor = (const uint8_t *)bwrap_seccomp_filter;
+  size_t remaining = sizeof(bwrap_seccomp_filter);
   while (remaining > 0) {
     ssize_t written = write(fd, cursor, remaining);
     if (written < 0) {
@@ -166,15 +170,25 @@ static int set_nonblocking(int fd) {
 }
 
 static int close_inherited_fds(void) {
-  if (syscall(SYS_close_range, 4u, ~0u, 0u) == 0) return 0;
+  if (syscall(SYS_close_range, (unsigned int)FIRST_CLOSE_FD, ~0u, 0u) == 0) return 0;
   if (errno != ENOSYS && errno != EPERM && errno != EINVAL) return -1;
   struct rlimit limit;
   if (getrlimit(RLIMIT_NOFILE, &limit) != 0 || limit.rlim_cur == RLIM_INFINITY ||
       limit.rlim_cur > (rlim_t)INT_MAX) return -1;
-  for (int fd = 4; fd < (int)limit.rlim_cur; ++fd) {
+  for (int fd = FIRST_CLOSE_FD; fd < (int)limit.rlim_cur; ++fd) {
     if (close(fd) != 0 && errno != EBADF) return -1;
   }
   return 0;
+}
+
+static void exit_with_execve_errno(int error_number) {
+  const uint32_t value = (uint32_t)error_number;
+  ssize_t written;
+  do {
+    written = write(EXEC_ERRNO_FD, &value, sizeof(value));
+  } while (written < 0 && errno == EINTR);
+  (void)written;
+  _exit(127);
 }
 
 static int64_t monotonic_milliseconds(void) {
@@ -243,23 +257,59 @@ static void close_pipe(int pipe_fds[2]) {
   pipe_fds[1] = -1;
 }
 
+static int is_exact_bwrap_seccomp_setup_failure(const struct capture *out,
+                                                const struct capture *err) {
+  static const uint8_t diagnostic[] =
+      "bwrap: Unable to set up system call filtering as requested: "
+      "prctl(PR_SET_SECCOMP) reported EINVAL. (Hint: this requires a kernel "
+      "configured with CONFIG_SECCOMP and CONFIG_SECCOMP_FILTER.)\n";
+  const size_t diagnostic_length = sizeof(diagnostic) - 1u;
+  if (out->length != 0) return 0;
+  if (err->length == diagnostic_length) {
+    return memcmp(err->bytes, diagnostic, diagnostic_length) == 0;
+  }
+  return err->length == diagnostic_length * 2u &&
+         memcmp(err->bytes, diagnostic, diagnostic_length) == 0 &&
+         memcmp(err->bytes + diagnostic_length, diagnostic,
+                diagnostic_length) == 0;
+}
+
+static int is_exact_bwrap_execve_failure(const struct capture *out,
+                                         const struct capture *err,
+                                         const struct capture *exec_errno) {
+  if (out->length != 0 || err->length != 0 || exec_errno->overflow ||
+      exec_errno->length != sizeof(uint32_t)) return 0;
+  uint32_t error_number;
+  memcpy(&error_number, exec_errno->bytes, sizeof(error_number));
+  return error_number > 0 && error_number <= 4095;
+}
+
 static int report_result(const struct capture *out, const struct capture *err) {
   static const uint8_t magic[8] = {'L', 'X', 'S', '3', '7', 'P', 'B', '1'};
+  const uint32_t bootstrap_checks =
+      (UINT32_C(1) << 2) - UINT32_C(1);
+  const uint32_t all_checks = (UINT32_C(1) << 10) - UINT32_C(1);
   if (err->length != 0 || out->length != sizeof(struct probe_report)) {
     return SUPERVISOR_REPORT_INVALID;
   }
   struct probe_report report;
   memcpy(&report, out->bytes, sizeof(report));
+  uint32_t observed = report.passed | report.failed;
   if (memcmp(report.magic, magic, sizeof(magic)) != 0 || report.version != 1 ||
       report.size != sizeof(report) || (report.passed & report.failed) != 0 ||
-      (report.passed | report.failed) != ((1u << 10) - 1u)) {
+      (observed & ~all_checks) != 0) {
     return SUPERVISOR_REPORT_INVALID;
   }
   for (size_t index = 0; index < sizeof(report.reserved); ++index) {
     if (report.reserved[index] != 0) return SUPERVISOR_REPORT_INVALID;
   }
-  if (report.failed == 0 && report.passed == ((1u << 10) - 1u)) {
+  if (report.failed == 0 && report.passed == all_checks) {
     return SUPERVISOR_OK;
+  }
+  if (observed != all_checks &&
+      !(observed == bootstrap_checks &&
+        (report.failed & (UINT32_C(1) << 1)) != 0)) {
+    return SUPERVISOR_REPORT_INVALID;
   }
   for (uint32_t index = 0; index < 10; ++index) {
     if ((report.failed & (1u << index)) != 0) return 80 + (int)index;
@@ -274,21 +324,27 @@ int main(int argc, char **argv) {
   int policy_fd = make_policy_memfd();
   int stdout_pipe[2] = {-1, -1};
   int stderr_pipe[2] = {-1, -1};
+  int exec_errno_pipe[2] = {-1, -1};
   if (policy_fd < 0 || pipe2(stdout_pipe, O_CLOEXEC) != 0 ||
-      pipe2(stderr_pipe, O_CLOEXEC) != 0 || prctl(PR_SET_CHILD_SUBREAPER, 1) != 0) {
+      pipe2(stderr_pipe, O_CLOEXEC) != 0 ||
+      pipe2(exec_errno_pipe, O_CLOEXEC) != 0 ||
+      prctl(PR_SET_CHILD_SUBREAPER, 1) != 0) {
     if (policy_fd >= 0) close(policy_fd);
     close_pipe(stdout_pipe);
     close_pipe(stderr_pipe);
+    close_pipe(exec_errno_pipe);
     return SUPERVISOR_SETUP;
   }
 
   static char policy_text[] = "3";
 
+  /* Clear parser-time PWD; Bubblewrap later recreates only the pinned PWD=/. */
   char *const bwrap_argv[] = {
       argv[1],
       (char *)"--unshare-user", (char *)"--unshare-ipc", (char *)"--unshare-pid",
       (char *)"--unshare-net", (char *)"--unshare-uts", (char *)"--disable-userns",
       (char *)"--clearenv", (char *)"--unsetenv", (char *)"PWD",
+      (char *)"--chdir", (char *)"/",
       (char *)"--new-session", (char *)"--die-with-parent",
       (char *)"--cap-drop", (char *)"ALL",
       (char *)"--ro-bind", argv[2], (char *)"/loopeix-s37-probe",
@@ -303,6 +359,7 @@ int main(int argc, char **argv) {
     close(policy_fd);
     close_pipe(stdout_pipe);
     close_pipe(stderr_pipe);
+    close_pipe(exec_errno_pipe);
     return SUPERVISOR_SETUP;
   }
   pid_t child = fork();
@@ -310,27 +367,37 @@ int main(int argc, char **argv) {
     close(policy_fd);
     close_pipe(stdout_pipe);
     close_pipe(stderr_pipe);
+    close_pipe(exec_errno_pipe);
     return SUPERVISOR_SPAWN;
   }
   if (child == 0) {
     if (setpgid(0, 0) != 0) _exit(SUPERVISOR_CHILD_SETPGID);
     if (dup2(stdout_pipe[1], STDOUT_FILENO) < 0) _exit(SUPERVISOR_CHILD_STDOUT);
     if (dup2(stderr_pipe[1], STDERR_FILENO) < 0) _exit(SUPERVISOR_CHILD_STDERR);
-    if ((policy_fd != 3 && dup2(policy_fd, 3) < 0) ||
-        fcntl(3, F_SETFD, 0) != 0) _exit(SUPERVISOR_CHILD_POLICY_FD);
+    if ((policy_fd != POLICY_FD && dup2(policy_fd, POLICY_FD) < 0) ||
+        fcntl(POLICY_FD, F_SETFD, 0) != 0) _exit(SUPERVISOR_CHILD_POLICY_FD);
+    if ((exec_errno_pipe[1] != EXEC_ERRNO_FD &&
+        dup2(exec_errno_pipe[1], EXEC_ERRNO_FD) < 0) ||
+        fcntl(EXEC_ERRNO_FD, F_SETFD, FD_CLOEXEC) != 0) {
+      _exit(SUPERVISOR_CHILD_EXEC_ERRNO_FD);
+    }
     if (close_inherited_fds() != 0) {
       _exit(SUPERVISOR_CHILD_CLOSE_RANGE);
     }
     close(STDIN_FILENO);
     execve(argv[1], bwrap_argv, empty_env);
-    _exit(127);
+    const int execve_errno = errno;
+    exit_with_execve_errno(execve_errno);
   }
 
   (void)setpgid(child, child);
   close(policy_fd);
   close(stdout_pipe[1]);
   close(stderr_pipe[1]);
-  if (set_nonblocking(stdout_pipe[0]) != 0 || set_nonblocking(stderr_pipe[0]) != 0) {
+  close(exec_errno_pipe[1]);
+  if (set_nonblocking(stdout_pipe[0]) != 0 ||
+      set_nonblocking(stderr_pipe[0]) != 0 ||
+      set_nonblocking(exec_errno_pipe[0]) != 0) {
     (void)kill(-child, SIGKILL);
     int ignored;
     int64_t reap_started = monotonic_milliseconds();
@@ -339,17 +406,20 @@ int main(int argc, char **argv) {
                      : reap_all_children(child, 0, &ignored, reap_started + 250);
     close(stdout_pipe[0]);
     close(stderr_pipe[0]);
+    close(exec_errno_pipe[0]);
     return reaped == 0 ? SUPERVISOR_SETUP : SUPERVISOR_REAP_FAILURE;
   }
 
   struct capture out = {.bytes = {0}, .length = 0, .fd = stdout_pipe[0], .open = 1, .overflow = 0};
   struct capture err = {.bytes = {0}, .length = 0, .fd = stderr_pipe[0], .open = 1, .overflow = 0};
+  struct capture exec_errno = {.bytes = {0}, .length = 0, .fd = exec_errno_pipe[0], .open = 1, .overflow = 0};
   int timed_out = 0;
   int observed_exit = 0;
   int child_status = 0;
   const int64_t deadline = started_at + DEADLINE_MS;
 
-  while (!observed_exit && !timed_out && !out.overflow && !err.overflow) {
+  while (!observed_exit && !timed_out && !out.overflow && !err.overflow &&
+         !exec_errno.overflow) {
     int status = 0;
     pid_t waited = waitpid(child, &status, WNOHANG);
     if (waited == child) {
@@ -363,21 +433,25 @@ int main(int argc, char **argv) {
       timed_out = 1;
       break;
     }
-    struct pollfd fds[2] = {
+    struct pollfd fds[3] = {
         {.fd = out.fd, .events = out.open ? POLLIN | POLLHUP : 0},
         {.fd = err.fd, .events = err.open ? POLLIN | POLLHUP : 0},
+        {.fd = exec_errno.fd, .events = exec_errno.open ? POLLIN | POLLHUP : 0},
     };
     int remaining = (int)(deadline - now);
-    int polled = poll(fds, 2, remaining);
+    int polled = poll(fds, 3, remaining);
     if (polled < 0 && errno != EINTR) break;
     capture_available(&out);
     capture_available(&err);
+    capture_available(&exec_errno);
   }
 
-  int must_kill = timed_out || out.overflow || err.overflow || !observed_exit;
+  int must_kill = timed_out || out.overflow || err.overflow ||
+                  exec_errno.overflow || !observed_exit;
   if (must_kill && kill(-child, SIGKILL) != 0 && errno != ESRCH) {
     if (out.open) close(out.fd);
     if (err.open) close(err.fd);
+    if (exec_errno.open) close(exec_errno.fd);
     return SUPERVISOR_REAP_FAILURE;
   }
   int64_t reap_started = must_kill ? monotonic_milliseconds() : started_at;
@@ -386,23 +460,36 @@ int main(int argc, char **argv) {
       reap_all_children(child, observed_exit, &child_status, reap_deadline) != 0) {
     if (out.open) close(out.fd);
     if (err.open) close(err.fd);
+    if (exec_errno.open) close(exec_errno.fd);
     return SUPERVISOR_REAP_FAILURE;
   }
 
   capture_available(&out);
   capture_available(&err);
+  capture_available(&exec_errno);
   if (out.open) close(out.fd);
   if (err.open) close(err.fd);
+  if (exec_errno.open) close(exec_errno.fd);
 
   if (timed_out) return SUPERVISOR_TIMEOUT_REAPED;
-  if (out.overflow || err.overflow) return SUPERVISOR_OUTPUT_OVERFLOW;
+  if (out.overflow || err.overflow || exec_errno.overflow) {
+    return SUPERVISOR_OUTPUT_OVERFLOW;
+  }
   if (!WIFEXITED(child_status)) return SUPERVISOR_CHILD_FAILURE;
+  if (WEXITSTATUS(child_status) == 127 &&
+      is_exact_bwrap_execve_failure(&out, &err, &exec_errno)) {
+    return SUPERVISOR_BWRAP_EXECVE_ERRNO;
+  }
+  if (WEXITSTATUS(child_status) == 1 &&
+      is_exact_bwrap_seccomp_setup_failure(&out, &err)) {
+    return SUPERVISOR_BWRAP_SECCOMP_SETUP;
+  }
   int report_status = report_result(&out, &err);
   if (WEXITSTATUS(child_status) == 0) return report_status;
   if (WEXITSTATUS(child_status) == 122 && report_status >= 80 && report_status <= 89) {
     return report_status;
   }
-  if (WEXITSTATUS(child_status) >= 73 && WEXITSTATUS(child_status) <= 77) {
+  if (WEXITSTATUS(child_status) >= 72 && WEXITSTATUS(child_status) <= 77) {
     return WEXITSTATUS(child_status);
   }
   return SUPERVISOR_CHILD_FAILURE;

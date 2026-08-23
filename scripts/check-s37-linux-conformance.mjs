@@ -23,7 +23,7 @@ const canonicalLinuxModules = [
   },
   {
     file: "src/run/linux-host-enforcement-v02.ts",
-    requiredExports: ["runS37LinuxHostProbeV02"],
+    requiredExports: ["runS37LinuxHostProbeV02", "runS37LocalLinuxProductProbeV02"],
     required: true,
   },
   {
@@ -113,6 +113,7 @@ function main() {
   }
 
   process.stdout.write("S37.1 Phase A static gate: PASS\n");
+  process.stdout.write("S37.1 Phase C static gate: PASS\n");
   process.stdout.write("live host conformance not executed\n");
 }
 

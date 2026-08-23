@@ -150,6 +150,8 @@ const S37ActionInterpositionProfileSchemaV02 = z.object({
 }).strict();
 
 const S37_LINUX_REQUIRED_BACKEND_V02 = "s37-linux-v02" as const;
+const S37_LINUX_MAX_HOST_TUPLE_AGE_MS = 15_000;
+const S37_LINUX_MAX_RECEIPT_LIFETIME_MS = 600_000;
 const S37_LINUX_REQUIRED_DENY_ROWS_V02 = [
   "ambient-credentials",
   "child-process",
@@ -442,8 +444,10 @@ export function prepareS37LinuxProbeAdmissionV02(input: Readonly<{
     return invalidLinuxAdmission("linux host tuple architecture drifted from the request host");
   }
   const tupleObservedAt = Date.parse(hostTuple.data.observed_at);
-  if (!Number.isFinite(tupleObservedAt) || tupleObservedAt > validated.observed_at_ms) {
-    return invalidLinuxAdmission("linux host tuple is newer than the request observation");
+  if (!Number.isFinite(tupleObservedAt)
+    || tupleObservedAt > validated.observed_at_ms
+    || validated.observed_at_ms - tupleObservedAt > S37_LINUX_MAX_HOST_TUPLE_AGE_MS) {
+    return invalidLinuxAdmission("linux host tuple is outside the exact request observation window");
   }
 
   const receipt = LinuxBackendIdentityReceiptV02.safeParse(input.backend_receipt);
@@ -467,7 +471,9 @@ export function prepareS37LinuxProbeAdmissionV02(input: Readonly<{
   const issuedAt = Date.parse(receipt.data.issued_at);
   const expiresAt = Date.parse(receipt.data.expires_at);
   if (!Number.isFinite(issuedAt) || !Number.isFinite(expiresAt)
+    || issuedAt < tupleObservedAt
     || issuedAt > validated.observed_at_ms
+    || expiresAt - issuedAt > S37_LINUX_MAX_RECEIPT_LIFETIME_MS
     || validated.observed_at_ms >= expiresAt) {
     return invalidLinuxAdmission("linux backend identity receipt is outside the exact request observation window");
   }

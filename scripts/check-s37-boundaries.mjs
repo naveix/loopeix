@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
@@ -15,10 +16,15 @@ const brokerFile = "src/run/pre-spawn-capability-broker-v02.ts";
 const engineFile = "src/run/engine.ts";
 const packageRootFile = "src/index.ts";
 const boundedLauncherImporter = "src/run/linux-host-enforcement-v02.ts";
+const phaseCOwnerSha256 = "8d99795eb162e8b16cf780c3b9c8236d3d8d9d4cf6c2b787abae083852ce7045";
 const boundedLauncherModule = "./bounded-linux-probe-v02.js";
 const linuxModuleSpecifiers = new Set([
   "./linux-host-enforcement-v02.js",
   "./bounded-linux-probe-v02.js",
+]);
+const linuxModulePaths = new Set([
+  "src/run/linux-host-enforcement-v02.ts",
+  "src/run/bounded-linux-probe-v02.ts",
 ]);
 const linuxCommandNeedles = [/^ssh$/u, /^scp$/u, /^sftp$/u, /^systemd-run$/u, /^bwrap$/u, /^bubblewrap$/u];
 const linuxImportNeedles = [/ssh/u, /systemd-run/u, /\bbwrap\b/u, /bubblewrap/u, /\bremote\b/u];
@@ -37,6 +43,13 @@ const forbiddenPackageRootExports = new Set([
   "S37LinuxBackendIdentityReceiptV02",
   "S37LinuxHostTupleV02",
   "S37LinuxProbeAdmissionV02",
+  "S37LocalLinuxCapabilityV02",
+  "S37LocalLinuxHostObservationV02",
+  "S37LocalLinuxProductProbeInputV02",
+  "S37LocalLinuxProductProbeV02",
+  "buildS37SystemdRunInvocationV02",
+  "createS37LocalLinuxProductProbeV02",
+  "runS37LocalLinuxProductProbeV02",
 ]);
 const newLinuxModules = [
   "src/run/linux-host-enforcement-v02.ts",
@@ -70,6 +83,14 @@ function resolveProjectPath(rootDir, file) {
   return resolve(rootDir, file);
 }
 
+function resolveStaticProjectImport(rootDir, importer, specifier) {
+  if (!specifier.startsWith(".")) return null;
+  const absolute = resolve(dirname(importer), specifier);
+  const withTypeScriptExtension = absolute.endsWith(".js") ? `${absolute.slice(0, -3)}.ts` : absolute;
+  const projectPath = toProjectPath(withTypeScriptExtension, rootDir);
+  return projectPath === ".." || projectPath.startsWith("../") ? null : projectPath;
+}
+
 function unprefixedModuleName(value) {
   return value.startsWith("node:") ? value.slice(5) : value;
 }
@@ -85,6 +106,49 @@ function accessedName(expression) {
     return literalModuleSpecifier(expression.argumentExpression);
   }
   return undefined;
+}
+
+function enclosingNamedFunction(node) {
+  let current = node.parent;
+  while (current !== undefined) {
+    if (ts.isFunctionDeclaration(current) && current.name !== undefined) return current.name.text;
+    current = current.parent;
+  }
+  return null;
+}
+
+function propertyInitializer(object, name) {
+  if (!ts.isObjectLiteralExpression(object)) return undefined;
+  for (const property of object.properties) {
+    if (!ts.isPropertyAssignment(property)) continue;
+    const propertyName = ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name)
+      ? property.name.text
+      : undefined;
+    if (propertyName === name) return property.initializer;
+  }
+  return undefined;
+}
+
+function exactStringArray(node, expected) {
+  return node !== undefined && ts.isArrayLiteralExpression(node)
+    && node.elements.length === expected.length
+    && node.elements.every((element, index) => ts.isStringLiteralLike(element) && element.text === expected[index]);
+}
+
+function isPropertyPath(node, object, property) {
+  return node !== undefined && ts.isPropertyAccessExpression(node)
+    && ts.isIdentifier(node.expression) && node.expression.text === object
+    && node.name.text === property;
+}
+
+function exactNamedImport(declaration, expectedNames) {
+  const clause = declaration.importClause;
+  const bindings = clause?.namedBindings;
+  if (clause === undefined || clause.name !== undefined || bindings === undefined || !ts.isNamedImports(bindings)) return false;
+  const names = bindings.elements.map((element) => element.propertyName === undefined ? element.name.text : null);
+  return names.length === expectedNames.length
+    && names.every((name) => name !== null)
+    && [...names].sort().every((name, index) => name === [...expectedNames].sort()[index]);
 }
 
 function isTrueLiteral(node) {
@@ -121,24 +185,26 @@ function createSourceFile(file, source) {
   return ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 }
 
-function addModuleViolation(violations, projectPath, specifier) {
+function addModuleViolation(violations, projectPath, specifier, allowedModules = new Set()) {
   const moduleName = unprefixedModuleName(specifier);
   const label = forbiddenModules.get(moduleName);
-  if (label !== undefined) violations.add(`${label}: ${projectPath}`);
+  if (label !== undefined && !allowedModules.has(moduleName)) violations.add(`${label}: ${projectPath}`);
   if (/(?:mcp|connector|tool-runner|workspace-writer)/u.test(specifier)) {
     violations.add(`tool-or-connector-import: ${projectPath}`);
   }
 }
 
-function inspectSource(file, source, rootDir = repoRoot) {
+function inspectSource(file, source, rootDir = repoRoot, options = {}) {
   const projectPath = toProjectPath(file, rootDir);
   const sourceFile = createSourceFile(file, source);
   const violations = new Set();
+  const allowedModules = options.allowedModules ?? new Set();
+  const allowedCalls = options.allowedCalls ?? new Set();
 
   function visit(node) {
     if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier !== undefined) {
       const specifier = literalModuleSpecifier(node.moduleSpecifier);
-      if (specifier !== undefined) addModuleViolation(violations, projectPath, specifier);
+      if (specifier !== undefined) addModuleViolation(violations, projectPath, specifier, allowedModules);
     }
 
     if (
@@ -147,23 +213,24 @@ function inspectSource(file, source, rootDir = repoRoot) {
       node.moduleReference.expression !== undefined
     ) {
       const specifier = literalModuleSpecifier(node.moduleReference.expression);
-      if (specifier !== undefined) addModuleViolation(violations, projectPath, specifier);
+      if (specifier !== undefined) addModuleViolation(violations, projectPath, specifier, allowedModules);
     }
 
     if (ts.isCallExpression(node)) {
       const isDynamicImport = node.expression.kind === ts.SyntaxKind.ImportKeyword;
       const isRequire = ts.isIdentifier(node.expression) && node.expression.text === "require";
       if (isDynamicImport || isRequire) {
+        violations.add(`module-loader: ${projectPath}`);
         const specifier = node.arguments[0] === undefined ? undefined : literalModuleSpecifier(node.arguments[0]);
-        if (specifier === undefined) violations.add(`module-loader: ${projectPath}`);
-        else addModuleViolation(violations, projectPath, specifier);
+        if (specifier !== undefined) addModuleViolation(violations, projectPath, specifier, allowedModules);
       }
 
       const name = accessedName(node.expression);
-      if (name !== undefined && spawnNames.has(name)) violations.add(`spawn-or-exec: ${projectPath}`);
+      if (name !== undefined && spawnNames.has(name) && !allowedCalls.has(name)) violations.add(`spawn-or-exec: ${projectPath}`);
       if (name !== undefined && networkGlobals.has(name)) violations.add(`global-network-api: ${projectPath}`);
       if (name !== undefined && runtimeEvaluationNames.has(name)) violations.add(`runtime-evaluation: ${projectPath}`);
       if (name === "createRequire") violations.add(`module-loader: ${projectPath}`);
+      if (name === "getBuiltinModule") violations.add(`module-loader: ${projectPath}`);
     }
 
     if (ts.isNewExpression(node)) {
@@ -296,7 +363,8 @@ function checkLinuxImportsInCli(rootDir, sourceFiles, violations) {
     if (projectPath !== engineFile && !isCliFile(projectPath)) continue;
     const sourceFile = createSourceFile(file, readFileSync(file, "utf8"));
     for (const specifier of collectStaticImports(sourceFile)) {
-      if (!linuxModuleSpecifiers.has(specifier)) continue;
+      const importedProjectPath = resolveStaticProjectImport(rootDir, file, specifier);
+      if (!linuxModuleSpecifiers.has(specifier) && !linuxModulePaths.has(importedProjectPath)) continue;
       violations.add(`linux-module-import-in-engine-or-cli: ${projectPath}`);
     }
   }
@@ -309,9 +377,97 @@ function checkLinuxModulePolicies(rootDir, violations) {
     const source = readFileSync(file, "utf8");
     const sourceFile = createSourceFile(file, source);
 
-    for (const violation of inspectSource(file, source, rootDir)) violations.add(violation);
+    const ownerCapability = projectPath === boundedLauncherImporter;
+    const inspectOptions = ownerCapability
+      ? { allowedModules: new Set(["child_process", "fs", "os", "process"]), allowedCalls: new Set(["spawn"]) }
+      : {};
+    for (const violation of inspectSource(file, source, rootDir, inspectOptions)) violations.add(violation);
+    const ownerSpawnSites = [];
+    if (ownerCapability) {
+      const sourceSha256 = createHash("sha256").update(source, "utf8").digest("hex");
+      if (sourceSha256 !== phaseCOwnerSha256) {
+        violations.add(`phase-c-owner-source-digest:mismatch:${sourceSha256}: ${projectPath}`);
+      }
+      const expectedImports = new Map([
+        ["node:child_process", ["spawn"]],
+        ["node:fs", ["lstatSync", "readFileSync"]],
+        ["node:os", ["arch", "platform", "release"]],
+        ["zod", ["z"]],
+        ["../hash.js", ["hashCanonical", "hashRawBytes"]],
+        ["../schema/scalars.js", ["Hash", "IsoTimestamp"]],
+        ["./bounded-linux-probe-v02.js", [
+          "runBoundedS37LinuxProbeV02", "S37LinuxProbeExecutionResultV02", "S37LinuxProbeRuntimeInputV02",
+          "S37LinuxProbeRuntimeOutcomeV02", "S37LinuxProbeRuntimeV02",
+        ]],
+        ["./pre-spawn-capability-broker-v02.js", [
+          "prepareS37LinuxProbeAdmissionV02", "S37ActionInterpositionProfileV02",
+          "S37LinuxBackendIdentityReceiptV02", "S37LinuxHostTupleV02", "S37LinuxProbeAdmissionV02",
+          "S37PreSpawnProbeResultV02",
+        ]],
+      ]);
+      const ownerImports = sourceFile.statements.filter(ts.isImportDeclaration);
+      const moduleExports = sourceFile.statements.filter((statement) =>
+        ts.isExportDeclaration(statement) && statement.moduleSpecifier !== undefined);
+      let exactImportSurface = ownerImports.length === expectedImports.size + 1 && moduleExports.length === 0;
+      for (const [specifier, names] of expectedImports) {
+        const matches = ownerImports.filter((declaration) => literalModuleSpecifier(declaration.moduleSpecifier) === specifier);
+        if (matches.length !== 1 || !exactNamedImport(matches[0], names)) exactImportSurface = false;
+      }
+      const processImports = ownerImports.filter((declaration) =>
+        literalModuleSpecifier(declaration.moduleSpecifier) === "node:process");
+      const processClause = processImports[0]?.importClause;
+      if (processImports.length !== 1 || processClause?.name?.text !== "process" || processClause.namedBindings !== undefined) {
+        exactImportSurface = false;
+      }
+      if (!exactImportSurface) violations.add(`phase-c-owner-import-surface-must-be-exact: ${projectPath}`);
+
+      const childProcessImports = sourceFile.statements.filter((statement) => {
+        if (!(ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement))
+          || statement.moduleSpecifier === undefined) return false;
+        const specifier = literalModuleSpecifier(statement.moduleSpecifier);
+        return specifier !== undefined && unprefixedModuleName(specifier) === "child_process";
+      });
+      const onlyImport = childProcessImports.length === 1 && ts.isImportDeclaration(childProcessImports[0])
+        ? childProcessImports[0]
+        : undefined;
+      const bindings = onlyImport?.importClause?.namedBindings;
+      const exactBinding = onlyImport !== undefined
+        && literalModuleSpecifier(onlyImport.moduleSpecifier) === "node:child_process"
+        && bindings !== undefined && ts.isNamedImports(bindings)
+        && bindings.elements.length === 1
+        && bindings.elements[0].propertyName === undefined
+        && bindings.elements[0].name.text === "spawn";
+      if (!exactBinding) {
+        violations.add(`phase-c-child-process-import-must-be-sole-unaliased-spawn: ${projectPath}`);
+      }
+    }
 
     function visit(node) {
+      if (ownerCapability && ts.isIdentifier(node) && node.text === "process") {
+        const parent = node.parent;
+        const allowedImportBinding = ts.isImportClause(parent) && parent.name === node;
+        const allowedGetuid = ts.isPropertyAccessExpression(parent)
+          && parent.expression === node && parent.name.text === "getuid"
+          && enclosingNamedFunction(node) === "currentUid";
+        if (!allowedImportBinding && !allowedGetuid) {
+          violations.add(`phase-c-process-reference-must-be-current-uid-only: ${projectPath}`);
+        }
+      }
+      if (ownerCapability && ts.isIdentifier(node) && (node.text === "globalThis" || node.text === "global")) {
+        violations.add(`phase-c-ambient-global-reference-forbidden:${node.text}: ${projectPath}`);
+      }
+      if (ownerCapability && ts.isIdentifier(node) && (node.text === "eval" || node.text === "Function")) {
+        violations.add(`phase-c-runtime-evaluation-reference-forbidden:${node.text}: ${projectPath}`);
+      }
+      if (ownerCapability && ts.isIdentifier(node) && node.text === "spawn") {
+        const parent = node.parent;
+        const allowedImportBinding = ts.isImportSpecifier(parent)
+          && parent.name === node && parent.propertyName === undefined;
+        const allowedDirectCall = ts.isCallExpression(parent) && parent.expression === node;
+        if (!allowedImportBinding && !allowedDirectCall) {
+          violations.add(`phase-c-spawn-reference-must-be-direct-callee: ${projectPath}`);
+        }
+      }
       if (
         ts.isPropertyAssignment(node) &&
         ((ts.isIdentifier(node.name) && node.name.text === "shell") ||
@@ -323,7 +479,18 @@ function checkLinuxModulePolicies(rootDir, violations) {
 
       if (ts.isCallExpression(node)) {
         const callName = accessedName(node.expression);
-        if (callName !== undefined && spawnNames.has(callName) && node.arguments[0] !== undefined) {
+        if (ownerCapability && callName === "spawn") {
+          ownerSpawnSites.push(node);
+          const owner = enclosingNamedFunction(node);
+          if (owner !== "observeSystemdManagerVersion" && owner !== "startExactTransientUnit") {
+            violations.add(`phase-c-spawn-outside-admitted-controller:${owner ?? "anonymous"}: ${projectPath}`);
+          }
+        }
+        if (ownerCapability && callName === "observeSystemdManagerVersion"
+          && enclosingNamedFunction(node) !== "startExactTransientUnit") {
+          violations.add(`phase-c-manager-observation-before-admitted-controller: ${projectPath}`);
+        }
+        if (callName !== undefined && spawnNames.has(callName) && !ownerCapability && node.arguments[0] !== undefined) {
           const command = literalModuleSpecifier(node.arguments[0]);
           if (command !== undefined && linuxCommandNeedles.some((pattern) => pattern.test(command))) {
             violations.add(`forbidden-linux-command-invocation:${command}: ${projectPath}`);
@@ -347,6 +514,83 @@ function checkLinuxModulePolicies(rootDir, violations) {
     }
 
     visit(sourceFile);
+
+    if (ownerCapability) {
+      if (ownerSpawnSites.length !== 2) {
+        violations.add(`phase-c-spawn-call-count:expected-2:actual-${ownerSpawnSites.length}: ${projectPath}`);
+      }
+      for (const spawnCall of ownerSpawnSites) {
+        const owner = enclosingNamedFunction(spawnCall);
+        const [command, argv, options] = spawnCall.arguments;
+        if (owner === "observeSystemdManagerVersion") {
+          const env = options === undefined ? undefined : propertyInitializer(options, "env");
+          const exactEnv = env !== undefined && ts.isCallExpression(env)
+            && ts.isIdentifier(env.expression) && env.expression.text === "localUserManagerEnvironment"
+            && env.arguments.length === 1 && ts.isIdentifier(env.arguments[0]) && env.arguments[0].text === "uid";
+          const cwd = options === undefined ? undefined : propertyInitializer(options, "cwd");
+          const exactOptions = cwd !== undefined
+            && ts.isStringLiteralLike(cwd) && cwd.text === "/"
+            && exactEnv
+            && propertyInitializer(options, "shell")?.kind === ts.SyntaxKind.FalseKeyword
+            && exactStringArray(propertyInitializer(options, "stdio"), ["ignore", "pipe", "ignore"])
+            && propertyInitializer(options, "windowsHide")?.kind === ts.SyntaxKind.TrueKeyword;
+          if (!(command !== undefined && ts.isIdentifier(command) && command.text === "SYSTEMCTL_PATH"
+            && exactStringArray(argv, ["--user", "show", "--property=Version", "--value"])
+            && exactOptions)) {
+            violations.add(`phase-c-systemctl-spawn-shape: ${projectPath}`);
+          }
+          continue;
+        }
+        if (owner === "startExactTransientUnit") {
+          const exactArgv = argv !== undefined && ts.isArrayLiteralExpression(argv)
+            && argv.elements.length === 1 && ts.isSpreadElement(argv.elements[0])
+            && isPropertyPath(argv.elements[0].expression, "invocation", "args");
+          if (!(isPropertyPath(command, "invocation", "command")
+            && exactArgv && isPropertyPath(options, "invocation", "options"))) {
+            violations.add(`phase-c-systemd-run-spawn-shape: ${projectPath}`);
+          }
+          continue;
+        }
+        violations.add(`phase-c-spawn-unapproved-owner:${owner ?? "anonymous"}: ${projectPath}`);
+      }
+      const requiredFragments = [
+        'import { spawn } from "node:child_process";',
+        'import { lstatSync, readFileSync } from "node:fs";',
+        'import { arch, platform, release } from "node:os";',
+        'import process from "node:process";',
+        'shell: false as const',
+        'XDG_RUNTIME_DIR: runtimeDirectory',
+        'DBUS_SESSION_BUS_ADDRESS: `unix:path=${runtimeDirectory}/bus`',
+        'const PRODUCT_UNIT = "loopeix-s37-product-v02";',
+        "const COMPLETE_CONTROLLER_WINDOW_MS = 15_000;",
+        "const unit = PRODUCT_UNIT;",
+        '"--service-type=exec"',
+        '"--wait"',
+        '"--collect"',
+        '"--property=StandardInput=null"',
+        '"--property=StandardOutput=null"',
+        '"--property=StandardError=null"',
+        '"--property=NoNewPrivileges=yes"',
+        '"--property=KillMode=control-group"',
+        '"--property=PrivateNetwork=yes"',
+        '"--property=CapabilityBoundingSet="',
+        '"--property=CPUQuota=25%"',
+        '"--property=MemoryMax=64000000"',
+        '"--property=TasksMax=8"',
+        '"--property=IOWeight=10"',
+        '"--property=RuntimeMaxSec=2s"',
+        '"--user", "show", "--property=Version", "--value"',
+        'path: z.literal("/usr/bin/systemctl")',
+        'const managerBefore = await observeSystemdManagerVersion(uid);',
+        'const managerAfter = exactPass',
+      ];
+      for (const fragment of requiredFragments) {
+        if (!source.includes(fragment)) violations.add(`missing-phase-c-owner-contract:${fragment}: ${projectPath}`);
+      }
+      for (const forbidden of ['"--scope"', '"--pipe"', "shell: true"]) {
+        if (source.includes(forbidden)) violations.add(`forbidden-phase-c-owner-contract:${forbidden}: ${projectPath}`);
+      }
+    }
   }
 }
 
