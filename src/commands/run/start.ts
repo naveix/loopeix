@@ -144,46 +144,46 @@ export default class RunStart extends Command {
     let plannedPrompt: string | undefined;
     let runLock: LockHandle | undefined;
 
-    if (plannedMode) {
-      if (flags.prompt !== undefined) {
-        this.log("ERROR: planned run directories use the approved generated prompt; remove --prompt to start the planned run.");
-        process.exitCode = 1;
-        return;
-      }
-      const preflight = preflightPlannedRun({ runDir: target, engine });
-      if (!preflight.ok) {
-        this.log(`ERROR: planned run preflight failed (${preflight.status}).`);
-        for (const finding of preflight.findings) this.log(`  - ${finding}`);
-        process.exitCode = 1;
-        return;
-      }
-      run_id = preflight.run_id;
-      run_dir = preflight.run_dir;
-      workspace = preflight.workspace_root ?? ".";
-      specSource = preflight.spec_path ?? join(target, "generated.loop.yaml");
-      try {
-        runLock = acquireLock(join(run_dir, RUN_LEDGER_LOCK), RUN_WRITE_LOCK_OPTIONS);
-      } catch (err) {
-        if (err instanceof LockHeldError) {
-          this.log(`ERROR: run lock is held: ${err.message}`);
-          process.exitCode = 1;
-          return;
-        }
-        throw err;
-      }
-      if (!flags["events-file"]) {
-        const promptResult = buildPlannedRunPrompt({ runDir: target });
-        if (!promptResult.ok) {
-          this.log(`ERROR: planned run prompt failed (${promptResult.status}).`);
-          for (const finding of promptResult.findings) this.log(`  - ${finding}`);
-          process.exitCode = 1;
-          return;
-        }
-        plannedPrompt = promptResult.prompt;
-      }
-    }
-
     try {
+      if (plannedMode) {
+        if (flags.prompt !== undefined) {
+          this.log("ERROR: planned run directories use the approved generated prompt; remove --prompt to start the planned run.");
+          process.exitCode = 1;
+          return;
+        }
+        const preflight = preflightPlannedRun({ runDir: target, engine });
+        if (!preflight.ok) {
+          this.log(`ERROR: planned run preflight failed (${preflight.status}).`);
+          for (const finding of preflight.findings) this.log(`  - ${finding}`);
+          process.exitCode = 1;
+          return;
+        }
+        run_id = preflight.run_id;
+        run_dir = preflight.run_dir;
+        workspace = preflight.workspace_root ?? ".";
+        specSource = preflight.spec_path ?? join(target, "generated.loop.yaml");
+        try {
+          runLock = acquireLock(join(run_dir, RUN_LEDGER_LOCK), RUN_WRITE_LOCK_OPTIONS);
+        } catch (err) {
+          if (err instanceof LockHeldError) {
+            this.log(`ERROR: run lock is held: ${err.message}`);
+            process.exitCode = 1;
+            return;
+          }
+          throw err;
+        }
+        if (!flags["events-file"]) {
+          const promptResult = buildPlannedRunPrompt({ runDir: target });
+          if (!promptResult.ok) {
+            this.log(`ERROR: planned run prompt failed (${promptResult.status}).`);
+            for (const finding of promptResult.findings) this.log(`  - ${finding}`);
+            process.exitCode = 1;
+            return;
+          }
+          plannedPrompt = promptResult.prompt;
+        }
+      }
+
       const spec = v02Selection.raw_spec
         ?? parseYaml(readFileSync(specSource, "utf8")) as Record<string, unknown>;
 

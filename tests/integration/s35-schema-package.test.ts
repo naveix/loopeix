@@ -19,6 +19,15 @@ const repositoryRoot = join(import.meta.dirname, "../..");
 const fixtureRoot = join(repositoryRoot, "tests/fixtures/compat/s35/v01");
 const commonFixtureRoot = join(repositoryRoot, "tests/fixtures/compat/s35/common");
 const expectedReceiptSchemaSha256 = "99337cab3902c862f6777ad36afdabb9dd92a6105d23f2a88133af36d34cd5e5";
+const s40PrivateGeneratedModules = [
+  "run/brokered-model-executor-v01",
+  "run/runtime-durability-policy-v03",
+  "run/runtime-ledger-dispatch",
+  "run/runtime-ledger-migration-v02-v03",
+  "run/runtime-ledger-v03",
+  "run/runtime-state-reducer-v03",
+  "schema/runtime-v03",
+] as const;
 
 function oracle(name: string): string[] {
   return readFileSync(join(fixtureRoot, name), "utf8").trim().split("\n");
@@ -206,7 +215,7 @@ describe("S35 schema and package contract", () => {
     ]);
   });
 
-  it("publishes one generated dist JSON and no private module subpath", () => {
+  it("packages the reviewed S40 artifacts without publishing any private module subpath", () => {
     const packageJson = JSON.parse(readFileSync(join(repositoryRoot, "package.json"), "utf8")) as {
       exports: Record<string, unknown>;
     };
@@ -221,6 +230,13 @@ describe("S35 schema and package contract", () => {
     walk(join(repositoryRoot, "dist"));
 
     expect(sorted(jsonPaths)).toEqual(["report/plan-renderer-bundle.json"]);
+    const packedPaths = packagePaths();
+    for (const modulePath of s40PrivateGeneratedModules) {
+      for (const suffix of [".d.ts", ".d.ts.map", ".js", ".js.map"] as const) {
+        expect(packedPaths).toContain(`dist/${modulePath}${suffix}`);
+      }
+      expect(Object.hasOwn(packageJson.exports, `./${modulePath}`)).toBe(false);
+    }
     for (const privatePath of [
       "./compiler/read-pack-v02",
       "./io/output-capabilities",

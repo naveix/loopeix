@@ -95,6 +95,13 @@ function createBaselineRepo(prefix: string, extraEntries: Record<string, string>
     "src/index.ts": `${canonicalPackageRoot}${packageRootMutation}`,
     "src/run/pre-spawn-capability-broker-v02.ts": "export function enforceS37PreSpawnProbeV02() { return null; }\n",
     "src/run/engine.ts": "export function runEngine() { return null; }\n",
+    "src/schema/runtime-v03.ts": "export const RuntimeEventV03 = null;\n",
+    "src/run/runtime-ledger-dispatch.ts": "export function inspectRuntimeLedgerDocument() { return null; }\n",
+    "src/run/runtime-ledger-v03.ts": "export function validateRuntimeLedgerV03() { return null; }\n",
+    "src/run/runtime-ledger-migration-v02-v03.ts": "export function planRuntimeLedgerMigrationV02ToV03() { return null; }\n",
+    "src/run/runtime-state-reducer-v03.ts": "export function reduceRuntimeStateV03() { return null; }\n",
+    "src/run/runtime-durability-policy-v03.ts": "export function classifyRuntimeDurabilityV03() { return null; }\n",
+    "src/run/brokered-model-executor-v01.ts": "export function runBrokeredModelExecutorV01() { return null; }\n",
     "src/commands/run/start.ts": "export function runStart() { return null; }\n",
     ...Object.fromEntries(requiredV03CommandSeams.map((name) => [
       `scripts/s37-linux-product-host-v03/${name}`,
@@ -893,5 +900,15 @@ describe("S37 static pre-spawn boundary", () => {
     const result = runBoundary({ cwd: root });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("os-module: src/run/pre-spawn-capability-broker-v02.ts");
+  });
+
+  it("rejects S40 model-executor access to filesystem capability modules", () => {
+    const root = createBaselineRepo("loopeix-s40-boundary-fs-", {
+      "src/run/brokered-model-executor-v01.ts": 'import "node:fs";\nexport function runBrokeredModelExecutorV01() { return null; }\n',
+    });
+
+    const result = runBoundary({ cwd: root });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("filesystem-module: src/run/brokered-model-executor-v01.ts");
   });
 });

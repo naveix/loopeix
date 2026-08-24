@@ -30,6 +30,8 @@ export type RuntimeLedgerV02ValidationResult =
       issues: readonly RuntimeLedgerV02Issue[];
     }>;
 
+export type RuntimeLedgerV02HistoryFailure = Extract<RuntimeLedgerV02ValidationResult, { ok: false }>;
+
 export type RuntimeLedgerV02StructuralValidationResult =
   | Readonly<{
       ok: true;
@@ -125,7 +127,7 @@ function payloadRecord(event: RuntimeEventV02Value): Record<string, unknown> {
 
 function validateEarlierReferences(
   events: readonly RuntimeEventV02Value[],
-): RuntimeLedgerV02ValidationResult | null {
+): RuntimeLedgerV02HistoryFailure | null {
   const priorRefs = new Set<string>();
   for (const [index, event] of events.entries()) {
     const refs: Array<{ sequence: number; eventHash: string; path: string }> = [];
@@ -144,7 +146,7 @@ function validateEarlierReferences(
   return null;
 }
 
-function validateTypedRecordReferences(events: readonly RuntimeEventV02Value[]): RuntimeLedgerV02ValidationResult | null {
+function validateTypedRecordReferences(events: readonly RuntimeEventV02Value[]): RuntimeLedgerV02HistoryFailure | null {
   const eventByRef = new Map(events.map((event) => [ledgerRefKey(event.sequence, event.event_hash), event]));
   for (const [index, event] of events.entries()) {
     const refs: Array<{ ref: RecordDependencyRefLike; path: string }> = [];
@@ -166,7 +168,7 @@ function validateTypedRecordReferences(events: readonly RuntimeEventV02Value[]):
   return null;
 }
 
-function validateEventLineage(events: readonly RuntimeEventV02Value[]): RuntimeLedgerV02ValidationResult | null {
+function validateEventLineage(events: readonly RuntimeEventV02Value[]): RuntimeLedgerV02HistoryFailure | null {
   const eventByRef = new Map(events.map((event) => [ledgerRefKey(event.sequence, event.event_hash), event]));
   const resolve = (ref: { ledger_sequence: number; event_hash: string }): RuntimeEventV02Value | undefined =>
     eventByRef.get(ledgerRefKey(ref.ledger_sequence, ref.event_hash));
@@ -323,7 +325,7 @@ function validateEventLineage(events: readonly RuntimeEventV02Value[]): RuntimeL
 
 function validateUniqueConsumption(
   events: readonly RuntimeEventV02Value[],
-): RuntimeLedgerV02ValidationResult | null {
+): RuntimeLedgerV02HistoryFailure | null {
   const leaseIds = new Set<string>();
   const leasedDecisionRefs = new Set<string>();
   const consumedLeaseRefs = new Set<string>();
@@ -387,7 +389,7 @@ function sameStrings(left: readonly string[], right: readonly string[]): boolean
 
 function validateControlHistory(
   events: readonly RuntimeEventV02Value[],
-): RuntimeLedgerV02ValidationResult | null {
+): RuntimeLedgerV02HistoryFailure | null {
   const eventByRef = new Map(events.map((event) => [ledgerRefKey(event.sequence, event.event_hash), event]));
   let latestFreeze: Extract<RuntimeEventV02Value, { event_type: "run.terminal-freeze-entered" | "run.terminal-freeze-revised" }> | null = null;
   let latestRequest: Extract<RuntimeEventV02Value, { event_type: "run.compensation-requested" | "run.compensation-request-revised" }> | null = null;
@@ -623,7 +625,7 @@ function validateControlHistory(
 
 function validateTerminalSeal(
   events: readonly RuntimeEventV02Value[],
-): RuntimeLedgerV02ValidationResult | null {
+): RuntimeLedgerV02HistoryFailure | null {
   const sealIndex = events.findIndex((event) => event.event_type === "run.terminal-sealed");
   if (sealIndex < 0) return null;
   if (sealIndex !== events.length - 1) {
@@ -763,6 +765,19 @@ export function validateRuntimeLedgerV02(input: readonly unknown[]): RuntimeLedg
   });
   if (!hashChain.ok) return hashChain;
 
+  const historyFailure = validateRuntimeLedgerHistoryV02(events);
+  if (historyFailure !== null) return historyFailure;
+
+  return { ok: true, events, sealed: events.at(-1)?.event_type === "run.terminal-sealed" };
+}
+
+/**
+ * Package-private semantic-history seam for independently schema-validated
+ * runtime families that inherit the V02 event meanings. Callers must validate
+ * their event schema and hash chain before using this function.
+ */
+export function validateRuntimeLedgerHistoryV02(input: readonly unknown[]): RuntimeLedgerV02HistoryFailure | null {
+  const events = input as readonly RuntimeEventV02Value[];
   const referenceFailure = validateEarlierReferences(events);
   if (referenceFailure !== null) return referenceFailure;
   const typedReferenceFailure = validateTypedRecordReferences(events);
@@ -775,8 +790,7 @@ export function validateRuntimeLedgerV02(input: readonly unknown[]): RuntimeLedg
   if (controlFailure !== null) return controlFailure;
   const terminalFailure = validateTerminalSeal(events);
   if (terminalFailure !== null) return terminalFailure;
-
-  return { ok: true, events, sealed: events.at(-1)?.event_type === "run.terminal-sealed" };
+  return null;
 }
 
 export function parseAndValidateRuntimeLedgerV02(text: string): RuntimeLedgerV02ValidationResult {

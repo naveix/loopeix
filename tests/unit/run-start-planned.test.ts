@@ -207,6 +207,7 @@ describe("loopeix run start <planned-run-dir>", () => {
     expect(out).toContain("planned run prompt failed (hold-invalid-plan)");
     expect(out).toContain("intake-brief.json is invalid");
     expect(existsSync(join(runDir, RUN_DIR_FILES.ledger))).toBe(false);
+    expect(existsSync(join(runDir, "ledger.lock"))).toBe(false);
     expect(runEngine).not.toHaveBeenCalled();
   });
 

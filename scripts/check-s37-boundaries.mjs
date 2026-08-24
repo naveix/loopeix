@@ -10,6 +10,13 @@ const repoRoot = resolve(scriptDir, "..");
 const defaultFiles = [
   "src/run/pre-spawn-capability-broker-v02.ts",
   "src/run/engine.ts",
+  "src/schema/runtime-v03.ts",
+  "src/run/runtime-ledger-dispatch.ts",
+  "src/run/runtime-ledger-v03.ts",
+  "src/run/runtime-ledger-migration-v02-v03.ts",
+  "src/run/runtime-state-reducer-v03.ts",
+  "src/run/runtime-durability-policy-v03.ts",
+  "src/run/brokered-model-executor-v01.ts",
 ];
 
 const brokerFile = "src/run/pre-spawn-capability-broker-v02.ts";
