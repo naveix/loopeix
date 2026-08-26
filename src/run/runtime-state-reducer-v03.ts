@@ -5,6 +5,7 @@ export type RuntimeRunStateV03 =
   | "initialized"
   | "running"
   | "paused"
+  | "quarantine-required"
   | "quarantined"
   | "held"
   | "aborting"
@@ -44,6 +45,9 @@ export function reduceRuntimeEventPrefixV03(
       continue;
     }
     if (state === "sealed") return fail(index, "No event may follow a terminal seal.");
+    if (state === "quarantine-required" && event.event_type !== "run.quarantined") {
+      return fail(index, "integrity.observation-rejected must be followed immediately by its exact quarantine event.");
+    }
 
     switch (event.event_type) {
       case "run.initialized":
@@ -67,14 +71,21 @@ export function reduceRuntimeEventPrefixV03(
         break;
       case "run.quarantined":
         if (!started) return fail(index, "run.quarantined requires a started non-terminal run.");
+        if (state !== "quarantine-required") return fail(index, "run.quarantined requires the immediately preceding rejected observation.");
         state = "quarantined";
+        break;
+      case "integrity.observation-rejected":
+        if (!started || (state !== "running" && state !== "paused")) {
+          return fail(index, "integrity.observation-rejected requires a started active run.");
+        }
+        state = "quarantine-required";
         break;
       case "authority.grant-revoked":
         if (state !== "aborting" && state !== "quarantined") state = "held";
         break;
       case "control.abort-requested":
         abortRequested = true;
-        state = "aborting";
+        if (state !== "quarantined") state = "aborting";
         break;
       case "run.terminal-freeze-entered":
         terminalFreezeSeen = true;

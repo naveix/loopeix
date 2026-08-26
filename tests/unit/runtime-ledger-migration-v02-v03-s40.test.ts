@@ -75,6 +75,7 @@ describe("S40 explicit V02 to new-lineage V03 migration plan", () => {
     expect(source).toEqual(before);
     if (first.ok) {
       expect(first.value.target.ledger_text).toContain('"ledger_event":"0.3"');
+      expect(first.value.target.ledger_text).toContain('"run_manifest":"0.3"');
       expect(JSON.stringify(first.value)).not.toContain("simulated_lease");
       expect(Object.isFrozen(first.value.target)).toBe(true);
       expect(typeof first.value.target.ledger_text).toBe("string");

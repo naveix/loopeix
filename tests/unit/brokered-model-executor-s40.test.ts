@@ -1,12 +1,28 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  captureBrokeredModelExecutorAdapterV01,
   createSyntheticBrokeredModelExecutorAdapterV01ForTest,
+  runCapturedBrokeredModelExecutorV01,
   runBrokeredModelExecutorV01,
+  type CapturedBrokeredModelExecutorAdapterV01,
+  type SyntheticBrokeredModelExecutorAdapterV01,
 } from "../../src/run/brokered-model-executor-v01.js";
 import { hashBytes } from "../../src/hash.js";
 
 const H = `sha256:${"a".repeat(64)}`;
+const HB = `sha256:${"b".repeat(64)}`;
+const CAPTURED_ADAPTER_IDENTITY = Object.freeze({
+  executor_profile_hash: H,
+  adapter_ref: "model_adapter_s40_v01",
+  adapter_version_hash: `sha256:${"c".repeat(64)}`,
+  eligible_adapter_evidence_hash: `sha256:${"d".repeat(64)}`,
+  bypass_evidence_hash: `sha256:${"e".repeat(64)}`,
+});
+
+function capturedAdapterSource(invoke: (approvedContext: unknown) => unknown | Promise<unknown>) {
+  return { invoke, ...CAPTURED_ADAPTER_IDENTITY };
+}
 
 function context() {
   return {
@@ -287,6 +303,184 @@ describe("BrokeredModelExecutorV01", () => {
     await expect(runBrokeredModelExecutorV01(context(), completion))
       .resolves.toEqual({ ok: false, error: "MODEL_RESPONSE_INVALID" });
     await expect(runBrokeredModelExecutorV01(context(), clarification))
+      .resolves.toEqual({ ok: false, error: "MODEL_RESPONSE_INVALID" });
+  });
+});
+
+describe("CapturedBrokeredModelExecutorAdapterV01", () => {
+  const completion = () => ({
+    response_version: "0.1" as const,
+    kind: "completion-suggestion" as const,
+    summary: "Captured executor response.",
+    evidence_refs: ["evidence-a"],
+  });
+
+  it("captures an exact plain invoke descriptor and reuses bounded executor validation", async () => {
+    const invoke = vi.fn(async () => completion());
+    const source = capturedAdapterSource(invoke);
+
+    const adapter = captureBrokeredModelExecutorAdapterV01(source);
+
+    expect(adapter).not.toBeNull();
+    expect(Object.isFrozen(adapter)).toBe(true);
+    expect(Object.keys(adapter ?? {})).toEqual([]);
+    expect(JSON.stringify(adapter)).toBe("{}");
+    await expect(runCapturedBrokeredModelExecutorV01(context(), adapter!, CAPTURED_ADAPTER_IDENTITY)).resolves.toEqual({
+      ok: true,
+      value: { ...completion(), trust: "untrusted-suggestion" },
+    });
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(Object.isFrozen(invoke.mock.calls[0]![0])).toBe(true);
+  });
+
+  it("captures the invoke implementation once and ignores later source descriptor drift", async () => {
+    const original = vi.fn(async () => completion());
+    const replacement = vi.fn(async () => ({ ...completion(), summary: "replacement" }));
+    const source = capturedAdapterSource(original);
+    const adapter = captureBrokeredModelExecutorAdapterV01(source);
+    expect(adapter).not.toBeNull();
+
+    source.invoke = replacement;
+    source.executor_profile_hash = HB;
+    source.adapter_ref = "mutated_adapter_s40_v01";
+    source.adapter_version_hash = HB;
+    source.eligible_adapter_evidence_hash = HB;
+    source.bypass_evidence_hash = HB;
+    await runCapturedBrokeredModelExecutorV01(context(), adapter!, CAPTURED_ADAPTER_IDENTITY);
+
+    expect(original).toHaveBeenCalledTimes(1);
+    expect(replacement).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing, extra, accessor, prototype, and symbol-bearing descriptors", () => {
+    const exact = capturedAdapterSource(async () => completion());
+    for (const key of Object.keys(exact)) {
+      const missing = { ...exact } as Record<string, unknown>;
+      delete missing[key];
+      expect(captureBrokeredModelExecutorAdapterV01(missing)).toBeNull();
+    }
+
+    const getter = vi.fn(() => H);
+    const accessor = capturedAdapterSource(async () => completion());
+    Object.defineProperty(accessor, "executor_profile_hash", { enumerable: true, get: getter });
+    const nullPrototype = Object.assign(Object.create(null) as object, exact);
+    class Executor {
+      readonly invoke = exact.invoke;
+      readonly executor_profile_hash = exact.executor_profile_hash;
+      readonly adapter_ref = exact.adapter_ref;
+      readonly adapter_version_hash = exact.adapter_version_hash;
+      readonly eligible_adapter_evidence_hash = exact.eligible_adapter_evidence_hash;
+      readonly bypass_evidence_hash = exact.bypass_evidence_hash;
+    }
+    const withSymbol = { ...exact, [Symbol("ambient")]: true };
+
+    expect(captureBrokeredModelExecutorAdapterV01(accessor)).toBeNull();
+    expect(getter).not.toHaveBeenCalled();
+    expect(captureBrokeredModelExecutorAdapterV01({ ...exact, extra: true })).toBeNull();
+    expect(captureBrokeredModelExecutorAdapterV01(nullPrototype)).toBeNull();
+    expect(captureBrokeredModelExecutorAdapterV01(new Executor())).toBeNull();
+    expect(captureBrokeredModelExecutorAdapterV01(withSymbol)).toBeNull();
+    expect(captureBrokeredModelExecutorAdapterV01(async () => completion())).toBeNull();
+  });
+
+  it.each([
+    ["executor profile", "executor_profile_hash", "sha256:invalid"],
+    ["adapter reference", "adapter_ref", "not-kebab-or-machine"],
+    ["adapter version", "adapter_version_hash", null],
+    ["eligible-adapter evidence", "eligible_adapter_evidence_hash", HB.slice(0, -1)],
+    ["bypass evidence", "bypass_evidence_hash", `${HB}0`],
+  ])("rejects an invalid %s identity value", (_label, field, value) => {
+    const source: Record<string, unknown> = capturedAdapterSource(async () => completion());
+    source[field] = value;
+
+    expect(captureBrokeredModelExecutorAdapterV01(source)).toBeNull();
+  });
+
+  it("accepts an exact frozen plain identity descriptor", async () => {
+    const source = Object.freeze(capturedAdapterSource(async () => completion()));
+    const adapter = captureBrokeredModelExecutorAdapterV01(source);
+
+    expect(adapter).not.toBeNull();
+    await expect(runCapturedBrokeredModelExecutorV01(context(), adapter!, CAPTURED_ADAPTER_IDENTITY))
+      .resolves.toMatchObject({ ok: true });
+  });
+
+  it.each([
+    ["executor profile", "executor_profile_hash", HB],
+    ["adapter reference", "adapter_ref", "model_adapter_s40_other_v01"],
+    ["adapter version", "adapter_version_hash", HB],
+    ["eligible-adapter evidence", "eligible_adapter_evidence_hash", HB],
+    ["bypass evidence", "bypass_evidence_hash", HB],
+  ])("rejects an expected %s mismatch before invoking the captured adapter", async (_label, field, value) => {
+    const invoke = vi.fn(async () => completion());
+    const adapter = captureBrokeredModelExecutorAdapterV01(capturedAdapterSource(invoke));
+    expect(adapter).not.toBeNull();
+
+    await expect(runCapturedBrokeredModelExecutorV01(
+      context(),
+      adapter!,
+      { ...CAPTURED_ADAPTER_IDENTITY, [field]: value },
+    )).resolves.toEqual({ ok: false, error: "MODEL_ADAPTER_INVALID" });
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("fails closed on an accessor-bearing expected identity without invoking it", async () => {
+    const invoke = vi.fn(async () => completion());
+    const adapter = captureBrokeredModelExecutorAdapterV01(capturedAdapterSource(invoke));
+    const getter = vi.fn(() => H);
+    const expectedIdentity = { ...CAPTURED_ADAPTER_IDENTITY };
+    Object.defineProperty(expectedIdentity, "executor_profile_hash", { enumerable: true, get: getter });
+
+    await expect(runCapturedBrokeredModelExecutorV01(context(), adapter!, expectedIdentity))
+      .resolves.toEqual({ ok: false, error: "MODEL_ADAPTER_INVALID" });
+    expect(getter).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("rejects an executor-profile mismatch before invoking the captured adapter", async () => {
+    const invoke = vi.fn(async () => completion());
+    const adapter = captureBrokeredModelExecutorAdapterV01(capturedAdapterSource(invoke));
+    expect(adapter).not.toBeNull();
+
+    await expect(runCapturedBrokeredModelExecutorV01(
+      { ...context(), executor_profile_hash: HB },
+      adapter!,
+      CAPTURED_ADAPTER_IDENTITY,
+    )).resolves.toEqual({ ok: false, error: "MODEL_ADAPTER_INVALID" });
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for a revoked proxy descriptor source", () => {
+    const { proxy, revoke } = Proxy.revocable(capturedAdapterSource(async () => completion()), {});
+    revoke();
+
+    expect(captureBrokeredModelExecutorAdapterV01(proxy)).toBeNull();
+  });
+
+  it("keeps captured and synthetic capabilities mutually unforgeable", async () => {
+    const captured = captureBrokeredModelExecutorAdapterV01(capturedAdapterSource(async () => completion()));
+    const synthetic = createSyntheticBrokeredModelExecutorAdapterV01ForTest(async () => completion());
+    expect(captured).not.toBeNull();
+
+    await expect(runCapturedBrokeredModelExecutorV01(
+      context(),
+      synthetic as unknown as CapturedBrokeredModelExecutorAdapterV01,
+      CAPTURED_ADAPTER_IDENTITY,
+    )).resolves.toEqual({ ok: false, error: "MODEL_ADAPTER_INVALID" });
+    await expect(runBrokeredModelExecutorV01(
+      context(),
+      captured as unknown as SyntheticBrokeredModelExecutorAdapterV01,
+    )).resolves.toEqual({ ok: false, error: "MODEL_ADAPTER_INVALID" });
+  });
+
+  it("applies the existing response-reference checks to captured executors", async () => {
+    const adapter = captureBrokeredModelExecutorAdapterV01({
+      invoke: async () => ({ ...completion(), evidence_refs: ["evidence-unregistered"] }),
+      ...CAPTURED_ADAPTER_IDENTITY,
+    });
+    expect(adapter).not.toBeNull();
+
+    await expect(runCapturedBrokeredModelExecutorV01(context(), adapter!, CAPTURED_ADAPTER_IDENTITY))
       .resolves.toEqual({ ok: false, error: "MODEL_RESPONSE_INVALID" });
   });
 });

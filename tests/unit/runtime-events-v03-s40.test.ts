@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  IntegrityObservationRejectedEventV03,
   ProcessTerminationAttemptedEventV03,
   RunPausedEventV03,
   RunQuarantinedEventV03,
@@ -44,22 +45,24 @@ const NEW_TYPES = [
   "run.paused",
   "run.quarantined",
   "process.termination-attempted",
+  "integrity.observation-rejected",
 ] as const;
 
 describe("S40 closed V03 runtime event family", () => {
-  it("changes only ledger_event in the independent runtime inventory", () => {
+  it("changes only ledger_event and run_manifest in the independent runtime inventory", () => {
     expect(RuntimeSchemaInventoryV02.parse(inventoryV02)).toEqual(inventoryV02);
-    expect(RuntimeSchemaInventoryV03.parse({ ...inventoryV02, ledger_event: "0.3" })).toEqual({
+    expect(RuntimeSchemaInventoryV03.parse({ ...inventoryV02, ledger_event: "0.3", run_manifest: "0.3" })).toEqual({
       ...inventoryV02,
       ledger_event: "0.3",
+      run_manifest: "0.3",
     });
     expect(RuntimeSchemaInventoryV03.safeParse(inventoryV02).success).toBe(false);
-    expect(RuntimeSchemaInventoryV03.safeParse({ ...inventoryV02, ledger_event: "0.3", extra: true }).success).toBe(false);
+    expect(RuntimeSchemaInventoryV03.safeParse({ ...inventoryV02, ledger_event: "0.3", run_manifest: "0.3", extra: true }).success).toBe(false);
   });
 
-  it("contains the frozen 46 V02 names plus exactly four V03 lifecycle names", () => {
+  it("contains the frozen 46 V02 names plus exactly five V03 names", () => {
     expect(RuntimeEventTypesV03).toEqual([...RuntimeEventTypesV02, ...NEW_TYPES]);
-    expect(new Set(RuntimeEventTypesV03).size).toBe(50);
+    expect(new Set(RuntimeEventTypesV03).size).toBe(51);
     expect(RuntimeEventTypesV02).toHaveLength(46);
   });
 
@@ -74,7 +77,7 @@ describe("S40 closed V03 runtime event family", () => {
       payload: {
         plan_hash: H("3"),
         initial_fence_epoch: 0,
-        runtime_schema_versions: { ...inventoryV02, ledger_event: "0.3" },
+        runtime_schema_versions: { ...inventoryV02, ledger_event: "0.3", run_manifest: "0.3" },
       },
     };
     expect(RuntimeEventV03.safeParse(initializedV03).success).toBe(true);
@@ -110,7 +113,20 @@ describe("S40 closed V03 runtime event family", () => {
         ...envelope, source: "adapter", authority_ref: null, event_type: "process.termination-attempted",
         payload: {
           trigger: "quarantine", trigger_event_ref: ref(1), adapter_invocation_id: "adapter_s40_1",
+          action_admission_event_ref: ref(1), host_identity_hash: H("5"), boot_id_hash: H("6"),
+          unit_name_hash: H("7"), cgroup_path_hash: H("8"), termination_request_hash: H("9"),
+          termination_observation_hash: H("a"),
           observed_outcome: "unknown",
+        },
+      },
+    },
+    {
+      schema: IntegrityObservationRejectedEventV03,
+      value: {
+        ...envelope, source: "integrity", authority_ref: null, event_type: "integrity.observation-rejected",
+        payload: {
+          reason_code: "unmatched-observation", observation_hash: H("b"),
+          adapter_invocation_id: "adapter_s40_1", claimed_action_id: null,
         },
       },
     },
@@ -135,6 +151,37 @@ describe("S40 closed V03 runtime event family", () => {
     expect(RunPausedEventV03.safeParse(policyPause).success).toBe(true);
     expect(RunPausedEventV03.safeParse({ ...policyPause, source: "operator" }).success).toBe(false);
     expect(RunPausedEventV03.safeParse({ ...policyPause, payload: { ...policyPause.payload, reason_code: "free-form" } }).success).toBe(false);
+  });
+
+  it("enforces the rejected-observation reason and identifier matrix", () => {
+    const base = {
+      ...envelope, source: "integrity", authority_ref: null, event_type: "integrity.observation-rejected",
+      payload: {
+        reason_code: "capture-gap", observation_hash: H("b"),
+        adapter_invocation_id: "adapter_s40_1", claimed_action_id: null,
+      },
+    };
+    expect(IntegrityObservationRejectedEventV03.safeParse(base).success).toBe(true);
+    expect(IntegrityObservationRejectedEventV03.safeParse({
+      ...base, payload: { ...base.payload, adapter_invocation_id: null },
+    }).success).toBe(false);
+    expect(IntegrityObservationRejectedEventV03.safeParse({
+      ...base, payload: { ...base.payload, reason_code: "authority-breach", adapter_invocation_id: null },
+    }).success).toBe(false);
+    expect(IntegrityObservationRejectedEventV03.safeParse({
+      ...base, payload: { ...base.payload, reason_code: "unmatched-observation", claimed_action_id: "action_s40_1", adapter_invocation_id: null },
+    }).success).toBe(true);
+  });
+
+  it("requires quarantine to carry exactly one evidence reference", () => {
+    const base = {
+      ...envelope, source: "integrity", authority_ref: null, event_type: "run.quarantined",
+      payload: { reason_code: "capture-gap", evidence_refs: [ref(1)] },
+    };
+    expect(RunQuarantinedEventV03.safeParse(base).success).toBe(true);
+    expect(RunQuarantinedEventV03.safeParse({
+      ...base, payload: { ...base.payload, evidence_refs: [ref(1), ref(2)] },
+    }).success).toBe(false);
   });
 
   it.each([

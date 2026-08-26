@@ -21,11 +21,18 @@ const commonFixtureRoot = join(repositoryRoot, "tests/fixtures/compat/s35/common
 const expectedReceiptSchemaSha256 = "99337cab3902c862f6777ad36afdabb9dd92a6105d23f2a88133af36d34cd5e5";
 const s40PrivateGeneratedModules = [
   "run/brokered-model-executor-v01",
+  "run/runtime-action-admission-v03",
   "run/runtime-durability-policy-v03",
+  "run/runtime-effect-dispatch-broker-v01",
+  "run/runtime-execution-coordinator-v03",
   "run/runtime-ledger-dispatch",
   "run/runtime-ledger-migration-v02-v03",
   "run/runtime-ledger-v03",
+  "run/runtime-manifest-v03",
+  "run/runtime-observation-integrity-v03",
   "run/runtime-state-reducer-v03",
+  "run/runtime-termination-v03",
+  "run/runtime-write-session-v03",
   "schema/runtime-v03",
 ] as const;
 

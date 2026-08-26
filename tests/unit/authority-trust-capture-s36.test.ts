@@ -41,15 +41,47 @@ describe("S36 host authority trust capture", () => {
     expect(authority.capturedAuthorityPolicyExtensionHashV02(captured.value)).toBe(
       resolveS36BuiltInAuthorityDecisionPolicyExtensionV1(input.policy_digest)?.extension_hash,
     );
+    expect(authority.inspectCapturedAuthorityTrustBoundaryV02(captured.value)).toEqual({
+      observed_at: input.observed_at,
+      policy_digest: input.policy_digest,
+      authority_epochs: [{
+        authenticated_principal_ref: "operator_1",
+        revocation_epoch: 0,
+      }],
+    });
     const capturedExtension = authority.resolveCapturedAuthorityDecisionPolicyExtensionV02(captured.value);
     expect(capturedExtension).toEqual(resolveS36BuiltInAuthorityDecisionPolicyExtensionV1(input.policy_digest));
     if (capturedExtension !== null) capturedExtension.reason_declarations.reverse();
     expect(authority.resolveCapturedAuthorityDecisionPolicyExtensionV02(captured.value))
       .toEqual(resolveS36BuiltInAuthorityDecisionPolicyExtensionV1(input.policy_digest));
     expect(authority.isCapturedAuthorityTrustContextV02(Object.freeze({ policy_digest: input.policy_digest }) as never)).toBe(false);
+    expect(authority.inspectCapturedAuthorityTrustBoundaryV02(
+      Object.freeze({ policy_digest: input.policy_digest }) as never,
+    )).toBeNull();
     input.operator_keys[0]!.authenticated_principal_ref = "attacker";
     expect(authority.authenticationContextHashForTrustV02(captured.value, "operator_1", "authority_key_1"))
       .toBe(hashCanonical({ purpose: "authentication-context-v02", ...input.authentication_contexts[0], authenticated_principal_ref: "operator_1" }));
+  });
+
+  it("projects only the effective observed trust boundary as frozen owned data", () => {
+    const pair = generateKeyPairSync("ed25519", { publicKeyEncoding: { type: "spki", format: "der" } });
+    const input = trustInput(pair.publicKey.toString("base64"));
+    input.authority_epochs.push(
+      { authenticated_principal_ref: "operator_1", revocation_epoch: 1, effective_from: "2026-08-13T11:00:00Z" },
+      { authenticated_principal_ref: "operator_1", revocation_epoch: 2, effective_from: "2026-08-13T13:00:00Z" },
+    );
+    const captured = authority.captureAuthorityTrustContextV02(input);
+    expect(captured.ok).toBe(true);
+    if (!captured.ok) return;
+    const boundary = authority.inspectCapturedAuthorityTrustBoundaryV02(captured.value);
+    expect(boundary).toEqual({
+      observed_at: input.observed_at,
+      policy_digest: input.policy_digest,
+      authority_epochs: [{ authenticated_principal_ref: "operator_1", revocation_epoch: 1 }],
+    });
+    expect(Object.isFrozen(boundary)).toBe(true);
+    expect(Object.isFrozen(boundary?.authority_epochs)).toBe(true);
+    expect(Object.isFrozen(boundary?.authority_epochs[0])).toBe(true);
   });
 
   it("rejects receipt-signing P-256 keys, crossed assurance, duplicates, and unknown policy", () => {

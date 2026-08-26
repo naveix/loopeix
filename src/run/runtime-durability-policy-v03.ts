@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { hashBytes, hashCanonical } from "../hash.js";
+import { canonicalize, hashBytes, hashCanonical } from "../hash.js";
 import { Hash } from "../schema/scalars.js";
 
 const MAX_LEDGER_BYTES = 67_108_864;
@@ -51,14 +51,35 @@ const RuntimeDurabilityObservationV03 = z.object({
   if (new Set(names).size !== names.length) ctx.addIssue({ code: "custom", path: ["steps"], message: "durability steps must not repeat" });
 });
 
+const EventLineV03 = z.object({
+  bytes: utf8Bounded(MAX_EVENT_BYTES),
+  bytes_hash: Hash,
+  byte_length: z.number().int().positive().max(MAX_EVENT_BYTES),
+}).strict();
+
+const RuntimeDurabilityPairObservationV03 = z.object({
+  policy_version: z.literal("0.2"),
+  prior_head: HeadV03,
+  target_head: HeadV03,
+  prior_ledger_text: utf8Bounded(MAX_LEDGER_BYTES),
+  event_lines: z.tuple([EventLineV03, EventLineV03]),
+  steps: z.array(DurabilityStepV03).min(1).max(7),
+}).strict().superRefine((value, ctx) => {
+  if (value.prior_head.sequence > Number.MAX_SAFE_INTEGER - 2
+    || value.target_head.sequence !== value.prior_head.sequence + 2) {
+    ctx.addIssue({ code: "custom", path: ["target_head", "sequence"], message: "target sequence must increment the prior head exactly twice" });
+  }
+  const names = value.steps.map((step) => step.step);
+  if (new Set(names).size !== names.length) ctx.addIssue({ code: "custom", path: ["steps"], message: "durability steps must not repeat" });
+});
+
 export type RuntimeDurabilityClassificationV03 =
   | Readonly<{ classification: "COMMITTED"; reason: "DURABLE_EXACT_READBACK" }>
-  | Readonly<{ classification: "NOT_COMMITTED"; reason: "REJECTED_BEFORE_WRITE" | "PRIOR_STATE_EXACT" }>
+  | Readonly<{ classification: "NOT_COMMITTED"; reason: "REJECTED_BEFORE_WRITE" }>
   | Readonly<{ classification: "OUTCOME_UNKNOWN"; reason: "OBSERVATIONS_INVALID" | "DURABILITY_UNCONFIRMED" }>;
 
 const COMMITTED = Object.freeze({ classification: "COMMITTED" as const, reason: "DURABLE_EXACT_READBACK" as const });
 const REJECTED = Object.freeze({ classification: "NOT_COMMITTED" as const, reason: "REJECTED_BEFORE_WRITE" as const });
-const PRIOR_EXACT = Object.freeze({ classification: "NOT_COMMITTED" as const, reason: "PRIOR_STATE_EXACT" as const });
 const INVALID = Object.freeze({ classification: "OUTCOME_UNKNOWN" as const, reason: "OBSERVATIONS_INVALID" as const });
 const UNKNOWN = Object.freeze({ classification: "OUTCOME_UNKNOWN" as const, reason: "DURABILITY_UNCONFIRMED" as const });
 
@@ -143,6 +164,47 @@ function exactBindingsHold(value: z.infer<typeof RuntimeDurabilityObservationV03
   }
 }
 
+function exactPairBindingsHold(value: z.infer<typeof RuntimeDurabilityPairObservationV03>): boolean {
+  const [firstLine, secondLine] = value.event_lines;
+  if (hashBytes(value.prior_ledger_text) !== value.prior_head.ledger_bytes_hash
+    || hashBytes(firstLine.bytes) !== firstLine.bytes_hash
+    || hashBytes(secondLine.bytes) !== secondLine.bytes_hash
+    || Buffer.byteLength(firstLine.bytes, "utf8") !== firstLine.byte_length
+    || Buffer.byteLength(secondLine.bytes, "utf8") !== secondLine.byte_length
+    || hashBytes(`${value.prior_ledger_text}${firstLine.bytes}${secondLine.bytes}`) !== value.target_head.ledger_bytes_hash
+    || !firstLine.bytes.endsWith("\n") || firstLine.bytes.slice(0, -1).includes("\n")
+    || !secondLine.bytes.endsWith("\n") || secondLine.bytes.slice(0, -1).includes("\n")) return false;
+  if (value.prior_head.sequence === 0) {
+    if (value.prior_ledger_text !== "") return false;
+  } else {
+    if (!value.prior_ledger_text.endsWith("\n")) return false;
+    const priorLine = value.prior_ledger_text.slice(0, -1).split("\n").at(-1);
+    if (priorLine === undefined || priorLine.length === 0) return false;
+    try {
+      const priorEvent = JSON.parse(priorLine) as Record<string, unknown>;
+      if (priorEvent.sequence !== value.prior_head.sequence || priorEvent.event_hash !== value.prior_head.event_hash) return false;
+    } catch {
+      return false;
+    }
+  }
+  try {
+    const first = JSON.parse(firstLine.bytes.slice(0, -1)) as Record<string, unknown>;
+    const second = JSON.parse(secondLine.bytes.slice(0, -1)) as Record<string, unknown>;
+    if (`${canonicalize(first)}\n` !== firstLine.bytes || `${canonicalize(second)}\n` !== secondLine.bytes) return false;
+    const { event_hash: firstHash, ...firstPreimage } = first;
+    const { event_hash: secondHash, ...secondPreimage } = second;
+    return first.sequence === value.prior_head.sequence + 1
+      && first.previous_event_hash === value.prior_head.event_hash
+      && typeof firstHash === "string" && hashCanonical(firstPreimage) === firstHash
+      && second.sequence === value.prior_head.sequence + 2
+      && second.previous_event_hash === firstHash
+      && typeof secondHash === "string" && hashCanonical(secondPreimage) === secondHash
+      && value.target_head.event_hash === secondHash;
+  } catch {
+    return false;
+  }
+}
+
 export function classifyRuntimeDurabilityV03(input: unknown): RuntimeDurabilityClassificationV03 {
   const captured = snapshot(input);
   if (!captured.ok) return INVALID;
@@ -153,9 +215,23 @@ export function classifyRuntimeDurabilityV03(input: unknown): RuntimeDurabilityC
   if (steps.length === 1 && steps[0] === "prefix-validation:rejected-before-write") return REJECTED;
   if (steps.join("|") === [
     "prefix-validation:accepted",
-    "append-write:zero-bytes-confirmed",
-    "prior-state-revalidated:exact",
-  ].join("|")) return PRIOR_EXACT;
+    "append-write:complete",
+    "ledger-sync:confirmed",
+    "ledger-readback:exact",
+    "head-publish:complete",
+    "directory-sync:confirmed",
+    "final-readback:exact",
+  ].join("|")) return COMMITTED;
+  return UNKNOWN;
+}
+
+export function classifyRuntimeDurabilityPairV03(input: unknown): RuntimeDurabilityClassificationV03 {
+  const captured = snapshot(input);
+  if (!captured.ok) return INVALID;
+  const parsed = RuntimeDurabilityPairObservationV03.safeParse(captured.value);
+  if (!parsed.success || !exactPairBindingsHold(parsed.data)) return INVALID;
+  const steps = parsed.data.steps.map(stepKey);
+  if (steps.length === 1 && steps[0] === "prefix-validation:rejected-before-write") return REJECTED;
   if (steps.join("|") === [
     "prefix-validation:accepted",
     "append-write:complete",

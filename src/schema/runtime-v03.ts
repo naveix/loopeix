@@ -20,6 +20,7 @@ function withV03Version<
 export const RuntimeSchemaInventoryV03 = z.object({
   ...v02.RuntimeSchemaInventoryV02.shape,
   ledger_event: z.literal("0.3"),
+  run_manifest: z.literal("0.3"),
 }).strict();
 
 const RunInitializedPayloadV03 = z.object({
@@ -101,7 +102,7 @@ const RuntimeEventEnvelopeV03 = z.object({
 
 const HashV03 = v02.RunInitializedEventV02.shape.payload.shape.plan_hash;
 const MachineIdV03 = v02.RunClockObservedEventV02.shape.payload.shape.clock_id;
-const CanonicalLedgerRefsV03 = z.array(v02.LedgerRefV02).min(1).superRefine((refs, ctx) => {
+const CanonicalLedgerRefsV03 = z.array(v02.LedgerRefV02).length(1).superRefine((refs, ctx) => {
   for (let index = 1; index < refs.length; index += 1) {
     const previous = refs[index - 1]!;
     const current = refs[index]!;
@@ -148,12 +149,40 @@ export const ProcessTerminationAttemptedEventV03 = RuntimeEventEnvelopeV03.exten
   payload: z.object({
     trigger: z.enum(["abort", "quarantine"]),
     trigger_event_ref: v02.LedgerRefV02,
+    action_admission_event_ref: v02.LedgerRefV02,
     adapter_invocation_id: MachineIdV03,
+    host_identity_hash: HashV03,
+    boot_id_hash: HashV03,
+    unit_name_hash: HashV03,
+    cgroup_path_hash: HashV03,
+    termination_request_hash: HashV03,
+    termination_observation_hash: HashV03,
     observed_outcome: z.enum(["terminated", "not-terminated", "unknown"]),
   }).strict(),
 }).strict().superRefine((event, ctx) => {
   if (event.source !== "adapter") ctx.addIssue({ code: "custom", path: ["source"], message: "process.termination-attempted must use source 'adapter'" });
   if (event.authority_ref !== null) ctx.addIssue({ code: "custom", path: ["authority_ref"], message: "process.termination-attempted must not name authority" });
+});
+
+export const IntegrityObservationRejectedEventV03 = RuntimeEventEnvelopeV03.extend({
+  event_type: z.literal("integrity.observation-rejected"),
+  payload: z.object({
+    reason_code: z.enum(["unmatched-observation", "authority-breach", "capture-gap"]),
+    observation_hash: HashV03,
+    adapter_invocation_id: MachineIdV03.nullable(),
+    claimed_action_id: MachineIdV03.nullable(),
+  }).strict(),
+}).strict().superRefine((event, ctx) => {
+  if (event.source !== "integrity") ctx.addIssue({ code: "custom", path: ["source"], message: "integrity.observation-rejected must use source 'integrity'" });
+  if (event.authority_ref !== null) ctx.addIssue({ code: "custom", path: ["authority_ref"], message: "integrity.observation-rejected must not name authority" });
+  if (event.payload.reason_code === "capture-gap" && event.payload.adapter_invocation_id === null) {
+    ctx.addIssue({ code: "custom", path: ["payload", "adapter_invocation_id"], message: "capture-gap requires an adapter invocation" });
+  }
+  if (event.payload.reason_code !== "capture-gap"
+    && event.payload.adapter_invocation_id === null
+    && event.payload.claimed_action_id === null) {
+    ctx.addIssue({ code: "custom", path: ["payload"], message: "unmatched-observation and authority-breach require an invocation or claimed action" });
+  }
 });
 
 export const RuntimeEventTypesV03 = [
@@ -162,6 +191,7 @@ export const RuntimeEventTypesV03 = [
   "run.paused",
   "run.quarantined",
   "process.termination-attempted",
+  "integrity.observation-rejected",
 ] as const;
 
 export const RuntimeEventV03 = z.discriminatedUnion("event_type", [
@@ -215,6 +245,7 @@ export const RuntimeEventV03 = z.discriminatedUnion("event_type", [
   RunPausedEventV03,
   RunQuarantinedEventV03,
   ProcessTerminationAttemptedEventV03,
+  IntegrityObservationRejectedEventV03,
 ]);
 
 export type RuntimeSchemaInventoryV03Value = z.infer<typeof RuntimeSchemaInventoryV03>;

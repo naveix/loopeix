@@ -92,6 +92,7 @@ export function planRuntimeLedgerMigrationV02ToV03(input: unknown): RuntimeLedge
   const inventory = RuntimeSchemaInventoryV03.parse({
     ...sourceFirst.payload.runtime_schema_versions,
     ledger_event: "0.3",
+    run_manifest: "0.3",
   });
   const targetPreimage = {
     schema_version: "0.3" as const,

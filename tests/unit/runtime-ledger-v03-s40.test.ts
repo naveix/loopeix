@@ -11,7 +11,7 @@ import { reduceRuntimeStateV03 } from "../../src/run/runtime-state-reducer-v03.j
 
 const H = (character: string) => `sha256:${character.repeat(64)}`;
 const inventory = {
-  resolved_run_plan: "0.2", ledger_event: "0.3", run_manifest: "0.2", artifact_manifest: "0.2",
+  resolved_run_plan: "0.2", ledger_event: "0.3", run_manifest: "0.3", artifact_manifest: "0.2",
   redaction_derivative: "0.2", human_authorization_proof: "0.2", authority_envelope: "0.2",
   agency_recommendation: "0.2", authority_revocation: "0.2", task_result: "0.2",
   manual_observation: "0.2", export_decision: "0.2", evidence_item: "0.2", gate_result: "0.2",
@@ -135,6 +135,49 @@ describe("S40 V03 ledger validation and version dispatch", () => {
     expect(inspectRuntimeLedgerV03(bytes(jsonl([first, started, pause])))).toMatchObject({ ok: false, reason: "LEDGER_HISTORY_INVALID" });
   });
 
+  it("requires an exact adjacent same-reason rejection before quarantine", () => {
+    const first = initialized();
+    const started = append(first, { event_type: "run.started", payload: { executor_profile_hash: H("b") } });
+    const rejected = append(started, {
+      event_type: "integrity.observation-rejected", source: "integrity",
+      payload: {
+        reason_code: "capture-gap", observation_hash: H("c"),
+        adapter_invocation_id: "adapter_s40_1", claimed_action_id: null,
+      },
+    });
+    expect(inspectRuntimeLedgerV03(bytes(jsonl([first, started, rejected]))))
+      .toMatchObject({ ok: true, state: { state: "quarantine-required" } });
+
+    const intervening = append(rejected, { event_type: "run.started", payload: { executor_profile_hash: H("d") } });
+    expect(inspectRuntimeLedgerV03(bytes(jsonl([first, started, rejected, intervening]))))
+      .toMatchObject({ ok: false, reason: "LEDGER_HISTORY_INVALID" });
+
+    const wrongReason = append(rejected, {
+      event_type: "run.quarantined", source: "integrity",
+      payload: { reason_code: "authority-breach", evidence_refs: [{ ledger_sequence: rejected.sequence, event_hash: rejected.event_hash }] },
+    });
+    expect(inspectRuntimeLedgerV03(bytes(jsonl([first, started, rejected, wrongReason]))))
+      .toMatchObject({ ok: false, reason: "LEDGER_HISTORY_INVALID" });
+
+    const quarantine = append(rejected, {
+      event_type: "run.quarantined", source: "integrity",
+      payload: { reason_code: "capture-gap", evidence_refs: [{ ledger_sequence: rejected.sequence, event_hash: rejected.event_hash }] },
+    });
+    expect(inspectRuntimeLedgerV03(bytes(jsonl([first, started, rejected, quarantine]))))
+      .toMatchObject({ ok: true, state: { state: "quarantined" } });
+
+    const forbiddenReuse = append(quarantine, {
+      event_type: "run.paused", source: "operator", authority_ref: "authority_s40",
+      payload: {
+        requested_by: "operator", reason_code: "operator-request",
+        request_event_ref: { ledger_sequence: rejected.sequence, event_hash: rejected.event_hash },
+      },
+    });
+    const reused = inspectRuntimeLedgerV03(bytes(jsonl([first, started, rejected, quarantine, forbiddenReuse])));
+    expect(reused).toMatchObject({ ok: false, reason: "LEDGER_HISTORY_INVALID" });
+    if (!reused.ok) expect(reused.issues[0]?.message).toContain("only the exact adjacent quarantine");
+  });
+
   it("preserves the inherited V02 terminal-history requirement", () => {
     const first = initialized();
     const terminalSeal = append(first, {
@@ -193,7 +236,7 @@ describe("S40 V03 ledger validation and version dispatch", () => {
     const v02Preimage = {
       ...v03, schema_version: "0.2", payload: {
         ...(v03.payload as Record<string, unknown>),
-        runtime_schema_versions: { ...inventory, ledger_event: "0.2" },
+        runtime_schema_versions: { ...inventory, ledger_event: "0.2", run_manifest: "0.2" },
       },
     };
     const { event_hash: _ignored, ...v02WithoutHash } = v02Preimage;

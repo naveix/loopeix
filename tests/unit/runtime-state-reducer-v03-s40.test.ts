@@ -7,7 +7,7 @@ import type { RuntimeEventV03Value } from "../../src/schema/runtime-v03.js";
 
 const H = (character: string) => `sha256:${character.repeat(64)}`;
 const inventory = {
-  resolved_run_plan: "0.2", ledger_event: "0.3", run_manifest: "0.2", artifact_manifest: "0.2",
+  resolved_run_plan: "0.2", ledger_event: "0.3", run_manifest: "0.3", artifact_manifest: "0.2",
   redaction_derivative: "0.2", human_authorization_proof: "0.2", authority_envelope: "0.2",
   agency_recommendation: "0.2", authority_revocation: "0.2", task_result: "0.2",
   manual_observation: "0.2", export_decision: "0.2", evidence_item: "0.2", gate_result: "0.2",
@@ -40,7 +40,7 @@ function inspect(events: readonly Record<string, unknown>[]) {
 }
 
 describe("S40 V03 pure run state reduction", () => {
-  it("permits initialize, start, pause, quarantine, and observed termination in order", () => {
+  it("permits initialize, start, pause, rejection, and exact quarantine in order", () => {
     const events = initialized();
     event(events, "run.started", "kernel", null, { executor_profile_hash: H("b") });
     const pauseRequest = events[0]!;
@@ -48,12 +48,13 @@ describe("S40 V03 pure run state reduction", () => {
       requested_by: "operator", reason_code: "operator-request",
       request_event_ref: { ledger_sequence: pauseRequest.sequence, event_hash: pauseRequest.event_hash },
     });
-    const quarantine = event(events, "run.quarantined", "integrity", null, {
-      reason_code: "capture-gap", evidence_refs: [{ ledger_sequence: 1, event_hash: events[0]!.event_hash }],
+    const rejection = event(events, "integrity.observation-rejected", "integrity", null, {
+      reason_code: "capture-gap", observation_hash: H("c"),
+      adapter_invocation_id: "adapter_s40_state", claimed_action_id: null,
     });
-    event(events, "process.termination-attempted", "adapter", null, {
-      trigger: "quarantine", trigger_event_ref: { ledger_sequence: quarantine.sequence, event_hash: quarantine.event_hash },
-      adapter_invocation_id: "adapter_s40_state", observed_outcome: "unknown",
+    event(events, "run.quarantined", "integrity", null, {
+      reason_code: "capture-gap",
+      evidence_refs: [{ ledger_sequence: rejection.sequence, event_hash: rejection.event_hash }],
     });
 
     expect(inspect(events)).toMatchObject({ ok: true, state: { state: "quarantined" } });

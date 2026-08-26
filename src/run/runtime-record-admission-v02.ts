@@ -318,6 +318,47 @@ export function isCapturedAuthorityTrustContextV02(value: unknown): value is Cap
   return typeof value === "object" && value !== null && authorityTrustSnapshots.has(value);
 }
 
+export type CapturedAuthorityTrustBoundaryV02 = Readonly<{
+  observed_at: string;
+  policy_digest: string;
+  authority_epochs: readonly Readonly<{
+    authenticated_principal_ref: string;
+    revocation_epoch: number;
+  }>[];
+}>;
+
+/** Read-only freshness projection; opaque keys, credentials, nonces, and verifier capabilities never leave the capture. */
+export function inspectCapturedAuthorityTrustBoundaryV02(
+  trust: CapturedAuthorityTrustContextForS36V02,
+): CapturedAuthorityTrustBoundaryV02 | null {
+  const snapshot = authorityTrustSnapshots.get(trust);
+  if (snapshot === undefined) return null;
+  const observedAt = Date.parse(snapshot.observed_at);
+  const effectiveByPrincipal = new Map<string, z.infer<typeof AuthorityEpochRowV02>>();
+  for (const row of snapshot.authority_epochs) {
+    const effectiveAt = Date.parse(row.effective_from);
+    if (effectiveAt > observedAt) continue;
+    const current = effectiveByPrincipal.get(row.authenticated_principal_ref);
+    if (current === undefined || Date.parse(current.effective_from) < effectiveAt) {
+      effectiveByPrincipal.set(row.authenticated_principal_ref, row);
+    }
+  }
+  const authorityEpochs = [...effectiveByPrincipal.values()]
+    .sort((left, right) => compareRuntimeUtf8BytesV02(
+      left.authenticated_principal_ref,
+      right.authenticated_principal_ref,
+    ))
+    .map((row) => Object.freeze({
+      authenticated_principal_ref: row.authenticated_principal_ref,
+      revocation_epoch: row.revocation_epoch,
+    }));
+  return Object.freeze({
+    observed_at: snapshot.observed_at,
+    policy_digest: snapshot.policy_digest,
+    authority_epochs: Object.freeze(authorityEpochs),
+  });
+}
+
 export function authenticationContextHashForTrustV02(
   trust: CapturedAuthorityTrustContextForS36V02,
   principalRef: string,
@@ -1656,7 +1697,7 @@ function wrapPolicyDecisionEventV02(
   authorityRef: string,
   riskTier: string,
 ) {
-  return {
+  const preimage = {
     schema_version: "0.2" as const,
     event_id: "policy_decision_preview",
     run_id: payload.run_id,
@@ -1670,6 +1711,7 @@ function wrapPolicyDecisionEventV02(
     previous_event_hash: null,
     payload,
   };
+  return Object.freeze({ ...preimage, event_hash: hashCanonical(preimage) });
 }
 
 function simulatedLeaseFingerprintV02(payload: ReturnType<typeof policyDecisionPayloadCandidateV02>): string {

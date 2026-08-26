@@ -110,6 +110,12 @@ function validateRuntimeLedgerHistoryV03(events: readonly RuntimeEventV03Value[]
       if (ref.sequence >= event.sequence || !earlier.has(refKey(ref.sequence, ref.eventHash))) {
         return failure("LEDGER_HISTORY_INVALID", ref.path, "Ledger reference must resolve to an exact earlier V03 event.");
       }
+      const referenced = events[ref.sequence - 1];
+      if (event.event_type !== "run.quarantined"
+        && referenced?.event_type === "integrity.observation-rejected"
+        && referenced.event_hash === ref.eventHash) {
+        return failure("LEDGER_HISTORY_INVALID", ref.path, "A rejected observation may serve only the exact adjacent quarantine event.");
+      }
     }
     if (event.event_type === "run.terminal-sealed") {
       const previous = events[index - 1];
@@ -117,6 +123,24 @@ function validateRuntimeLedgerHistoryV03(events: readonly RuntimeEventV03Value[]
         || event.payload.pre_seal_ledger_sequence !== previous.sequence
         || event.payload.pre_seal_ledger_head_hash !== previous.event_hash) {
         return failure("LEDGER_HISTORY_INVALID", `event[${index}].payload`, "Terminal seal must bind and immediately succeed the exact pre-seal V03 prefix.");
+      }
+    }
+    if (event.event_type === "run.quarantined") {
+      const previous = events[index - 1];
+      const evidence = event.payload.evidence_refs[0];
+      if (previous?.event_type !== "integrity.observation-rejected"
+        || evidence === undefined
+        || evidence.ledger_sequence !== previous.sequence
+        || evidence.event_hash !== previous.event_hash
+        || event.payload.reason_code !== previous.payload.reason_code) {
+        return failure("LEDGER_HISTORY_INVALID", `event[${index}].payload`, "Quarantine must immediately follow and name the exact same-reason rejected observation.");
+      }
+    }
+    if (event.event_type === "process.termination-attempted") {
+      const actionAdmission = events[event.payload.action_admission_event_ref.ledger_sequence - 1];
+      if (actionAdmission?.event_hash !== event.payload.action_admission_event_ref.event_hash
+        || actionAdmission.event_type !== "task.action-admitted") {
+        return failure("LEDGER_HISTORY_INVALID", `event[${index}].payload.action_admission_event_ref`, "Termination must bind an exact earlier action admission event.");
       }
     }
     earlier.add(refKey(event.sequence, event.event_hash));

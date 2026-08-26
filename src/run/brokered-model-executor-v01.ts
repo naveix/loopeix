@@ -185,10 +185,96 @@ function captureBounded(value: unknown): SnapshotResult {
 }
 
 export type SyntheticBrokeredModelExecutorAdapterV01 = Readonly<{ readonly __synthetic_brokered_model_executor_adapter_v01: unique symbol }>;
-type SyntheticAdapter = (context: ApprovedModelContextV01) => unknown | Promise<unknown>;
-const syntheticAdapters = new WeakMap<object, SyntheticAdapter>();
+type BrokeredModelExecutorImplementationV01 = (context: ApprovedModelContextV01) => unknown | Promise<unknown>;
+const syntheticAdapters = new WeakMap<object, BrokeredModelExecutorImplementationV01>();
 
-export function createSyntheticBrokeredModelExecutorAdapterV01ForTest(adapter: SyntheticAdapter): SyntheticBrokeredModelExecutorAdapterV01 {
+export type CapturedBrokeredModelExecutorAdapterV01 = Readonly<{ readonly __captured_brokered_model_executor_adapter_v01: unique symbol }>;
+type CapturedBrokeredModelExecutorBindingV01 = Readonly<{
+  invoke: BrokeredModelExecutorImplementationV01;
+  executor_profile_hash: z.infer<typeof Hash>;
+  adapter_ref: z.infer<typeof MachineIdV02>;
+  adapter_version_hash: z.infer<typeof Hash>;
+  eligible_adapter_evidence_hash: z.infer<typeof Hash>;
+  bypass_evidence_hash: z.infer<typeof Hash>;
+}>;
+
+const CapturedBrokeredModelExecutorIdentitySchemaV01 = z.object({
+  executor_profile_hash: Hash,
+  adapter_ref: MachineIdV02,
+  adapter_version_hash: Hash,
+  eligible_adapter_evidence_hash: Hash,
+  bypass_evidence_hash: Hash,
+}).strict();
+
+const CAPTURED_ADAPTER_KEYS_V01 = Object.freeze([
+  "invoke",
+  "executor_profile_hash",
+  "adapter_ref",
+  "adapter_version_hash",
+  "eligible_adapter_evidence_hash",
+  "bypass_evidence_hash",
+] as const);
+
+const capturedAdapters = new WeakMap<object, CapturedBrokeredModelExecutorBindingV01>();
+
+function capturedAdapterIdentityMatchesV01(
+  expectedIdentity: unknown,
+  binding: CapturedBrokeredModelExecutorBindingV01,
+): boolean {
+  const capturedIdentity = captureBounded(expectedIdentity);
+  if (!capturedIdentity.ok) return false;
+  const parsedIdentity = CapturedBrokeredModelExecutorIdentitySchemaV01.safeParse(capturedIdentity.value);
+  if (!parsedIdentity.success) return false;
+  return parsedIdentity.data.executor_profile_hash === binding.executor_profile_hash
+    && parsedIdentity.data.adapter_ref === binding.adapter_ref
+    && parsedIdentity.data.adapter_version_hash === binding.adapter_version_hash
+    && parsedIdentity.data.eligible_adapter_evidence_hash === binding.eligible_adapter_evidence_hash
+    && parsedIdentity.data.bypass_evidence_hash === binding.bypass_evidence_hash;
+}
+
+export function captureBrokeredModelExecutorAdapterV01(input: unknown): CapturedBrokeredModelExecutorAdapterV01 | null {
+  if (typeof input !== "object" || input === null) return null;
+  try {
+    if (Object.getPrototypeOf(input) !== Object.prototype) return null;
+    const keys = Reflect.ownKeys(input);
+    if (
+      keys.length !== CAPTURED_ADAPTER_KEYS_V01.length
+      || keys.some((key) => typeof key !== "string" || !CAPTURED_ADAPTER_KEYS_V01.includes(key as typeof CAPTURED_ADAPTER_KEYS_V01[number]))
+    ) return null;
+    const descriptors = Object.getOwnPropertyDescriptors(input);
+    const values: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+    for (const key of CAPTURED_ADAPTER_KEYS_V01) {
+      const descriptor = descriptors[key];
+      if (
+        descriptor === undefined
+        || !("value" in descriptor)
+        || descriptor.get !== undefined
+        || descriptor.set !== undefined
+        || descriptor.enumerable !== true
+      ) return null;
+      values[key] = descriptor.value;
+    }
+    if (typeof values.invoke !== "function") return null;
+    const identity = CapturedBrokeredModelExecutorIdentitySchemaV01.safeParse({
+      executor_profile_hash: values.executor_profile_hash,
+      adapter_ref: values.adapter_ref,
+      adapter_version_hash: values.adapter_version_hash,
+      eligible_adapter_evidence_hash: values.eligible_adapter_evidence_hash,
+      bypass_evidence_hash: values.bypass_evidence_hash,
+    });
+    if (!identity.success) return null;
+    const token = Object.freeze({}) as CapturedBrokeredModelExecutorAdapterV01;
+    capturedAdapters.set(token, Object.freeze({
+      invoke: values.invoke as BrokeredModelExecutorImplementationV01,
+      ...identity.data,
+    }));
+    return token;
+  } catch {
+    return null;
+  }
+}
+
+export function createSyntheticBrokeredModelExecutorAdapterV01ForTest(adapter: BrokeredModelExecutorImplementationV01): SyntheticBrokeredModelExecutorAdapterV01 {
   const token = Object.freeze({}) as SyntheticBrokeredModelExecutorAdapterV01;
   syntheticAdapters.set(token, adapter);
   return token;
@@ -240,16 +326,20 @@ function responseReferencesAreRegistered(
   }
 }
 
-export async function runBrokeredModelExecutorV01(
+async function runValidatedBrokeredModelExecutorV01(
   context: unknown,
-  adapter: SyntheticBrokeredModelExecutorAdapterV01,
+  invoke: BrokeredModelExecutorImplementationV01 | undefined,
+  expectedExecutorProfileHash?: z.infer<typeof Hash>,
 ): Promise<BrokeredModelExecutorResultV01> {
   const capturedContext = captureBounded(context);
   if (!capturedContext.ok) return Object.freeze({ ok: false, error: "MODEL_CONTEXT_INVALID" });
   const parsedContext = ApprovedModelContextSchemaV01.safeParse(capturedContext.value);
   if (!parsedContext.success) return Object.freeze({ ok: false, error: "MODEL_CONTEXT_INVALID" });
-  const invoke = syntheticAdapters.get(adapter);
   if (invoke === undefined) return Object.freeze({ ok: false, error: "MODEL_ADAPTER_INVALID" });
+  if (
+    expectedExecutorProfileHash !== undefined
+    && parsedContext.data.executor_profile_hash !== expectedExecutorProfileHash
+  ) return Object.freeze({ ok: false, error: "MODEL_ADAPTER_INVALID" });
   let rawResponse: unknown;
   try {
     rawResponse = await invoke(deepFreeze(parsedContext.data));
@@ -267,4 +357,27 @@ export async function runBrokeredModelExecutorV01(
     return Object.freeze({ ok: false, error: "MODEL_RESPONSE_INVALID" });
   }
   return Object.freeze({ ok: true, value: deepFreeze(parsedResponse.data) });
+}
+
+export function runBrokeredModelExecutorV01(
+  context: unknown,
+  adapter: SyntheticBrokeredModelExecutorAdapterV01,
+): Promise<BrokeredModelExecutorResultV01> {
+  return runValidatedBrokeredModelExecutorV01(context, syntheticAdapters.get(adapter));
+}
+
+export function runCapturedBrokeredModelExecutorV01(
+  context: unknown,
+  adapter: CapturedBrokeredModelExecutorAdapterV01,
+  expectedIdentity: unknown,
+): Promise<BrokeredModelExecutorResultV01> {
+  const binding = capturedAdapters.get(adapter);
+  if (binding === undefined || !capturedAdapterIdentityMatchesV01(expectedIdentity, binding)) {
+    return Promise.resolve(Object.freeze({ ok: false, error: "MODEL_ADAPTER_INVALID" }));
+  }
+  return runValidatedBrokeredModelExecutorV01(
+    context,
+    binding.invoke,
+    binding.executor_profile_hash,
+  );
 }
