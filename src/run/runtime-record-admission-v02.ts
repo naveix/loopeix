@@ -1455,6 +1455,111 @@ export function produceAgencyRecommendationRecordV02(input: Readonly<{
   } catch { return { ok: false, error: "AUTHORITY_RECOMMENDATION_INVALID" }; }
 }
 
+const AuthorityRevocationProductionRequestV02 = z.object({
+  revocation_id: MachineId,
+  run_id: MachineId,
+  plan_hash: Hash,
+  target: z.unknown(),
+  previous_revocation_epoch: safeInteger.nonnegative(),
+  revocation_epoch: safeInteger.positive(),
+  effective_prefix_ref: LedgerRefV02,
+  reason_code: z.enum([
+    "operator-revoked",
+    "authority-expired",
+    "scope-invalidated",
+    "policy-changed",
+    "principal-revoked",
+    "compromise-suspected",
+  ]),
+  evidence_refs: ReviewEvidenceRefsV02,
+  revoker_identity_ref: MachineId,
+  revoker_stable_identity_hash: Hash,
+  revoked_at: IsoTimestamp,
+}).strict();
+
+/** Produces one strict authority-revocation record through a captured host signing capability. */
+export function produceAuthorityRevocationRecordV02(input: Readonly<{
+  trust_context: CapturedAuthorityTrustContextForS36V02;
+  signer: HostProducerEd25519SignerV02;
+  request: unknown;
+}>): Readonly<{ ok: true; value: AuthorityRevocationRecordV02Value }>
+  | Readonly<{ ok: false; error: "AUTHORITY_REVOCATION_INVALID" }> {
+  try {
+    const snapshot = authorityTrustSnapshots.get(input.trust_context);
+    const signingKey = hostProducerSigners.get(input.signer);
+    const request = AuthorityRevocationProductionRequestV02.safeParse(input.request);
+    if (snapshot === undefined || signingKey === undefined || !request.success) {
+      return { ok: false, error: "AUTHORITY_REVOCATION_INVALID" };
+    }
+    const target = AuthorityRevocationTargetV02.safeParse(request.data.target);
+    if (!target.success) {
+      return { ok: false, error: "AUTHORITY_REVOCATION_INVALID" };
+    }
+    const revokedAt = Date.parse(request.data.revoked_at);
+    const observed = Date.parse(snapshot.observed_at);
+    const trustedKey = snapshot.host_producer_keys.find((row) => row.signer_key_ref === input.signer.key_ref
+      && row.authenticated_actor_ref === request.data.revoker_identity_ref
+      && (row.allowed_record_kinds as readonly string[]).includes("authority-revocation"));
+    const contextHash = authenticationContextHashForTrustV02(
+      input.trust_context,
+      request.data.revoker_identity_ref,
+      input.signer.key_ref,
+    );
+    if (trustedKey === undefined || contextHash === null
+      || createPublicKey(signingKey).export({ type: "spki", format: "der" }).toString("base64") !== trustedKey.public_key_spki_base64
+      || revokedAt > observed
+      || Date.parse(trustedKey.effective_from) > revokedAt
+      || revokedAt >= Date.parse(trustedKey.effective_until)
+      || (trustedKey.revoked_at !== null && Date.parse(trustedKey.revoked_at) <= revokedAt)) {
+      return { ok: false, error: "AUTHORITY_REVOCATION_INVALID" };
+    }
+    const revoker_kind = request.data.reason_code === "operator-revoked"
+      ? "operator" as const
+      : "policy-enforcement-point" as const;
+    const base = {
+      schema_version: "0.2" as const,
+      revocation_id: request.data.revocation_id,
+      run_id: request.data.run_id,
+      plan_hash: request.data.plan_hash,
+      target: target.data,
+      previous_revocation_epoch: request.data.previous_revocation_epoch,
+      revocation_epoch: request.data.revocation_epoch,
+      effective_prefix_ref: request.data.effective_prefix_ref,
+      reason_code: request.data.reason_code,
+      evidence_refs: request.data.evidence_refs,
+      revoker_kind,
+      revoker_identity_ref: request.data.revoker_identity_ref,
+      revoker_stable_identity_hash: request.data.revoker_stable_identity_hash,
+      revoker_authentication_context_hash: contextHash,
+      policy_digest: snapshot.policy_digest,
+      revoked_at: request.data.revoked_at,
+    };
+    const header = {
+      signer_key_ref: input.signer.key_ref,
+      signature_algorithm: "ed25519" as const,
+    };
+    const statementHash = hashCanonical({
+      ...base,
+      producer_attestation: header,
+    });
+    const producer_attestation = {
+      ...header,
+      statement_hash: statementHash,
+      signature_value: cryptoSign(null, Buffer.from(statementHash, "ascii"), signingKey).toString("base64"),
+    };
+    const withoutHash = { ...base, producer_attestation };
+    const parsed = AuthorityRevocationRecordV02.safeParse({
+      ...withoutHash,
+      record_hash: hashCanonical(withoutHash),
+    });
+    return parsed.success
+      ? { ok: true, value: freezeAuthorityTrustValue(parsed.data) }
+      : { ok: false, error: "AUTHORITY_REVOCATION_INVALID" };
+  } catch {
+    return { ok: false, error: "AUTHORITY_REVOCATION_INVALID" };
+  }
+}
+
 const AuthorityRevocationTargetV02 = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("authority-envelope"),

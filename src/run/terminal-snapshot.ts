@@ -42,7 +42,7 @@ type AdmittedCompensationProjectionV02 = Extract<
   { ok: true }
 >;
 const terminalSnapshotCompensationFacts = new WeakMap<object, AdmittedCompensationProjectionV02>();
-type AdmittedRuntimeProjectionFactsV02 = Readonly<{
+export type AdmittedRuntimeProjectionFactsV02 = Readonly<{
   controlPlaneConsumedBytes: number;
   ledgerLineBytes: readonly number[];
   /** Exact decoded record facts, populated only after record-family admission. */
@@ -138,6 +138,14 @@ function sameLedgerRef(
   return left.ledger_sequence === right.ledger_sequence && left.event_hash === right.event_hash;
 }
 
+function usesAttemptAwareRecoveryV04(
+  input: ValidatedRuntimeProjectionInputV02,
+): boolean {
+  const plan = input.plan as Record<string, unknown>;
+  return typeof plan.runtime_input_hash === "string"
+    && typeof plan.runtime_recovery_policy_hash === "string";
+}
+
 function uniqueLedgerRefs(
   refs: readonly Readonly<{ ledger_sequence: number; event_hash: string }>[],
 ) {
@@ -223,6 +231,11 @@ export function compensationFactsForTerminalSnapshotV02(
 /** Package-private exact hash projection used by terminal sealing and tests. */
 export function hashTerminalObservationSnapshotV02(snapshot: TerminalObservationSnapshotV02): string {
   if (!isTerminalObservationSnapshotV02(snapshot)) throw new TypeError("unbranded terminal snapshot");
+  return hashTerminalObservationSnapshotCoreV02(snapshot);
+}
+
+/** Package-private pure hash core; callers must enforce their own family brand. */
+export function hashTerminalObservationSnapshotCoreV02(snapshot: TerminalObservationSnapshotV02): string {
   const { terminal_seal: _terminalSeal, ...projection } = snapshot;
   return hashCanonical({
     purpose: "pre-seal-terminal-observation-snapshot-v02",
@@ -439,10 +452,22 @@ export function buildTerminalObservationSnapshotV02(
   input: ValidatedRuntimeProjectionInputV02,
 ): RuntimeResult<TerminalObservationSnapshotV02, TerminalSnapshotInvalidReasonV02> {
   if (!isValidatedRuntimeProjectionInputV02(input)) return { ok: false, error: "PLAN_OR_LEDGER_LINEAGE_INVALID" };
-  const progress = deriveProgressV02ForRuntime(input);
-  if (!progress.ok) return progress;
   const facts = projectionRuntimeFacts.get(input);
   if (facts === undefined || input.events[0]?.event_type !== "run.initialized") {
+    return { ok: false, error: "APPLICABILITY_OR_DUE_INVALID" };
+  }
+  return buildTerminalObservationSnapshotCoreV02(input, facts, true);
+}
+
+/** Package-private brand-independent core shared only by already-admitted runtime families. */
+export function buildTerminalObservationSnapshotCoreV02(
+  input: ValidatedRuntimeProjectionInputV02,
+  facts: AdmittedRuntimeProjectionFactsV02,
+  brandAsV02 = false,
+): RuntimeResult<TerminalObservationSnapshotV02, TerminalSnapshotInvalidReasonV02> {
+  const progress = deriveProgressV02ForRuntime(input);
+  if (!progress.ok) return progress;
+  if (input.events[0]?.event_type !== "run.initialized") {
     return { ok: false, error: "APPLICABILITY_OR_DUE_INVALID" };
   }
   const initializedRef = eventRef(input.events[0]);
@@ -817,14 +842,17 @@ export function buildTerminalObservationSnapshotV02(
     if (event.event_type === "run.compensation-phase-entered") {
       const eventIndex = input.events.indexOf(event);
       const recoveryBoundary = eventIndex <= 0 ? undefined : input.events[eventIndex - 1];
+      const recoveryBoundaryValid = usesAttemptAwareRecoveryV04(input)
+        ? recoveryBoundary?.event_type === "run.fence-advanced"
+        : recoveryBoundary?.event_type === "run.fence-advanced"
+          && recoveryBoundary.payload.reason === "recovery-boundary";
       if (transitionPhase !== undefined || transitionRequest === undefined || transitionFreeze === undefined
         || event.payload.request_revision !== transitionRequest.payload.revision
         || event.payload.request_event_hash !== transitionRequest.event_hash
         || event.payload.pending_terminal !== transitionRequest.payload.pending_terminal
         || JSON.stringify(event.payload.compensation_refs) !== JSON.stringify(transitionRequest.payload.compensation_refs)
         || event.payload.freeze_event_hash !== transitionFreeze.event_hash
-        || recoveryBoundary?.event_type !== "run.fence-advanced"
-        || recoveryBoundary.payload.reason !== "recovery-boundary") {
+        || !recoveryBoundaryValid) {
         return { ok: false, error: "PHASE_OR_PENDING_TERMINAL_INVALID" };
       }
       transitionPhase = event;
@@ -882,20 +910,14 @@ export function buildTerminalObservationSnapshotV02(
       observations: prefixEvents.filter((event) => event.event_type === "task.progress-observed"),
       events: prefixEvents,
     }) as unknown as ValidatedRuntimeProjectionInputV02;
-    validatedInputs.add(prefixInput);
-    projectionRuntimeFacts.set(prefixInput, {
+    const prefixFacts: AdmittedRuntimeProjectionFactsV02 = {
       ...facts,
       controlPlaneConsumedBytes: facts.ledgerLineBytes.slice(0, sealIndex).reduce((sum, bytes) => sum + bytes, 0),
       ledgerLineBytes: facts.ledgerLineBytes.slice(0, sealIndex),
-    });
-    const prefixSnapshot = buildTerminalObservationSnapshotV02(prefixInput);
-    validatedInputs.delete(prefixInput);
-    projectionRuntimeFacts.delete(prefixInput);
+    };
+    const prefixSnapshot = buildTerminalObservationSnapshotCoreV02(prefixInput, prefixFacts, false);
     if (!prefixSnapshot.ok) return prefixSnapshot;
-    const expectedHash = hashTerminalObservationSnapshotV02(prefixSnapshot.value);
-    terminalSnapshots.delete(prefixSnapshot.value);
-    terminalSnapshotInputs.delete(prefixSnapshot.value);
-    terminalSnapshotCompensationFacts.delete(prefixSnapshot.value);
+    const expectedHash = hashTerminalObservationSnapshotCoreV02(prefixSnapshot.value);
     if (sealEvent.payload.pre_seal_snapshot_hash !== expectedHash) {
       return { ok: false, error: "TERMINAL_SEAL_OR_FENCE_INVALID" };
     }
@@ -940,8 +962,10 @@ export function buildTerminalObservationSnapshotV02(
     in_flight_actions: inFlightActions,
     active_workers: activeWorkers,
   }) as unknown as TerminalObservationSnapshotV02;
-  terminalSnapshots.add(snapshot);
-  terminalSnapshotInputs.set(snapshot, input);
-  terminalSnapshotCompensationFacts.set(snapshot, compensationProjection);
+  if (brandAsV02) {
+    terminalSnapshots.add(snapshot);
+    terminalSnapshotInputs.set(snapshot, input);
+    terminalSnapshotCompensationFacts.set(snapshot, compensationProjection);
+  }
   return { ok: true, value: snapshot };
 }

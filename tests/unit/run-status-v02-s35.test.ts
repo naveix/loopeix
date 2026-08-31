@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -24,6 +24,7 @@ vi.mock("../../src/run/present-planned-v02.js", () => ({
 }));
 
 import RunStatus, { type RunStatusResult } from "../../src/commands/run/status.js";
+import { capturePlannedRunV02 } from "../../src/run/capture-planned-v02.js";
 
 const repoRoot = join(import.meta.dirname, "..", "..");
 const roots: string[] = [];
@@ -72,5 +73,22 @@ describe("S35 V02 run status", () => {
     state.capture = { ok: false, reason: "V02_RUN_LAYOUT_CONTAMINATED", message: "contaminated" };
     const output = await run([root()]);
     expect(output).toMatchObject({ exit: 4, result: { reason: "V02_RUN_LAYOUT_CONTAMINATED", integrity_status: "invalid" } });
+  });
+
+  it("preserves direct-ledger precedence without probing the V02 directory facade", async () => {
+    const directory = root();
+    const ledger = join(directory, "ledger.jsonl");
+    writeFileSync(ledger, "");
+    chmodSync(ledger, 0o600);
+    state.capture = { ok: false, reason: "V02_RUN_LAYOUT_CONTAMINATED", message: "must not win" };
+    const output = await run([ledger]);
+    expect(output.exit).toBe(0);
+    expect(capturePlannedRunV02).not.toHaveBeenCalled();
+    expect(output.result).toMatchObject({
+      source: "ledger",
+      ledger_path: ledger,
+      run_state: "planned",
+      integrity_status: "valid",
+    });
   });
 });

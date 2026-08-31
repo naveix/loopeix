@@ -17,6 +17,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import * as rootExports from "../../src/index.js";
 import {
   captureRunFileForRuntimeV02,
+  captureRunFileForRuntimeInspectionV02,
+  captureRunFileForRuntimeInspectionV02ForTest,
   captureRunFileForRuntimeV02ForTest,
   isAnchoredRunDirectoryReadCapabilityV02,
   isCapturedRunFileMetadataV02,
@@ -79,6 +81,29 @@ describe("S35 helper-owned runtime file capture", () => {
     exposed[0] = 99;
     source[1] = 88;
     expect([...result.value.bytes]).toEqual([0, 1, 2, 250, 255]);
+  });
+
+  it("admits legacy 0644 files for read-only inspection and preserves the exact mode", async () => {
+    const root = makeRoot();
+    const source = new Uint8Array([7, 8, 9]);
+    writeRuntimeFile(root, "ledger.jsonl", source, 0o644);
+
+    const issued = await issueAnchoredRunDirectoryReadCapabilityV02(root);
+    expect(issued.ok).toBe(true);
+    if (!issued.ok) return;
+    const result = await captureRunFileForRuntimeInspectionV02({
+      anchored_run_directory: issued.value,
+      relative_path: "ledger.jsonl",
+      max_bytes: source.byteLength,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.metadata).toMatchObject({
+      mode: 420,
+      size_bytes: source.byteLength,
+      sha256: `sha256:${createHash("sha256").update(source).digest("hex")}`,
+    });
   });
 
   it("rejects structural capability and capture lookalikes and stays off root exports", async () => {
@@ -173,6 +198,30 @@ describe("S35 helper-owned runtime file capture", () => {
     if (!issued.ok) throw new Error("fixture capability issuance failed");
 
     await expect(captureRunFileForRuntimeV02ForTest({
+      anchored_run_directory: issued.value,
+      relative_path: "records/value.json",
+      max_bytes: 3,
+    }, {
+      after_read_before_recheck: () => renameSync(replacement, path),
+    })).resolves.toEqual({ ok: false, error: "RUNTIME_FILE_IDENTITY_CHANGED" });
+  });
+
+  it("keeps inspection capture fail-closed for symlinks and same-path swaps", async () => {
+    const root = makeRoot();
+    const issued = await issueAnchoredRunDirectoryReadCapabilityV02(root);
+    if (!issued.ok) throw new Error("fixture capability issuance failed");
+
+    writeRuntimeFile(root, "target.jsonl", new Uint8Array([1]), 0o644);
+    symlinkSync("target.jsonl", join(root, "link.jsonl"));
+    await expect(captureRunFileForRuntimeInspectionV02({
+      anchored_run_directory: issued.value,
+      relative_path: "link.jsonl",
+      max_bytes: 8,
+    })).resolves.toEqual({ ok: false, error: "RUNTIME_FILE_NOT_REGULAR" });
+
+    const path = writeRuntimeFile(root, "records/value.json", new Uint8Array([1, 2, 3]), 0o644);
+    const replacement = writeRuntimeFile(root, "records/replacement.json", new Uint8Array([4, 5, 6]), 0o644);
+    await expect(captureRunFileForRuntimeInspectionV02ForTest({
       anchored_run_directory: issued.value,
       relative_path: "records/value.json",
       max_bytes: 3,

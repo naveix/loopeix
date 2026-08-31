@@ -19,21 +19,44 @@ const repositoryRoot = join(import.meta.dirname, "../..");
 const fixtureRoot = join(repositoryRoot, "tests/fixtures/compat/s35/v01");
 const commonFixtureRoot = join(repositoryRoot, "tests/fixtures/compat/s35/common");
 const expectedReceiptSchemaSha256 = "99337cab3902c862f6777ad36afdabb9dd92a6105d23f2a88133af36d34cd5e5";
-const s40PrivateGeneratedModules = [
+const privateGeneratedModules = [
   "run/brokered-model-executor-v01",
+  "run/project-plan-v03",
   "run/runtime-action-admission-v03",
+  "run/runtime-clock-observation-v04",
+  "run/runtime-compensation-write-v04",
+  "run/runtime-control-write-v04",
+  "run/runtime-directory-v04",
   "run/runtime-durability-policy-v03",
   "run/runtime-effect-dispatch-broker-v01",
   "run/runtime-execution-coordinator-v03",
+  "run/runtime-file-store-v04",
+  "run/runtime-inspection-read",
   "run/runtime-ledger-dispatch",
   "run/runtime-ledger-migration-v02-v03",
   "run/runtime-ledger-v03",
+  "run/runtime-ledger-v04",
+  "run/runtime-limit-accounting-v04",
   "run/runtime-manifest-v03",
+  "run/runtime-manifest-v04",
+  "run/runtime-non-entry-write-v04",
   "run/runtime-observation-integrity-v03",
+  "run/runtime-pause-authorization-v04",
+  "run/runtime-recovery-authorization-v04",
+  "run/runtime-recovery-v04",
+  "run/runtime-revocation-write-v04",
   "run/runtime-state-reducer-v03",
+  "run/runtime-state-reducer-v04",
+  "run/runtime-status-v04",
+  "run/runtime-summary-v04",
+  "run/runtime-terminal-v04",
+  "run/runtime-terminal-write-v04",
   "run/runtime-termination-v03",
   "run/runtime-write-session-v03",
+  "run/runtime-write-session-v04",
+  "schema/runtime-plan-v03",
   "schema/runtime-v03",
+  "schema/runtime-v04",
 ] as const;
 
 function oracle(name: string): string[] {
@@ -222,7 +245,7 @@ describe("S35 schema and package contract", () => {
     ]);
   });
 
-  it("packages the reviewed S40 artifacts without publishing any private module subpath", () => {
+  it("packages the reviewed private runtime artifacts without publishing any private module subpath", () => {
     const packageJson = JSON.parse(readFileSync(join(repositoryRoot, "package.json"), "utf8")) as {
       exports: Record<string, unknown>;
     };
@@ -238,7 +261,7 @@ describe("S35 schema and package contract", () => {
 
     expect(sorted(jsonPaths)).toEqual(["report/plan-renderer-bundle.json"]);
     const packedPaths = packagePaths();
-    for (const modulePath of s40PrivateGeneratedModules) {
+    for (const modulePath of privateGeneratedModules) {
       for (const suffix of [".d.ts", ".d.ts.map", ".js", ".js.map"] as const) {
         expect(packedPaths).toContain(`dist/${modulePath}${suffix}`);
       }

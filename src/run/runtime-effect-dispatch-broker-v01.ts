@@ -40,6 +40,7 @@ export type DispatchAdmittedActionV01Error = InspectRuntimeWriteSessionV03ForDis
   | "DISPATCH_PERMIT_SESSION_MISMATCH"
   | "DISPATCH_BINDING_MISMATCH"
   | "DISPATCH_PERMIT_ALREADY_USED"
+  | "DISPATCH_LEASE_EXPIRED"
   | "DISPATCH_NOT_STARTED"
   | "DISPATCH_OUTCOME_UNKNOWN";
 
@@ -231,10 +232,29 @@ export async function dispatchAdmittedActionV01(
   const admission = dispatchEventAt(inspected.snapshot.events, consumed.action_admission_event_ref);
   const payload = typeof admission?.payload === "object" && admission.payload !== null
     ? admission.payload as Record<string, unknown> : null;
+  const leaseRef = typeof payload?.lease_event_ref === "object" && payload.lease_event_ref !== null
+    ? payload.lease_event_ref as Record<string, unknown> : null;
+  const lease = typeof leaseRef?.ledger_sequence === "number" && typeof leaseRef.event_hash === "string"
+    ? dispatchEventAt(inspected.snapshot.events, {
+      ledger_sequence: leaseRef.ledger_sequence,
+      event_hash: leaseRef.event_hash,
+    }) : undefined;
+  const leasePayload = typeof lease?.payload === "object" && lease.payload !== null
+    ? lease.payload as Record<string, unknown> : null;
   if (admission?.event_type !== "task.action-admitted"
-    || payload?.normalized_dispatch_hash !== state.normalized_dispatch_hash) {
+    || payload?.normalized_dispatch_hash !== state.normalized_dispatch_hash
+    || lease?.event_type !== "lease.issued"
+    || typeof leasePayload?.expires_at !== "string") {
     await poisonRuntimeWriteSessionV03ForAdmission(session);
     return Object.freeze({ ok: false, error: "DISPATCH_BINDING_MISMATCH" });
+  }
+  const expiresAt = Date.parse(leasePayload.expires_at);
+  const laterClockTimes = inspected.snapshot.events
+    .filter((event) => event.sequence > admission.sequence && event.event_type === "run.clock-observed")
+    .map((event) => typeof event.payload === "object" && event.payload !== null
+      ? Date.parse(String((event.payload as Record<string, unknown>).observed_at)) : Number.NaN);
+  if (laterClockTimes.some((observedAt) => Number.isFinite(observedAt) && observedAt >= expiresAt)) {
+    return Object.freeze({ ok: false, error: "DISPATCH_LEASE_EXPIRED" });
   }
   if (state.entered) {
     await poisonRuntimeWriteSessionV03ForAdmission(session);

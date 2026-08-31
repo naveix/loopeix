@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -73,9 +73,21 @@ describe("S35 V02 run recover", () => {
     const directory = root();
     const ledger = join(directory, "ledger.jsonl");
     writeFileSync(ledger, "");
+    chmodSync(ledger, 0o600);
     state.capture = { ok: false, reason: "V02_RUN_LAYOUT_CONTAMINATED", message: "must not win" };
     const output = await run([ledger]);
     expect(capturePlannedRunV02).not.toHaveBeenCalled();
     expect(output.result).not.toHaveProperty("reason", "V02_RUN_LAYOUT_CONTAMINATED");
+  });
+
+  it("fails closed for a symlinked direct-ledger input", async () => {
+    const directory = root();
+    const ledger = join(directory, "ledger.jsonl");
+    const link = join(directory, "ledger-link.jsonl");
+    writeFileSync(ledger, "");
+    chmodSync(ledger, 0o600);
+    symlinkSync("ledger.jsonl", link);
+    await expect(run([link])).rejects.toMatchObject({ oclif: { exit: 4 } });
+    expect(capturePlannedRunV02).not.toHaveBeenCalled();
   });
 });

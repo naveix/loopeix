@@ -10,6 +10,7 @@ import {
 
 export type RuntimeRunFileCaptureErrorV02 =
   | "RUNTIME_FILE_PATH_INVALID"
+  | "RUNTIME_FILE_NOT_FOUND"
   | "RUNTIME_FILE_NOT_REGULAR"
   | "RUNTIME_FILE_MODE_INVALID"
   | "RUNTIME_FILE_IDENTITY_CHANGED"
@@ -27,7 +28,7 @@ export type AnchoredRunDirectoryReadCapabilityV02 = {
 
 declare const capturedRunFileMetadataBrandV02: unique symbol;
 export type CapturedRunFileMetadataV02 = Readonly<{
-  mode: 384;
+  mode: 384 | 420;
   size_bytes: number;
   sha256: `sha256:${string}`;
   [capturedRunFileMetadataBrandV02]: true;
@@ -60,9 +61,11 @@ type FileIdentity = Identity & Readonly<{
   size: bigint;
 }>;
 
-type CaptureTestHooks = Readonly<{
+export type RuntimeRunFileCaptureHooksV02 = Readonly<{
   after_read_before_recheck?: () => void | Promise<void>;
 }>;
+
+type CaptureModePolicyV02 = "WRITE_AUTHORITY_0600_ONLY" | "READ_ONLY_INSPECTION_LEGACY_OK";
 
 const anchoredRoots = new WeakMap<object, RootState>();
 const capturedMetadata = new WeakSet<object>();
@@ -87,6 +90,12 @@ function permissionMode(mode: bigint): bigint {
   // Include setuid, setgid, and sticky bits: the contract requires exactly
   // 0600, not merely owner read/write after special bits are discarded.
   return mode & 0o7777n;
+}
+
+function isPermittedCaptureMode(mode: bigint, policy: CaptureModePolicyV02): mode is 0o600n | 0o644n {
+  const permissions = permissionMode(mode);
+  if (policy === "WRITE_AUTHORITY_0600_ONLY") return permissions === 0o600n;
+  return permissions === 0o600n || permissions === 0o644n;
 }
 
 function isCanonicalAbsolutePath(path: string): boolean {
@@ -212,7 +221,8 @@ async function captureRunFile(
   capability: AnchoredRunDirectoryReadCapabilityV02,
   relativePath: unknown,
   maxBytes: unknown,
-  hooks: CaptureTestHooks,
+  policy: CaptureModePolicyV02,
+  hooks: RuntimeRunFileCaptureHooksV02,
 ): Promise<RuntimeRunFileCaptureResultV02<HelperOwnedRunFileCaptureV02>> {
   const root = typeof capability === "object" && capability !== null ? anchoredRoots.get(capability) : undefined;
   if (root === undefined) return failure("RUNTIME_FILE_PATH_INVALID");
@@ -233,7 +243,7 @@ async function captureRunFile(
   try {
     const before = await lstat(path, { bigint: true });
     if (!before.isFile() || before.isSymbolicLink()) return failure("RUNTIME_FILE_NOT_REGULAR");
-    if (permissionMode(before.mode) !== 0o600n) return failure("RUNTIME_FILE_MODE_INVALID");
+    if (!isPermittedCaptureMode(before.mode, policy)) return failure("RUNTIME_FILE_MODE_INVALID");
     if (before.size < 0n || before.size > BigInt(maxBytes) || before.size >= BigInt(Number.MAX_SAFE_INTEGER)) {
       return failure("RUNTIME_INPUT_RESOURCE_LIMIT");
     }
@@ -274,8 +284,10 @@ async function captureRunFile(
     const privateBytes = new Uint8Array(expectedSize);
     privateBytes.set(readBuffer.subarray(0, expectedSize));
     const sha256 = `sha256:${createHash("sha256").update(privateBytes).digest("hex")}` as const;
+    const exactMode = Number(permissionMode(expected.mode));
+    if (exactMode !== 0o600 && exactMode !== 0o644) return failure("RUNTIME_FILE_MODE_INVALID");
     const metadata = Object.freeze({
-      mode: 384 as const,
+      mode: exactMode as 384 | 420,
       size_bytes: privateBytes.byteLength,
       sha256,
     }) as CapturedRunFileMetadataV02;
@@ -293,6 +305,14 @@ async function captureRunFile(
     capturedFiles.set(capture, privateBytes);
     return { ok: true, value: capture };
   } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return failure("RUNTIME_FILE_NOT_FOUND");
+    }
     if (
       typeof error === "object" &&
       error !== null &&
@@ -326,6 +346,7 @@ export function captureRunFileForRuntimeV02(input: Readonly<{
       input.anchored_run_directory,
       input.relative_path,
       input.max_bytes,
+      "WRITE_AUTHORITY_0600_ONLY",
       {},
     );
   } catch {
@@ -340,12 +361,64 @@ export function captureRunFileForRuntimeV02ForTest(
     relative_path: unknown;
     max_bytes: unknown;
   }>,
-  hooks: CaptureTestHooks,
+  hooks: RuntimeRunFileCaptureHooksV02,
 ): Promise<RuntimeRunFileCaptureResultV02<HelperOwnedRunFileCaptureV02>> {
   return captureRunFile(
     input.anchored_run_directory,
     input.relative_path,
     input.max_bytes,
+    "WRITE_AUTHORITY_0600_ONLY",
     hooks,
   );
+}
+
+export function captureRunFileForRuntimeInspectionV02(input: Readonly<{
+  anchored_run_directory: AnchoredRunDirectoryReadCapabilityV02;
+  relative_path: unknown;
+  max_bytes: unknown;
+}>): Promise<RuntimeRunFileCaptureResultV02<HelperOwnedRunFileCaptureV02>> {
+  try {
+    if (typeof input !== "object" || input === null) {
+      return Promise.resolve(failure("RUNTIME_FILE_PATH_INVALID"));
+    }
+    return captureRunFile(
+      input.anchored_run_directory,
+      input.relative_path,
+      input.max_bytes,
+      "READ_ONLY_INSPECTION_LEGACY_OK",
+      {},
+    );
+  } catch {
+    return Promise.resolve(failure("RUNTIME_FILE_PATH_INVALID"));
+  }
+}
+
+/** Package-internal read seam. It is intentionally absent from the package root. */
+export function captureRunFileForRuntimeInspectionWithHooksV02(
+  input: Readonly<{
+    anchored_run_directory: AnchoredRunDirectoryReadCapabilityV02;
+    relative_path: unknown;
+    max_bytes: unknown;
+  }>,
+  hooks: RuntimeRunFileCaptureHooksV02,
+): Promise<RuntimeRunFileCaptureResultV02<HelperOwnedRunFileCaptureV02>> {
+  return captureRunFile(
+    input.anchored_run_directory,
+    input.relative_path,
+    input.max_bytes,
+    "READ_ONLY_INSPECTION_LEGACY_OK",
+    hooks,
+  );
+}
+
+/** Package-internal race seam. It is intentionally absent from the package root. */
+export function captureRunFileForRuntimeInspectionV02ForTest(
+  input: Readonly<{
+    anchored_run_directory: AnchoredRunDirectoryReadCapabilityV02;
+    relative_path: unknown;
+    max_bytes: unknown;
+  }>,
+  hooks: RuntimeRunFileCaptureHooksV02,
+): Promise<RuntimeRunFileCaptureResultV02<HelperOwnedRunFileCaptureV02>> {
+  return captureRunFileForRuntimeInspectionWithHooksV02(input, hooks);
 }
