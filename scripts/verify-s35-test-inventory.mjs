@@ -121,10 +121,9 @@ let reportBytes;
 let reportReadError;
 try {
   vitest = spawnSync(
-    "pnpm",
+    process.execPath,
     [
-      "exec",
-      "vitest",
+      resolve(REPOSITORY_ROOT, "node_modules/vitest/vitest.mjs"),
       "run",
       "--reporter=json",
       `--outputFile=${reportPath}`,

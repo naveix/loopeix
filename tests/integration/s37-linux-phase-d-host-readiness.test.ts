@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   S37_PHASE_D_BINDING_PATH,
+  assertS37PhaseDPlatform,
   buildS37PhaseDBindingInstallPlan,
   evaluateS37PhaseDHost,
   hashBytes,
@@ -403,6 +404,11 @@ afterEach(() => {
 });
 
 describe("S37.1-D dedicated product-host qualification", () => {
+  it("accepts only Linux before collecting host state", () => {
+    expect(() => assertS37PhaseDPlatform("linux")).not.toThrow();
+    expect(() => assertS37PhaseDPlatform("darwin")).toThrowError("S37_PHASE_D_PLATFORM_NOT_LINUX");
+  });
+
   it("derives a fixed, root-owned binding only from exact sealed Phase B evidence", () => {
     const qualified = qualification();
     const phaseB = phaseBInputs(qualified);
@@ -445,6 +451,7 @@ describe("S37.1-D dedicated product-host qualification", () => {
     ["hard-linked artifact", (host: ReturnType<typeof capture>) => { host.files.supervisor.metadata.nlink = 2; }],
     ["missing cgroup controller", (host: ReturnType<typeof capture>) => { host.files.cgroup_controllers.bytes = Buffer.from("cpu memory pids\n"); }],
     ["arm64 guest", (host: ReturnType<typeof capture>) => { host.architecture = "aarch64"; }],
+    ["non-Linux host", (host: ReturnType<typeof capture>) => { host.platform = "darwin"; }],
   ])("HOLDs on %s", (_name, mutate) => {
     const host = capture();
     mutate(host);
@@ -626,9 +633,20 @@ describe("S37.1-D dedicated product-host qualification", () => {
     expect(direct).toMatchObject({ ok: false, terminal: "HOLD" });
     if (!direct.ok) expect(direct.violations).toContain("phase-b-conformance-receipt-mismatch");
 
-    const parsed = runGenerate(qualified, phaseBInputs(qualified), ["--controller-uid", "1001"]);
+    const root = mkdtempSync(join(tmpdir(), "loopeix-s37d-host-input-order-"));
+    ROOTS.push(root);
+    const inputs = phaseBInputs(qualified);
+    const parsed = runGenerateWithPaths({
+      qualification: writeJson(root, "qualification.json", qualified),
+      manifest: writeJson(root, "manifest.json", inputs.manifest),
+      readinessEvidence: writeJson(root, "readiness-evidence.json", inputs.readiness_evidence),
+      readinessEnvelope: writeJson(root, "readiness-envelope.json", inputs.readiness_envelope),
+      conformanceEvidence: writeJson(root, "conformance-evidence.json", inputs.conformance_evidence),
+      receipt: join(root, "missing-receipt.json"),
+    }, ["--controller-uid", "1001"]);
     expect(parsed.status).toBe(1);
-    expect(parsed.stderr).toContain("HOLD: S37_PHASE_D_PLATFORM_NOT_LINUX");
+    expect(parsed.stderr).toContain("missing-receipt.json");
+    expect(parsed.stderr).not.toContain("S37_PHASE_D_PLATFORM_NOT_LINUX");
   });
 
   it.each([

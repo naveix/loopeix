@@ -1,0 +1,115 @@
+{
+  "schema_version": "s37-linux-phase-b-readiness-evidence-v1",
+  "observed_at": "2026-08-22T11:28:42.000Z",
+  "host_tuple": {
+    "platform": "linux",
+    "architecture": "x86_64",
+    "distro_id": "debian",
+    "distro_version_id": "13",
+    "kernel_release": "6.12.101+deb13-amd64",
+    "systemd_version": "257 (257.13-1~deb13u1)",
+    "cgroup_version": 2,
+    "cgroup_controllers": [
+      "cpuset",
+      "cpu",
+      "io",
+      "memory",
+      "hugetlb",
+      "pids",
+      "rdma",
+      "misc"
+    ],
+    "unprivileged_userns_clone": true,
+    "user_manager_status": "running-delegated"
+  },
+  "preflight": {
+    "apt_dpkg_locks_clear": true,
+    "reboot_required": false,
+    "shutdown": false,
+    "maintenance_conflict": false,
+    "port_evidence": {
+      "count": 29,
+      "sha256": "abac549212f4218219f7372490069b35ed46c1e0b65def8b95e92389a670798c",
+      "captured_at": "2026-08-22T11:28:42.000Z"
+    }
+  },
+  "package_review": {
+    "candidate_version": "0.11.0-2+deb13u1",
+    "package_file_list_sha256": "11ac73f64de094eb155d28cc1eeaf87280b279f0b7518dc0a2dd050ba5b0c627",
+    "mandatory_sysctl_path": "/usr/lib/sysctl.d/50-bubblewrap.conf",
+    "mandatory_sysctl_path_present": true,
+    "acquisition_mode": "extract-only-user-staging",
+    "system_package_install": false,
+    "sysctl_applied": false,
+    "service_restart": false,
+    "selected_artifact": {
+      "path": "/opt/loopeix/s37.1/bwrap",
+      "sha256": "0dfa36b98ada69568aaaa741fe210d2150a1441433bd13c428137d6a972a959c",
+      "setuid": false
+    },
+    "clean_install_evidence": null
+  },
+  "capacity_samples": [
+    {
+      "timestamp": "2026-08-22T11:27:42.000Z",
+      "cpu_cores": 4,
+      "memory_available_bytes": 12933013504,
+      "swap_used_bytes": 0,
+      "load1": 0.63,
+      "load5": 0.7,
+      "cpu_psi_some_avg10": 1.35,
+      "memory_psi_some_avg10": 0,
+      "io_psi_some_avg10": 0,
+      "tasks": 26
+    },
+    {
+      "timestamp": "2026-08-22T11:27:57.000Z",
+      "cpu_cores": 4,
+      "memory_available_bytes": 13646876672,
+      "swap_used_bytes": 0,
+      "load1": 0.49,
+      "load5": 0.67,
+      "cpu_psi_some_avg10": 0.51,
+      "memory_psi_some_avg10": 0,
+      "io_psi_some_avg10": 0,
+      "tasks": 26
+    },
+    {
+      "timestamp": "2026-08-22T11:28:12.000Z",
+      "cpu_cores": 4,
+      "memory_available_bytes": 13631856640,
+      "swap_used_bytes": 0,
+      "load1": 0.53,
+      "load5": 0.67,
+      "cpu_psi_some_avg10": 0.92,
+      "memory_psi_some_avg10": 0,
+      "io_psi_some_avg10": 0,
+      "tasks": 26
+    },
+    {
+      "timestamp": "2026-08-22T11:28:27.000Z",
+      "cpu_cores": 4,
+      "memory_available_bytes": 12930088960,
+      "swap_used_bytes": 0,
+      "load1": 0.49,
+      "load5": 0.65,
+      "cpu_psi_some_avg10": 1.18,
+      "memory_psi_some_avg10": 0,
+      "io_psi_some_avg10": 0,
+      "tasks": 26
+    },
+    {
+      "timestamp": "2026-08-22T11:28:42.000Z",
+      "cpu_cores": 4,
+      "memory_available_bytes": 12984598528,
+      "swap_used_bytes": 0,
+      "load1": 0.38,
+      "load5": 0.62,
+      "cpu_psi_some_avg10": 1.44,
+      "memory_psi_some_avg10": 0,
+      "io_psi_some_avg10": 0,
+      "tasks": 26
+    }
+  ],
+  "evidence_sha256": "69f181027c0ceba75713099ae561d07ae5d1e25418a33815065a6d7ab3be45e9"
+}

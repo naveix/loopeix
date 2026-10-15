@@ -1,0 +1,31 @@
+{
+  "receipt_version": "0.1",
+  "host_tuple_hash": "sha256:2c28238a9dc0718d5d7a352b1e8b3515ae5fc11b2c8efd24fb43c8b774f0236b",
+  "profile_hash": "sha256:84cbfe862c66833db02765471946308ad9f138ab06a2219f6e23d10aae4deea4",
+  "launcher_sha256": "sha256:a098a5f32c71fc0f1014b64a2a5e86535690b5d973771bcda35a864d66e60046",
+  "bwrap": {
+    "path": "/opt/loopeix/s37.1/bwrap",
+    "version": "0.11.0",
+    "sha256": "sha256:0dfa36b98ada69568aaaa741fe210d2150a1441433bd13c428137d6a972a959c",
+    "setuid": false
+  },
+  "seccomp_policy_sha256": "sha256:dc318421e96d062286c0a625ceb3db6d7db1ccb6c83a6da17848335de77dbe2c",
+  "deny_rows": [
+    "ambient-credentials",
+    "child-process",
+    "durable-state",
+    "environment",
+    "filesystem-write",
+    "network",
+    "output-limits",
+    "retry",
+    "stdin",
+    "timeout",
+    "tool-server",
+    "unknown-outcome"
+  ],
+  "skipped_rows": [],
+  "issued_at": "2026-08-22T11:28:44.166Z",
+  "expires_at": "2026-08-22T11:38:42.000Z",
+  "receipt_hash": "sha256:856194de7429c8289bae720b365bb24f4ed434a5a4af80b0ab0fe27270fe9986"
+}

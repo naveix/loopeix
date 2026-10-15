@@ -1,0 +1,45 @@
+{
+  "profile_version": "0.1",
+  "probe_kind": "inert-bounded-stdout-stderr",
+  "actor_identity_hash": "sha256:9f79079d8c19e7cde25fba4c0ebfbf3806a9c49aefc20e50d8ade6d0654a2b50",
+  "on_behalf_of_chain_hash": "sha256:9e3e56dbd8209383a12680d9fceef305499232ca7cf9f83a9ee988ef985162e1",
+  "executable": {
+    "path": "/opt/loopeix/s37.1/probe",
+    "sha256": "sha256:22de7539d222b8092240d17de27e9dbecffbc84684d6576454008030167f361a"
+  },
+  "argv": [],
+  "cwd": {
+    "path": "/",
+    "identity_hash": "sha256:bb387e92ea6a32bf3ba6de2191c79b46c7388c66dfd7e58293bca59bbc38bc3d"
+  },
+  "filesystem": {
+    "readable_paths": [
+      "/opt/loopeix/s37.1/probe"
+    ],
+    "writable_paths": [],
+    "direct_writes": "deny"
+  },
+  "child_process": "deny",
+  "network": {
+    "mode": "deny",
+    "allowed_origins": []
+  },
+  "tools": {
+    "built_in": "deny",
+    "mcp_servers": "deny"
+  },
+  "environment": {
+    "inherit": false,
+    "allowed_names": [],
+    "values": {}
+  },
+  "credentials": "deny",
+  "stdin": "closed",
+  "limits": {
+    "timeout_ms": 1000,
+    "stdout_bytes": 1024,
+    "stderr_bytes": 1024
+  },
+  "durable_state": "forbidden-until-s40",
+  "retry": "forbidden-non-resumable"
+}

@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   realpathSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -1118,9 +1119,11 @@ describe("S41 durable authority revocation writer", () => {
     if (!captured.ok) throw new Error(captured.error);
     const store = await captureRuntimeFileStoreV04({ run_directory: value.root });
     if (!store.ok) throw new Error(store.error);
+    const replacement = join(value.root, "authorities/.revocations-replacement");
+    mkdirSync(replacement, { mode: 0o700 });
+    chmodSync(replacement, 0o700);
     rmSync(join(value.root, "authorities/revocations"), { recursive: true, force: true });
-    mkdirSync(join(value.root, "authorities/revocations"), { recursive: true, mode: 0o700 });
-    chmodSync(join(value.root, "authorities/revocations"), 0o700);
+    renameSync(replacement, join(value.root, "authorities/revocations"));
 
     await expect(revokeRuntimeAuthorityV04(store.store, {
       captured_request: captured.value,

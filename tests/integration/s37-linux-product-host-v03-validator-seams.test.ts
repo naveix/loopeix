@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -11,8 +11,8 @@ import { evaluateS37LinuxPhaseBReadiness } from "../../scripts/check-s37-linux-p
 
 const READINESS_SCRIPT = "scripts/check-s37-linux-phase-b-readiness.mjs";
 const CONFORMANCE_SCRIPT = "scripts/check-s37-linux-phase-b-conformance-evidence.mjs";
-const CANONICAL_PASS_ARCHIVE = resolve(
-  process.cwd(), "../loopeix-specs/docs/evidence/s37-1/trial-7-pass",
+const CANONICAL_PASS_ARCHIVE = fileURLToPath(
+  new URL("../fixtures/s37-linux-product-host-v03/trial-7-pass/", import.meta.url),
 );
 const roots: string[] = [];
 

@@ -89,8 +89,12 @@ function normalizedArchitecture(value) {
   return value;
 }
 
+export function assertS37PhaseDPlatform(observedPlatform) {
+  if (observedPlatform !== "linux") throw new Error("S37_PHASE_D_PLATFORM_NOT_LINUX");
+}
+
 export function collectLocalHostCapture(controllerUid = typeof process.getuid === "function" ? process.getuid() : Number.NaN) {
-  if (platform() !== "linux") throw new Error("S37_PHASE_D_PLATFORM_NOT_LINUX");
+  assertS37PhaseDPlatform(platform());
   const directories = Object.fromEntries(DIRECTORIES.map((path) => [path, metadata(path)]));
   const files = Object.fromEntries(Object.entries(FILES).map(([name, [path]]) => [name, stableFile(path)]));
   const runtimeDirectory = `/run/user/${controllerUid}`;

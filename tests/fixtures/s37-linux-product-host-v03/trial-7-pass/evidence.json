@@ -1,0 +1,162 @@
+{
+  "schema_version": "s37-linux-phase-b-conformance-evidence-v1",
+  "observed_at": "2026-08-22T11:28:44.168Z",
+  "host_tuple": {
+    "tuple_version": "0.1",
+    "platform": "linux",
+    "architecture": "x86_64",
+    "kernel_release": "6.12.101+deb13-amd64",
+    "systemd_version": "257 (257.13-1~deb13u1)",
+    "cgroup_version": "v2",
+    "observed_at": "2026-08-22T11:28:43.592Z"
+  },
+  "manifest_sha256": "68956764c05c2a22d560fe139d59d117be06ca04fa7913aca92e12a9ffb26588",
+  "readiness_evidence_sha256": "69f181027c0ceba75713099ae561d07ae5d1e25418a33815065a6d7ab3be45e9",
+  "readiness_envelope_sha256": "df4cc66534ea99c80501ad115b82bdbe54b40b5adc456fad67fdb5f72bd3d5d4",
+  "execution": {
+    "unit_name": "loopeix-s37.1-conformance-515c7fa5e6ba",
+    "service_type": "exec",
+    "scope": false,
+    "pipe": false,
+    "standard_input": "null",
+    "standard_output": "null",
+    "standard_error": "null",
+    "no_new_privileges": true,
+    "kill_mode": "control-group",
+    "concurrency": 1,
+    "cpu_quota_percent": 25,
+    "memory_max_bytes": 64000000,
+    "tasks_max": 8,
+    "io_weight": 10,
+    "timeout_ms": 1000,
+    "stdout_limit_bytes": 1024,
+    "stderr_limit_bytes": 1024,
+    "process_started": true,
+    "exit_code": 0,
+    "probe_duration_ms": 287,
+    "stdout_bytes": 0,
+    "stderr_bytes": 0,
+    "profile_hash": "sha256:84cbfe862c66833db02765471946308ad9f138ab06a2219f6e23d10aae4deea4",
+    "launcher_sha256": "sha256:a098a5f32c71fc0f1014b64a2a5e86535690b5d973771bcda35a864d66e60046",
+    "seccomp_policy_sha256": "sha256:dc318421e96d062286c0a625ceb3db6d7db1ccb6c83a6da17848335de77dbe2c"
+  },
+  "deny_rows": [
+    {
+      "row": "ambient-credentials",
+      "passed": true,
+      "skipped": false,
+      "witness_sha256": "344a6bd5d7295418b3819ce57622a77e26a9a8b82dd774a403bfeb2c1b8ede85"
+    },
+    {
+      "row": "child-process",
+      "passed": true,
+      "skipped": false,
+      "witness_sha256": "ddeef9ad162b11497a8d1630b6f7aba03f2190c0b46fbe9bfafc57fe5467df22"
+    },
+    {
+      "row": "durable-state",
+      "passed": true,
+      "skipped": false,
+      "witness_sha256": "caa08ad0ea50e8f56cd0082487e90249e04c64f68f7333336c4bd6d8ffa2cd33"
+    },
+    {
+      "row": "environment",
+      "passed": true,
+      "skipped": false,
+      "witness_sha256": "b40e53ea0e174398834218b5a039c5af18947364da04e1817e9c8a4a0377322e"
+    },
+    {
+      "row": "filesystem-write",
+      "passed": true,
+      "skipped": false,
+      "witness_sha256": "2483d56e470dbb593b4659e2c20e4cc779fea09c80e00fea4068b0a72128d550"
+    },
+    {
+      "row": "network",
+      "passed": true,
+      "skipped": false,
+      "witness_sha256": "892c41427ce2f08f09d54d5edcafdf43de8cc22c82936e0dadb234137da138a2"
+    },
+    {
+      "row": "output-limits",
+      "passed": true,
+      "skipped": false,
+      "witness_sha256": "2c4f426fc8fba250a90e48241fcef65b5f5ac1c71a88437bd7c6122b40109fd6"
+    },
+    {
+      "row": "retry",
+      "passed": true,
+      "skipped": false,
+      "witness_sha256": "7ce8abd458c8ca108b5e67af319e23a6a6157b76ea8f9d146ce165680fe7162b"
+    },
+    {
+      "row": "stdin",
+      "passed": true,
+      "skipped": false,
+      "witness_sha256": "8ea1ad4a0b4b29c0c37978e6f5d215dccd0f33efa708d105fcfd9ffebe443b7b"
+    },
+    {
+      "row": "timeout",
+      "passed": true,
+      "skipped": false,
+      "witness_sha256": "b79f8c3d3c10d862027e59e34882d327509cc8d41e36051b81373d8b8a4a683b"
+    },
+    {
+      "row": "tool-server",
+      "passed": true,
+      "skipped": false,
+      "witness_sha256": "62b70ed955da8a1f44b10fe8828d0dd1e37586de7505bfd8aba904c3892d2fb8"
+    },
+    {
+      "row": "unknown-outcome",
+      "passed": true,
+      "skipped": false,
+      "witness_sha256": "1500dc5ca84eceaa0901850822a9b039839b16731d8135beeccb4d00e314697b"
+    }
+  ],
+  "ports": {
+    "before": {
+      "count": 29,
+      "sha256": "abac549212f4218219f7372490069b35ed46c1e0b65def8b95e92389a670798c"
+    },
+    "after": {
+      "count": 29,
+      "sha256": "abac549212f4218219f7372490069b35ed46c1e0b65def8b95e92389a670798c"
+    },
+    "delta": 0
+  },
+  "neighbors": {
+    "services_before": {
+      "count": 50,
+      "sha256": "9e328a84e3dc0fb1277b96af9f606d5587a61aaa8086c37635386d25ad48cf2e"
+    },
+    "services_after": {
+      "count": 50,
+      "sha256": "9e328a84e3dc0fb1277b96af9f606d5587a61aaa8086c37635386d25ad48cf2e"
+    },
+    "containers_before": {
+      "count": 7,
+      "sha256": "3bc0215763c134695d53c1c944ac09c92068346db5de3d1feadb8f513006b4ce"
+    },
+    "containers_after": {
+      "count": 7,
+      "sha256": "3bc0215763c134695d53c1c944ac09c92068346db5de3d1feadb8f513006b4ce"
+    }
+  },
+  "cleanup": {
+    "unit_absent": true,
+    "process_absent": true,
+    "mount_absent": true,
+    "temp_absent": true,
+    "journal_payload_absent": true,
+    "file_absent": true
+  },
+  "capacity": {
+    "envelope_sha256": "df4cc66534ea99c80501ad115b82bdbe54b40b5adc456fad67fdb5f72bd3d5d4",
+    "samples_sha256": "cdc70b8a2d2d4f3327a45e4b3de1fe5806d1b74a027fbee0ee506d2b7f296bcc",
+    "within_envelope": true,
+    "swap_growth_bytes": 0
+  },
+  "receipt_hash": "sha256:856194de7429c8289bae720b365bb24f4ed434a5a4af80b0ab0fe27270fe9986",
+  "evidence_sha256": "9f8a23eb935ccf20b0139a992ed8e5081060d61ee6124de80923d3fdba6e7c72"
+}

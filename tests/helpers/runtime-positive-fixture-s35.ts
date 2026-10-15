@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { hashCanonical, hashRawBytes } from "../../src/hash.js";
@@ -873,7 +874,7 @@ export async function buildInitializedRuntimePositiveFixtureS35(options: Readonl
   }, "manifest_hash");
   const runManifestBytes = jsonBytes(runManifest);
 
-  const root = mkdtempSync("/private/tmp/loopeix-s35-runtime-positive-");
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "loopeix-s35-runtime-positive-")));
   const files = new Map<string, Uint8Array>([
     ["resolved-run-plan.json", planBytes],
     ["ledger.jsonl", ledgerBytes],

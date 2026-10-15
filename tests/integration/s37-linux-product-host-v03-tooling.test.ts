@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -17,7 +18,7 @@ import { commandS37ProductHostTransitionAnchorV03 } from "../../scripts/s37-linu
 import { commandS37ProductHostIssueQualificationV03 } from "../../scripts/s37-linux-product-host-v03/issue-qualification.mjs";
 import { commandS37ProductHostReconcileAnchorV03 } from "../../scripts/s37-linux-product-host-v03/reconcile-anchor.mjs";
 
-const ARCHIVE = resolve(process.cwd(), "../loopeix-specs/docs/evidence/s37-1/trial-7-pass");
+const ARCHIVE = fileURLToPath(new URL("../fixtures/s37-linux-product-host-v03/trial-7-pass/", import.meta.url));
 
 function archive(name: string): unknown {
   return JSON.parse(readFileSync(resolve(ARCHIVE, name), "utf8")) as unknown;

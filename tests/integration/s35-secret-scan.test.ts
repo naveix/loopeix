@@ -200,6 +200,18 @@ describe("S35 authoritative secret scanner", () => {
     ].join("\n          "));
   });
 
+  it("keeps GitHub checkout credentials out of repository-controlled steps", () => {
+    for (const path of [".github/workflows/ci.yml", ".github/workflows/release.yml"]) {
+      const workflow = readFileSync(resolve(path), "utf8");
+      const checkouts = workflow.match(/uses: actions\/checkout@/gu) ?? [];
+      const hardenedCheckouts = workflow.match(
+        /uses: actions\/checkout@[^\n]+\n\s+with:\n(?:\s+[^\n]+\n)*?\s+persist-credentials: false/gu,
+      ) ?? [];
+      expect(checkouts.length, path).toBeGreaterThan(0);
+      expect(hardenedCheckouts.length, path).toBe(checkouts.length);
+    }
+  });
+
   it("scans tracked and untracked candidates while excluding unreadable and symlink traps", () => {
     const fixture = createFixture();
     const result = scan(fixture.root, fixture.repository, fixture.entries);
@@ -227,11 +239,12 @@ describe("S35 authoritative secret scanner", () => {
     ]);
     expect(listedPaths(gitResult.stdout, fixture.repository)).toEqual(["tracked-candidates.txt"]);
 
-    const rgResult = mustRun("rg", [
-      "-l", "--hidden", "-g", "!**/.git/**", "-g", "!**/.env*", "-g", "!**/.env*/**",
-      "-g", "!**/.playwright-mcp/**", ere, fixture.repository,
+    const noIndexResult = mustRun("git", [
+      "-C", fixture.repository, "grep", "--no-index", "-l", "-E", ere, "--", ".",
+      ":(exclude).env*", ":(exclude).env*/**", ":(exclude)**/.env*", ":(exclude)**/.env*/**",
+      ":(exclude).playwright-mcp/**", ":(exclude)**/.playwright-mcp/**",
     ]);
-    expect(listedPaths(rgResult.stdout, fixture.repository)).toEqual([
+    expect(listedPaths(noIndexResult.stdout, fixture.repository)).toEqual([
       "tracked-candidates.txt",
       "untracked-candidates.txt",
     ]);
