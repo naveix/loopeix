@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { readCompilePackV01 } from "../../src/compiler/read-pack.js";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -274,24 +275,26 @@ describe("S35 output capability facade", () => {
   it("rejects byte-different V01 regeneration and cross-identity replay access", async () => {
     const harness = await loadV01Harness();
     const { api, names } = harness;
-    const sourceA = await makeV01Identity(harness);
-    const sourceB = await makeV01Identity(harness);
-    const regeneration = await api.openFrozenV01RegenerationCapture(sourceA.identity.identity, names, null);
+    const sourceA = await readCompilePackV01(harness.packRoot);
+    if (!sourceA.ok) throw new Error(sourceA.message);
+    const sourceB = await readCompilePackV01(harness.packRoot);
+    if (!sourceB.ok) throw new Error(sourceB.message);
+    const regeneration = await api.openFrozenV01RegenerationCapture(sourceA.identity, names, null);
     for (const name of names) {
-      const snapshot = await sourceA.pack.pack.snapshotMemberBytes(name);
+      const snapshot = await sourceA.pack.snapshotMemberBytes(name);
       if (!snapshot.ok) throw new Error(snapshot.message);
       const bytes = new Uint8Array(snapshot.bytes);
       if (name === "work-item.json") bytes[0] = bytes[0] === 0x7b ? 0x5b : 0x7b;
       expect((await regeneration.session.captureMember(name, bytes)).ok).toBe(true);
     }
     const adapter = await regeneration.session.seal();
-    expect(await api.createRegisteredRegeneratedCompilePackV01(adapter.adapter, sourceB.identity.identity)).toMatchObject({ ok: false, reason: "INVALID_V01_REPLAY_OUTPUT" });
-    const pack = await api.createRegisteredRegeneratedCompilePackV01(adapter.adapter, sourceA.identity.identity);
+    expect(await api.createRegisteredRegeneratedCompilePackV01(adapter.adapter, sourceB.identity)).toMatchObject({ ok: false, reason: "INVALID_V01_REPLAY_OUTPUT" });
+    const pack = await api.createRegisteredRegeneratedCompilePackV01(adapter.adapter, sourceA.identity);
     expect(pack.ok).toBe(true);
-    expect(api.issueV01RegeneratedPackAccess(pack.pack, sourceB.identity.identity)).toMatchObject({ ok: false, reason: "INVALID_V01_REPLAY_OUTPUT" });
-    const access = api.issueV01RegeneratedPackAccess(pack.pack, sourceA.identity.identity);
+    expect(api.issueV01RegeneratedPackAccess(pack.pack, sourceB.identity)).toMatchObject({ ok: false, reason: "INVALID_V01_REPLAY_OUTPUT" });
+    const access = api.issueV01RegeneratedPackAccess(pack.pack, sourceA.identity);
     expect(access.ok).toBe(true);
-    expect(await api.registerExactV01ReplaySuccess(sourceA.identity.identity, access.access)).toMatchObject({ ok: false, reason: "INVALID_V01_REPLAY_OUTPUT" });
+    expect(await api.registerExactV01ReplaySuccess(sourceA.identity, access.access)).toMatchObject({ ok: false, reason: "INVALID_V01_REPLAY_OUTPUT" });
   });
 
 });
