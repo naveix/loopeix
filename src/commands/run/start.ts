@@ -117,6 +117,12 @@ export default class RunStart extends Command {
   public async run(): Promise<void> {
     const { args, flags } = await this.parse(RunStart);
     const target = resolve(args.spec);
+    const plannedMode = isPlannedRunDir(target);
+    if (!plannedMode && flags["events-file"] === undefined && !flags.prompt) {
+      this.log("ERROR: --prompt is required for a live run (or pass --events-file to replay).");
+      process.exitCode = 1;
+      return;
+    }
     const v02Selection = await selectV02Start(target);
     if (v02Selection.selected) {
       this.log("terminal: held");
@@ -133,7 +139,6 @@ export default class RunStart extends Command {
       process.exitCode = v02Selection.reason === "UNSUPPORTED_EXECUTION_PROFILE" ? 1 : 4;
       return;
     }
-    const plannedMode = isPlannedRunDir(target);
     const isCodex = flags.engine === "codex";
     const engine: EngineId = isCodex ? "codex_cli" : "claude_code_cli";
 

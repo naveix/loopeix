@@ -130,7 +130,7 @@ describe("loopeix run start raw replay run ids", () => {
     expect(runEngine).not.toHaveBeenCalled();
   });
 
-  it("rejects an empty live prompt before allocation or engine invocation", async () => {
+  it("rejects an empty raw live prompt before target capture, allocation, or engine invocation", async () => {
     vi.mocked(runEngine).mockReturnValue({
       engine: "codex_cli",
       rawEvents: parseJsonlEvents(readFileSync(eventsPath, "utf8")),
@@ -140,7 +140,7 @@ describe("loopeix run start raw replay run ids", () => {
     });
 
     const result = await runStart([
-      specPath,
+      join(workspace, "missing.loop.yaml"),
       "--engine",
       "codex",
       "--prompt",
