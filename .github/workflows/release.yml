@@ -109,8 +109,11 @@ jobs:
       - name: Build and run the complete source suite
         run: |
           pnpm build
-          pnpm test
-          node scripts/verify-s35-test-inventory.mjs
+          pnpm exec vitest run \
+            --reporter=default \
+            --reporter=json \
+            --outputFile.json="$RUNNER_TEMP/s35-source-suite.json"
+          node scripts/verify-s35-test-inventory.mjs "$RUNNER_TEMP/s35-source-suite.json"
 
       - name: Verify architecture boundaries and mutation resistance
         run: |

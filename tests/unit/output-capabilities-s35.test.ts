@@ -259,15 +259,29 @@ describe("S35 output capability facade", () => {
 
   it("rejects the wrong V01 factory and an aborted regeneration capture", async () => {
     const harness = await loadV01Harness();
-    const { output, api, packRoot, names } = harness;
-    const sourceA = await makeV01Identity(harness);
-    const freshRead = await output.openAnchoredReadSession(packRoot);
-    if (!freshRead.ok) throw new Error(freshRead.message);
-    const freshAdapter = await api.issueV01SourcePackRegistrationAdapter(freshRead.session, names, null);
-    expect(await api.createRegisteredRegeneratedCompilePackV01(freshAdapter.adapter, sourceA.identity.identity)).toMatchObject({ ok: false, reason: "INVALID_V01_REPLAY_OUTPUT" });
+    const { api, packRoot, names } = harness;
+    const sourceA = await readCompilePackV01(packRoot);
+    if (!sourceA.ok) throw new Error(sourceA.message);
+    const parseKinds = new Map<string, string>([
+      ["catalog-resolution.json", "catalog-resolution"],
+      ["compilation-record.json", "compilation-record"],
+      ["generated.loop.yaml", "generated-loop"],
+      ["intake-record.json", "intake-record"],
+      ["work-item.json", "work-item"],
+    ]);
+    const capturedMembers = [];
+    for (const name of names) {
+      const snapshot = await sourceA.pack.snapshotMemberBytes(name);
+      if (!snapshot.ok) throw new Error(snapshot.message);
+      const parseKind = parseKinds.get(name) ?? null;
+      const parseResult = parseKind === null ? null : await sourceA.pack.parseV01Member(name, parseKind);
+      capturedMembers.push({ name, bytes: snapshot.bytes, parse_kind: parseKind, parse_result: parseResult });
+    }
+    const freshAdapter = api.issueCapturedV01SourcePackRegistrationAdapter(capturedMembers, null);
+    expect(await api.createRegisteredRegeneratedCompilePackV01(freshAdapter.adapter, sourceA.identity)).toMatchObject({ ok: false, reason: "INVALID_V01_REPLAY_OUTPUT" });
     expect((await api.createRegisteredSourceCompilePackV01(freshAdapter.adapter)).ok).toBe(true);
 
-    const aborted = await api.openFrozenV01RegenerationCapture(sourceA.identity.identity, names, null);
+    const aborted = await api.openFrozenV01RegenerationCapture(sourceA.identity, names, null);
     expect((await aborted.session.abort()).ok).toBe(true);
     expect(await aborted.session.seal()).toMatchObject({ ok: false, reason: "INVALID_V01_REPLAY_OUTPUT" });
   });
