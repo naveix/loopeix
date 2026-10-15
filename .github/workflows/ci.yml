@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  merge_group:
+
+permissions:
+  contents: read
 
 env:
   S35_VERIFIER_FILE: verify-s35-build-artifacts.mjs
@@ -51,6 +55,22 @@ jobs:
           pnpm build
           pnpm test
           node scripts/verify-s35-test-inventory.mjs
+
+      - name: Verify architecture boundaries and mutation resistance
+        run: |
+          node scripts/check-s36-boundaries.mjs
+          node scripts/check-s37-boundaries.mjs
+          node scripts/check-s40-runtime-boundary.mjs
+          node scripts/check-s41-recovery-boundary.mjs
+          node scripts/test-s40-runtime-boundary.mjs
+          node scripts/test-s41-recovery-boundary.mjs
+
+      - name: Verify deterministic generated schemas
+        run: |
+          pnpm schema:generate
+          git diff --exit-code -- schemas
+          pnpm schema:generate
+          git diff --exit-code -- schemas
 
       - name: Scan the checked-out source for credentials
         run: >-
@@ -137,6 +157,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
@@ -198,10 +220,19 @@ jobs:
         shell: bash
         run: |
           test -f npm-shrinkwrap.json
-          # npm is used only to prove its shrinkwrap view; pnpm remains the required installer.
-          npm install --force --package-lock-only --ignore-scripts
-          test ! -e package-lock.json
-          git diff --exit-code -- npm-shrinkwrap.json
+          # npm receives a clean staging directory: reconciling inside pnpm's symlinked
+          # node_modules is unsupported and can crash npm's dependency resolver.
+          lock_stage="$RUNNER_TEMP/npm-shrinkwrap-view"
+          mkdir -p "$lock_stage"
+          cp package.json "$lock_stage/package.json"
+          (
+            cd "$lock_stage"
+            npm install --force --package-lock-only --ignore-scripts
+            test -f package-lock.json
+            mv package-lock.json npm-shrinkwrap.json
+            npm audit --omit=dev --force --audit-level=high
+          )
+          cmp --silent npm-shrinkwrap.json "$lock_stage/npm-shrinkwrap.json"
 
       - name: Run installed full smoke with pinned TypeScript and AJV
         shell: bash
@@ -265,3 +296,48 @@ jobs:
           node "$verifier" \
             --artifact-dir "$artifact_dir" \
             --expected-source-commit "${{ needs.s35_build_artifacts.outputs.source_commit }}"
+
+  s37_ephemeral_linux_synthetic_nonproduction:
+    name: S37 non-production Linux synthetic verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "26"
+          cache: pnpm
+
+      - name: Install exact development dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run non-production synthetic verification
+        run: scripts/run-s37-ephemeral-linux-synthetic.sh
+
+  release_gate:
+    name: CI / Release gate
+    if: ${{ always() }}
+    needs:
+      - s35_build_artifacts
+      - s35_host_durability_macos
+      - s35_full_artifact
+      - s35_runtime_floor
+      - s37_ephemeral_linux_synthetic_nonproduction
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - name: Require every CI lane to pass
+        shell: bash
+        run: |
+          test "${{ needs.s35_build_artifacts.result }}" = "success"
+          test "${{ needs.s35_host_durability_macos.result }}" = "success"
+          test "${{ needs.s35_full_artifact.result }}" = "success"
+          test "${{ needs.s35_runtime_floor.result }}" = "success"
+          test "${{ needs.s37_ephemeral_linux_synthetic_nonproduction.result }}" = "success"

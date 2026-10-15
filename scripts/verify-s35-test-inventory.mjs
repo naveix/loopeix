@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { lstatSync, readFileSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { lstatSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -113,24 +114,53 @@ for (const path of REQUIRED_TEST_PATHS) {
 if (missing.length > 0) fail("required test files are missing", missing.sort());
 if (disabled.length > 0) fail("required test files contain disabled or exclusive tests", disabled.sort());
 
-const vitest = spawnSync(
-  "pnpm",
-  ["exec", "vitest", "run", "--reporter=json", ...REQUIRED_TEST_PATHS],
-  {
-    cwd: REPOSITORY_ROOT,
-    encoding: "utf8",
-    env: { ...process.env, NO_COLOR: "1" },
-    maxBuffer: 64 * 1024 * 1024,
-  },
-);
+const reportRoot = mkdtempSync(join(tmpdir(), "loopeix-s35-test-inventory-"));
+const reportPath = join(reportRoot, "vitest-report.json");
+let vitest;
+let reportBytes;
+let reportReadError;
+try {
+  vitest = spawnSync(
+    "pnpm",
+    [
+      "exec",
+      "vitest",
+      "run",
+      "--reporter=json",
+      `--outputFile=${reportPath}`,
+      ...REQUIRED_TEST_PATHS,
+    ],
+    {
+      cwd: REPOSITORY_ROOT,
+      encoding: "utf8",
+      env: { ...process.env, NO_COLOR: "1" },
+      maxBuffer: 64 * 1024 * 1024,
+    },
+  );
+  const reportMetadata = lstatSync(reportPath);
+  if (!reportMetadata.isFile() || reportMetadata.isSymbolicLink()) {
+    throw new Error("Vitest report path is not a regular non-symlink file");
+  }
+  reportBytes = readFileSync(reportPath, "utf8");
+} catch (error) {
+  reportReadError = error;
+} finally {
+  rmSync(reportRoot, { recursive: true, force: true });
+}
+
+if (reportReadError !== undefined) {
+  const diagnostics = [reportReadError instanceof Error ? reportReadError.message : String(reportReadError)];
+  if (typeof vitest?.stderr === "string" && vitest.stderr.trim().length > 0) diagnostics.push(vitest.stderr.trim());
+  fail("Vitest did not write its JSON report", diagnostics);
+}
 
 if (vitest.error !== undefined) fail("Vitest could not start", [vitest.error.message]);
 
 let report;
 try {
-  report = JSON.parse(vitest.stdout);
+  report = JSON.parse(reportBytes);
 } catch {
-  fail("Vitest did not emit valid JSON", [vitest.stderr.trim() || "no diagnostic was emitted"]);
+  fail("Vitest did not write valid JSON", [vitest.stderr.trim() || vitest.stdout.trim() || "no diagnostic was emitted"]);
 }
 
 const results = Array.isArray(report.testResults) ? report.testResults : [];
@@ -157,6 +187,14 @@ for (const path of REQUIRED_TEST_PATHS) {
   }
   if (result.status !== "passed" || !statuses.includes("passed")) {
     evidenceFailures.push(`${path} (did not finish with a passing assertion)`);
+    for (const assertion of assertions) {
+      const messages = Array.isArray(assertion?.failureMessages) ? assertion.failureMessages : [];
+      for (const message of messages) {
+        if (typeof message === "string" && message.trim().length > 0) {
+          evidenceFailures.push(`${path}: ${message.trim()}`);
+        }
+      }
+    }
   }
 }
 

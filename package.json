@@ -1,6 +1,6 @@
 {
   "name": "loopeix",
-  "version": "0.1.0",
+  "version": "0.2.0-alpha.0",
   "description": "Design, run, and verify repeatable AI work loops locally, with tamper-evident evidence and truthful reports. Flagship add-on: the Claims Check, a lie detector for agent pull requests with signed, offline-verifiable receipts.",
   "keywords": [
     "ai-agents",
@@ -30,11 +30,11 @@
   "engines": {
     "node": ">=22.12.0 <23 || >=24 <25 || >=26 <27"
   },
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.11.0",
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "11.9.0"
+      "version": "11.11.0"
     }
   },
   "bin": {
@@ -104,6 +104,6 @@
     "oclif": "4.23.24",
     "tsx": "4.22.5",
     "typescript": "6.0.3",
-    "vitest": "4.1.9"
+    "vitest": "4.1.11"
   }
 }

@@ -1,4 +1,4 @@
-import { constants, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { constants, lstatSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -79,7 +79,9 @@ describe("S35 compile-store verification", () => {
         read: (buffer, offset, length, position) => handle.read(buffer, offset, length, position),
         close: async () => {
           await handle.close();
-          writeFileSync(sentinel, COMPILE_STORE_SENTINEL_TEXT, { mode: 0o600 });
+          const replacement = join(workspace, "replacement-sentinel");
+          writeFileSync(replacement, COMPILE_STORE_SENTINEL_TEXT, { mode: 0o600 });
+          renameSync(replacement, sentinel);
         },
       };
     });

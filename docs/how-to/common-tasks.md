@@ -2,6 +2,9 @@
 
 Task-oriented recipes. Each assumes Loopeix is installed (`loopeix doctor` passes).
 
+These commands describe the current unreleased `0.2.0-alpha.0` source checkout. The public `0.1.0`
+package has an earlier execution contract; check `loopeix --version` before following them.
+
 ## Validate a spec before you rely on it
 
 ```bash
@@ -25,6 +28,10 @@ reading the whole file.
 
 ## Check whether a run's evidence is trustworthy
 
+This command currently accepts the S35 planned-run layout. Raw-compatibility replay directories do
+not contain `resolved-run-plan.json` and fail closed with `INVALID_RESOLVED_RUN_PLAN_DOCUMENT`; use
+`loopeix verify <receipt> --run-dir <run-dir>` for those runs.
+
 ```bash
 loopeix run status .loopeix/runs/<run-id>
 ```
@@ -34,6 +41,8 @@ loopeix run status .loopeix/runs/<run-id>
   partial write, truncation, or a content-hash mismatch). Exit code is non-zero on `hold`.
 
 ## Assess whether a run can be recovered
+
+This command has the same planned-run-layout requirement as `run status`.
 
 ```bash
 loopeix run recover .loopeix/runs/<run-id>
@@ -45,17 +54,20 @@ not make the whole ledger unreadable — you see the valid prefix and decide whe
 
 ## Build a report from a run
 
-> **Not yet a CLI command in V0.3.** `loopeix report build`/`report open` currently warn and do
-> nothing — the report is implemented and tested in the `buildReport` library and reaches the CLI with
-> the run-execution layer.
+```bash
+loopeix report build .loopeix/runs/<run-id>
+loopeix report open .loopeix/runs/<run-id>
+```
 
-When wired, the Markdown lists verified vs unverified claims and always discloses capture gaps and
-redaction state; the HTML timeline is static (no scripts, no network) and safe to open offline.
+`build` revalidates the recorded inputs and ledger binding, then atomically rebuilds `report.md` and
+`report.html`. `open` prints the path to the existing HTML report; it does not launch a browser. The
+Markdown lists verified vs unverified claims and always discloses capture gaps and redaction state;
+the HTML timeline is static (no scripts, no network) and safe to open offline.
 
 ## Build a redacted support bundle before asking for help
 
-> **Not yet a CLI command in V0.3** — use the `buildSupportBundle` **library function** today; the
-> `loopeix support bundle` command arrives with the run-execution layer.
+> **Not a CLI command today** — use the `buildSupportBundle` **library function**. The
+> `loopeix support bundle` name is reserved for a later contract.
 
 `buildSupportBundle` **redacts, then runs an independent leak-scan**, and marks the bundle
 `safe_to_share` only if the scan is clean — so you don't accidentally attach a secret. If the scan

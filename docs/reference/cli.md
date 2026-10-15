@@ -1,7 +1,8 @@
 # CLI reference
 
-Information-oriented. Every command Loopeix ships today, its arguments, and its exit codes.
-Run `loopeix <command> --help` for the authoritative, version-matched usage.
+Information-oriented. Every command in the current unreleased source, its arguments, and its exit
+codes. Run `node bin/run.js <command> --help` from the same checkout for source-checkpoint-matched
+usage; the public `0.1.0` package has an earlier execution contract.
 
 ```
 loopeix [COMMAND]
@@ -37,37 +38,55 @@ marked `*`), plus the max risk tier allowed without approval.
 
 ### `loopeix run start <loop.yaml | planned-run-dir>`
 
-Execute a loop end to end: drive the engine (or replay a captured stream), seal the ledger,
-evaluate gates, verify evidence, build the truthful report, and write the run directory.
+Replay an operator-supplied captured event stream, seal the ledger, evaluate gates, verify
+evidence, build the truthful report, and write the run directory. Live provider execution is
+deliberately fail-closed in the current source: without `--events-file`, the command starts no
+Codex or Claude process.
 
-- `--engine codex|claude` — which engine CLI to drive (uses that CLI's own login; Loopeix holds
-  no API keys). Codex is invoked read-only/ephemeral; Claude respects `--max-budget-usd`
-  (default `0.10`, max `100`).
-- `--prompt <text>` — the live task for raw YAML runs. Not allowed for planned run directories;
-  planned runs derive the prompt from approved planned records.
-- `--events-file <jsonl>` — replay a captured event stream instead of a live call (fully offline).
+- `--engine codex|claude` — captured-engine identity used to select the event normalizer. This
+  flag does not authorize or start that provider.
+- `--prompt <text>` — legacy live-run input. Planned run directories refuse it, and all current
+  live-execution paths end in `HOLD` before provider process creation.
+- `--events-file <jsonl>` — captured JSONL event file required for the executable replay path
+  (fully offline).
+- `--max-budget-usd <number>` — legacy Claude live-run budget input; it does not enable live
+  execution.
 - `--seal <brief.yaml>` — seal a structured brief as ledger event 1 and emit a signed
   `receipt.json` with per-clause verdicts. Without it: ledger + report, no receipt, no verdicts.
 - `--workspace <dir>` — where `.loopeix/runs/<id>` lands (default `.`).
 
-When the first argument is a planned run directory containing `resolved-run-plan.json`, the command
-runs in planned mode:
+Usable captured-event replay:
 
-- Without `--events-file`, Loopeix builds the same bounded prompt shown by `loopeix run prompt` and
-  invokes the planned engine from the planned workspace root.
+The following fixture paths exist only in a repository clone. Run this from a built clone:
+
+```bash
+node bin/run.js run start tests/fixtures/run-seal/seal-loop.yaml --engine codex \
+  --events-file tests/fixtures/run-seal/snitch-events.jsonl \
+  --seal tests/fixtures/run-seal/snitch-brief.yaml \
+  --workspace "$(mktemp -d)"
+```
+
+Raw and planned V02 targets are also unavailable: `run start` returns
+`UNSUPPORTED_EXECUTION_PROFILE` and creates no provider process.
+
+When the first argument is a planned V01 run directory containing `resolved-run-plan.json`, the
+command runs in planned mode. Planned V02 directories are rejected earlier with
+`UNSUPPORTED_EXECUTION_PROFILE`:
+
+- Without `--events-file`, Loopeix may validate and render the approved bounded prompt, then returns
+  `HOLD` at the S37 pre-spawn boundary; no provider process is started.
 - With `--events-file <jsonl>`, Loopeix replays captured events into the planned run directory and
   does not render or require the intake prompt.
 - `--prompt` is refused so a planned run cannot be silently replaced by fresh operator text.
 - The command uses the planned `run_id`, workspace root, and run directory.
-- The command takes `<planned-run-dir>/ledger.lock` before live/replay execution and releases it
-  after artifacts are written, so concurrent starts fail closed instead of interleaving writes.
-- Known pre-existing exception: a planned prompt-render HOLD can return before the release finalizer;
-  S34 does not change planned locks, and the hardening plan tracks that correction.
+- The command takes `<planned-run-dir>/ledger.lock` before replay or pre-spawn validation and
+  releases it through the command finalizer, so concurrent starts fail closed instead of
+  interleaving writes.
 - Existing execution artifacts are never overwritten.
 
-When the first argument is a raw loop file (raw compatibility mode), the command allocates a local
-run id and run directory after spec, option, sealed-brief, and live-prompt validation, but before
-replay parsing or live engine invocation:
+When the first argument is a raw V01 loop file (raw compatibility mode), an executable replay
+allocates a local run id and run directory after spec, option, and sealed-brief validation but
+before replay parsing:
 
 - `run_id` is `run_<lowercase-base36-milliseconds>_<16-lowercase-hex>`.
 - `run_dir` is exactly `<workspace>/.loopeix/runs/<run_id>`.
@@ -78,7 +97,8 @@ replay parsing or live engine invocation:
 - Allocator failure or exhaustion exits the command with `ERROR: cannot reserve raw run directory: ...`
   and exit code `1`.
 
-Exit `0` on a completed run; non-zero on engine or integrity failure.
+Exit `0` on a completed replay; non-zero on validation failure, integrity failure, or a deliberate
+execution `HOLD`.
 
 ### `loopeix verify <receipt.json>`
 
@@ -100,11 +120,15 @@ unverified receipt (exit `1`), so a CI step fails instead of posting a laundered
 
 ### `loopeix run status <run-dir>`
 
-Read a run's status. For planned run directories that do not have `ledger.jsonl` yet, it reports
+Read an S35 planned-layout run's status. For planned run directories that do not have `ledger.jsonl` yet, it reports
 `planned`, `integrity: unknown`, the planned `run_id`, and the next `run start` command shape. Once
 `ledger.jsonl` exists, it recovers the append-only ledger and reports integrity: `valid` or `hold`,
 the run state, the last valid sequence, whether it terminated, and any findings (corruption
 quarantined, partial final line dropped, truncation, content-hash mismatch).
+
+Raw-compatibility replay directories do not contain `resolved-run-plan.json`; this command rejects
+them with `INVALID_RESOLVED_RUN_PLAN_DOCUMENT`. Verify their ledger-bound receipt with
+`loopeix verify <receipt> --run-dir <run-dir>` instead.
 
 - Exit `0` — planned status or ledger integrity `valid`.
 - Exit non-zero (e.g. `4`) — integrity `hold` (findings printed). Never a silent pass.
@@ -122,9 +146,9 @@ planned-run files only; it does not invoke an engine and does not write artifact
 ### `loopeix run prompt <planned-run-dir>`
 
 Print the exact bounded prompt derived from a planned run directory. This is the human-readable
-bridge between an approved compile pack and later live engine execution: it shows the objective,
+review surface for an approved compile pack: it shows the objective,
 scope, workspace boundary, allowed/forbidden context, tool grants, gates, evaluations, adapter gaps,
-and execution rules before any engine is invoked.
+and execution rules without invoking a provider.
 
 - Reads `intake-brief.json`, `resolved-run-plan.json`, and the planned run files checked by
   `run preflight`.
@@ -139,7 +163,8 @@ and execution rules before any engine is invoked.
 Like `run status`, but oriented at a run interrupted or corrupted mid-flight: reports the recoverable
 valid prefix and what was dropped/quarantined, so you can decide whether to resume. **Read-only in
 V1** — it reports and verdicts; it does **not** rewrite history or repair the chain (recovery events
-are written by a later sprint). Exit non-zero if the run is held/unrecoverable.
+are written by a later sprint). It has the same planned-run-layout requirement as `run status` and
+rejects raw-compatibility directories. Exit non-zero if the run is held/unrecoverable.
 
 ### `loopeix report build <run-dir>`
 
@@ -155,17 +180,18 @@ observe half-written report files.
 
 Show the path to a run's built HTML report so you can open it locally in a browser.
 
-## Privacy commands (documented per the redaction/retention policy)
+## Privacy library and planned command surface
 
-The redaction & retention policy requires these behaviors; where a subcommand is not yet wired, the
-library functions (`redact`, `scanForLeaks`, `buildSupportBundle`, `isExpired`) provide the same
-guarantees and the equivalent behavior is documented:
+No privacy/support subcommand is wired today. The library currently provides `redact`,
+`scanForLeaks`, `buildSupportBundle`, and the pure expiry predicate `isExpired`.
+`buildSupportBundle` redacts and independently scans the bundle it constructs. Purge/tombstone,
+artifact replacement, and quarantine listing are not implemented. The names reserved for a later
+contract are:
 
-- `loopeix support bundle` — build a **redacted, leak-scanned** support bundle (safe to share only
-  if the independent quarantine scan is clean).
-- `loopeix privacy purge-run` — purge or tombstone one run per its retention class.
-- `loopeix privacy redact-artifact` — write a redacted replacement for one artifact.
-- `loopeix privacy list-quarantine` — list quarantined evidence (never auto-deleted).
+- Planned `loopeix support bundle`
+- Planned `loopeix privacy purge-run`
+- Planned `loopeix privacy redact-artifact`
+- Planned `loopeix privacy list-quarantine`
 
 ## Exit code convention
 
