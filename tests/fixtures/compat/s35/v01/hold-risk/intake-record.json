@@ -1,0 +1,16 @@
+{
+  "schema_version": "0.1",
+  "intake_id": "intake_log_into_stripe_if_needed_and_fix_billing_in_pro",
+  "work_item_id": "wi_log_into_stripe_if_needed_and_fix_billing_in_pro",
+  "objective": "Log into Stripe if needed and fix billing in production.",
+  "requested_outcome": "Log into Stripe if needed and fix billing in production.",
+  "candidate_scope": [],
+  "forbidden_actions": [],
+  "required_inputs": [],
+  "risk_flags": [
+    "payment",
+    "production"
+  ],
+  "ambiguities": [],
+  "untrusted_source_refs": []
+}

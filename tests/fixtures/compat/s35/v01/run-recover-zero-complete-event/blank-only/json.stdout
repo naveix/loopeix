@@ -1,0 +1,8 @@
+{
+  "integrity_status": "valid",
+  "run_state": "planned",
+  "last_valid_sequence": 0,
+  "terminated": false,
+  "findings": [],
+  "recoverable": true
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "0.1",
+  "intake_id": "intake_fix_this_with_an_expert_team",
+  "work_item_id": "wi_fix_this_with_an_expert_team",
+  "objective": "Fix this with an expert team.",
+  "requested_outcome": "Fix this with an expert team.",
+  "candidate_scope": [],
+  "forbidden_actions": [],
+  "required_inputs": [],
+  "risk_flags": [],
+  "ambiguities": [],
+  "untrusted_source_refs": []
+}

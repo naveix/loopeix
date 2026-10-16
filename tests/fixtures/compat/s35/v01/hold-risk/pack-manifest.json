@@ -1,0 +1,17 @@
+{
+  "schema_version": "0.1",
+  "pack_manifest_id": "pack_log_into_stripe_if_needed_and_fix_billing_in_pro",
+  "terminal_state": "hold-risk",
+  "work_item_id": "wi_log_into_stripe_if_needed_and_fix_billing_in_pro",
+  "intake_id": "intake_log_into_stripe_if_needed_and_fix_billing_in_pro",
+  "resolution_id": "resolution_log_into_stripe_if_needed_and_fix_billing_in_pro",
+  "selected_item_id": null,
+  "compilation_id": null,
+  "generated_loop_hash": null,
+  "file_hashes": {
+    "work_item": "sha256:9c4e62014773e21ff18771e9d6e9b292aa3ccdff8f0503bbb72ed206096f2469",
+    "intake": "sha256:e6f9a70663c89e33137402cdff273127b140cf467f92e6bc70ca7056be51c0b6",
+    "catalog_resolution": "sha256:8da2df1af7583be05e59bf3912ed0fdbef6b08c1264e4adaa47361d8b80ce3b2",
+    "report": "sha256:709e8a8155e6b96106504e26bbb8b112b140c910c906118fe8931a1bce12077f"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": "0.2",
+  "work_item_id": "wi_42_deadbeefcafebabe",
+  "submitted_at": "1970-01-01T00:00:00Z",
+  "prompt": "Fix the failing parser bug and prove the correction.",
+  "workspace_root": "/var/folders/0v/vg80y63d7fb92wj3ynpkfyfm0000gn/T/loopeix-s35-v02-fixture-compile-BixLcE",
+  "operator_constraints": [],
+  "source_context": [
+    "workspace:root"
+  ]
+}

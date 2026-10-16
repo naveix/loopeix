@@ -4,11 +4,38 @@ All notable changes to Loopeix. Format loosely follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-07-04
+### S35–S41 foundations and release truth
+
+- Established the S35–S41 contract, authority, pre-spawn enforcement, product-host conformance,
+  streaming-kernel, recovery, and reconciliation foundations.
+- Captured-event replay remains the only executable `run start` path. Live Codex/Claude execution
+  and raw or planned V02 start deliberately fail closed; no provider process is started.
+- CI now enforces the S36–S41 static and mutation boundaries, deterministic schemas, secret scanning,
+  packed-artifact verification, and a clearly labelled non-production Linux synthetic lane. Public
+  documentation now matches the fail-closed runtime. This section does **not** claim production-host
+  activation, provider-native execution, deployment, npm publication, or a new release.
+- Advanced the unreleased source identity to `0.2.0-alpha.0`; public npm remains `0.1.0` and no new
+  package has been published.
+- Advanced pnpm to 11.11.0 and Vitest to 4.1.11, added reviewed transitive security overrides, and
+  made the committed npm production shrinkwrap auditable with zero known production vulnerabilities.
+  One documented, development-only `braces@3.0.3` advisory remains because the advisory's named
+  patched version is not published and current oclif retains the same chain.
+- Hardened release custody: an unprivileged job proves the stable tag, main ancestry, exact successful
+  release gate, collision-free registry state, package smoke tests, and artifact digest; only the
+  minimal OIDC job can publish that digest-bound tarball.
+- Made test-inventory reporting use an isolated output file and corrected the compile-store inode
+  replacement test so the filesystem identity assertion is deterministic rather than timing-based.
+- At source checkpoint `bd5c146`, the full suite passed 2,588 tests across 214 files. The count is
+  evidence for that checkpoint only.
+
+## [0.1.0] - 2026-07-05
 
 First public release: the Claims Check — seal the brief, adjudicate the agent's claims against
 the engine's own event stream, sign the receipt, verify it anywhere offline. Everything below
 was built and reviewed pre-release and ships in this version.
+
+> Historical note: this section describes the 0.1.0 release state. The current Unreleased source
+> supersedes its live-execution statements with a deliberate fail-closed HOLD.
 
 ### Shadow-fleet validation (S18)
 
@@ -86,15 +113,16 @@ was built and reviewed pre-release and ships in this version.
 - Path normalization in `src/glob.ts`: resolves `.`/`..`, NFC-normalizes (Unicode filenames),
   strips workspace-root prefix for absolute paths; null result excluded from adjudication.
 
-**Known limitation RESOLVED (live capture 2026-07-04, codex-cli 0.142.3):** real Codex
+**Known limitation RESOLVED (dated capture 2026-07-04, codex-cli 0.142.3):** captured Codex
 `file_change` items carry ABSOLUTE POSIX paths under the run workspace root. Captured, redacted
 into `tests/fixtures/adapter-events/codex/s1-codex-file-change.redacted.jsonl`, and tested both
 ways: a matching `workspaceRoot` strips the prefix and convicts; a missing or mismatched root
 excludes the path and never convicts (the defensive direction proven correct). The run-seal
 fixtures deliberately keep the canonical post-strip relative form for replay portability, with a
-tested equivalence proof — see `tests/fixtures/run-seal/README.md`. Same-day Claude capture
+tested equivalence proof — see `tests/fixtures/run-seal/README.md`. The same-day Claude capture
 (2.1.201): a file deletion surfaced ONLY as a Bash `rm` tool_use with no file-change-shaped event —
-the shell-rm bypass is live-proven; forbidden clauses stay `UNEVALUATED` (absence never acquits).
+the dated capture demonstrates the shell-`rm` bypass; forbidden clauses stay `UNEVALUATED`
+(absence never acquits).
 
 ### Claims Check (M1)
 
@@ -119,11 +147,13 @@ the shell-rm bypass is live-proven; forbidden clauses stay `UNEVALUATED` (absenc
 
 ### Run-execution layer
 
-- `loopeix run start <spec> --engine <codex|claude>` executes a loop end-to-end (live) or replays a
-  captured event file (`--events-file`): validate → run → normalize → seal ledger → gates → truthful
-  report + manifest. A failed/timed-out engine seals `run.failed`, never a fake `completed`.
-- Engine invocation shells out with an args-array (no shell); Codex uses a `--` terminator so a prompt
-  cannot override the read-only sandbox; Claude uses a validated budget cap.
+- At the 0.1.0 release checkpoint, `loopeix run start <spec> --engine <codex|claude>` provided live
+  execution or captured-event replay (`--events-file`): validate → run → normalize → seal ledger →
+  gates → truthful report + manifest. A failed/timed-out engine sealed `run.failed`, never a fake
+  `completed`. This historical behavior is not the current Unreleased execution contract.
+- At that checkpoint, provider invocation used an args-array (no shell); Codex used a `--`
+  terminator so a prompt could not override the read-only sandbox, and Claude used a validated
+  budget cap.
 - `report build` / `report open` are now wired to real run directories (rebuild anchors run_state /
   integrity to the sealed ledger, not the sidecar).
 

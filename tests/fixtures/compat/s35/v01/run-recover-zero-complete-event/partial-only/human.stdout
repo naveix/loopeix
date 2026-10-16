@@ -1,0 +1,5 @@
+run_state:  planned
+integrity:  hold
+verdict:    HOLD — needs review before continuing
+findings:
+  - dropped a partial final ledger line during recovery

@@ -1,18 +1,19 @@
 # Getting started
 
 A 10-minute, learning-oriented walkthrough: install Loopeix, create a workspace, author a spec,
-and understand what "valid" and "verified" mean. By the end you'll have validated your first
-Loopeix and know where the trust guarantees come from.
+replay a committed captured-event fixture, and verify its report and receipt. By the end you will
+have completed one offline evidence flow and know where its trust guarantees come from.
 
 > New to the ideas here? Skim [Explanation: the trust model](../explanation/trust-model.md) after
 > this — it explains *why* each step exists.
 
 ## 1. Prerequisites
 
-- **Node.js ≥ 22.12** (`node --version`).
+- A supported even-major Node.js release: **22.12+, 24, or 26** (`node --version`).
 - **pnpm** (`npm install -g pnpm`).
-- Optionally the **Codex** or **Claude** CLI if you want to capture real runs — Loopeix uses their
-  own login and never handles API keys.
+
+No Codex or Claude installation or credential is required. This walkthrough replays committed,
+redacted events; the current source does not start a live provider process.
 
 ## 2. Install (from source)
 
@@ -33,7 +34,7 @@ flags before continuing.
 ## 3. Create a workspace
 
 ```bash
-mkdir my-project && cd my-project
+mkdir ../loopeix-demo && cd ../loopeix-demo
 loopeix init
 ```
 
@@ -46,8 +47,7 @@ in your home directory. Run data will live here, and uninstalling Loopeix never 
 Copy the starter template and validate it:
 
 ```bash
-cp templates/loopeix.template.yaml my-loop.yaml   # from your clone (step 2)
-# once published to npm: cp "$(npm root -g)/loopeix/templates/loopeix.template.yaml" .
+cp ../loopeix/templates/loopeix.template.yaml my-loop.yaml
 loopeix spec validate my-loop.yaml
 # OK  my-loop.yaml is a valid Loopeix
 ```
@@ -82,16 +82,27 @@ loopeix spec inspect my-loop.yaml
 
 `inspect` is the human-readable summary — roles, tasks, and which gates block a run.
 
-## 6. Understand a report (the payoff)
+## 6. Replay captured evidence and verify the result
 
-> **Design preview, not a runnable step in V0.3.** The report *library* is built and tested, but the
-> `loopeix report build`/`open` CLI commands are not yet wired (they warn today) — they arrive with
-> the run-execution layer. This section explains what a report guarantees so you know what you're
-> working toward.
+The only executable start path in the current source is offline captured-event replay. Run the
+repository's clean fixture from the demo workspace:
 
-When a loop runs, its events are appended to a hash-chained **ledger**, gates are evaluated, claims
-are checked against evidence, and a **report** is built. A report always has these sections, even
-when empty:
+```bash
+loopeix run start ../loopeix/tests/fixtures/run-seal/seal-loop.yaml \
+  --engine codex \
+  --events-file ../loopeix/tests/fixtures/run-seal/clean-events.jsonl \
+  --seal ../loopeix/tests/fixtures/run-seal/clean-brief.yaml \
+  --workspace "$PWD"
+RUN_DIR="$(find "$PWD/.loopeix/runs" -mindepth 1 -maxdepth 1 -type d -print -quit)"
+loopeix report build "$RUN_DIR"
+loopeix report open "$RUN_DIR"
+loopeix verify "$RUN_DIR/receipt.json" --run-dir "$RUN_DIR"
+```
+
+`report open` prints the local HTML path; it does not launch a browser. The final command must print
+`VERIFIED`. During replay, events are appended to a hash-chained **ledger**, gates are evaluated,
+claims are checked against evidence, and a report is built. A report always has these sections,
+even when empty:
 
 - **Verified claims** — exactly the claims the evidence verifier confirmed (a strong claim needs
   present, independent evidence — a file diff alone is not enough).
@@ -101,6 +112,11 @@ when empty:
 
 A report **cannot over-claim**: the report-truthfulness gate HOLDs if it asserts a claim the evidence
 didn't verify.
+
+This proves the deterministic replay, ledger, report, and offline receipt-verification path. It does
+**not** prove live Codex/Claude execution or production-host readiness; those paths remain on HOLD.
+`run status` and `run recover` currently require the newer planned-run layout and therefore are not
+used for this raw-compatibility fixture.
 
 ## Next steps
 

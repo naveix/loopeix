@@ -1,5 +1,13 @@
 allowBuilds:
   esbuild: true
+overrides:
+  brace-expansion@2: 2.1.7
+  brace-expansion@5: 5.0.12
+  fast-uri: 3.1.8
+  http-cache-semantics: 4.3.0
+  nanoid@3: 3.3.18
+  postcss@8: 8.5.23
+  source-map-js: 1.2.2
 minimumReleaseAgeExclude:
   - tsx@4.22.5
   - '@oclif/core@4.11.14'

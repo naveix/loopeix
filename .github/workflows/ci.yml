@@ -5,23 +5,29 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  merge_group:
 
-# Two-stage design, mirroring the shadow fleet: the dev toolchain (pnpm 11.9 needs Node >= 22.13)
-# builds and tests ONCE on a modern Node, then the PACKED ARTIFACT — what users actually
-# install — is proven with plain npm on every supported Node, including the exact 22.12
-# engines floor. The floor is a runtime promise, not a build-environment promise.
+permissions:
+  contents: read
+
+env:
+  S35_VERIFIER_FILE: verify-s35-build-artifacts.mjs
+  S35_VERIFIER_SHA256: 0db5ba7432deb2adb3697745e26661eabf883f3e12d92dbbe9a4ba88f6721472
+  S35_VERIFIER_SIZE: "20448"
 
 jobs:
-  build-test:
-    runs-on: ubuntu-latest
+  s35_build_artifacts:
+    name: S35 build, source gates, and single artifact
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
+    outputs:
+      source_commit: ${{ steps.identity.outputs.source_commit }}
     steps:
-      # Actions pinned to commit SHAs (supply-chain: a moved tag cannot change what runs here).
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
-      # pnpm version comes from package.json "packageManager" (the exact pin); passing a
-      # version input as well makes the action refuse with "Multiple versions of pnpm specified".
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -29,79 +35,316 @@ jobs:
           node-version: "26"
           cache: pnpm
 
-      - name: Install
-        run: pnpm install --frozen-lockfile
+      - name: Record immutable source identity
+        id: identity
+        shell: bash
+        run: echo "source_commit=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
-      - name: Build (tsc, noEmitOnError)
-        run: pnpm build
-
-      - name: Test (vitest)
-        run: pnpm test
-
-      - name: Validate golden spec fixtures via the CLI
+      - name: Assert Ubuntu build host
+        shell: bash
         run: |
-          fail=0
-          for f in tests/fixtures/valid/specs/*.yaml examples/dogfood/*.yaml templates/*.yaml; do
-            if ! ./bin/run.js spec validate "$f" >/dev/null; then echo "UNEXPECTED INVALID: $f"; fail=1; fi
-          done
-          for f in tests/fixtures/invalid/specs/*.yaml; do
-            if ./bin/run.js spec validate "$f" >/dev/null 2>&1; then echo "UNEXPECTED VALID (should fail): $f"; fail=1; fi
-          done
-          exit $fail
+          test "$(uname -s)" = "Linux"
+          test "$(uname -m)" = "x86_64"
 
-      - name: Pack the npm artifact
-        run: pnpm pack --pack-destination /tmp/loopeix-pack
+      - name: Install exact development dependencies
+        run: |
+          npm install --global npm@11.18.0
+          test "$(npm --version)" = "11.18.0"
+          pnpm install --frozen-lockfile
+
+      - name: Build and run the complete source suite
+        run: |
+          pnpm build
+          pnpm exec vitest run \
+            --reporter=default \
+            --reporter=json \
+            --outputFile.json="$RUNNER_TEMP/s35-source-suite.json"
+          node scripts/verify-s35-test-inventory.mjs "$RUNNER_TEMP/s35-source-suite.json"
+
+      - name: Verify architecture boundaries and mutation resistance
+        run: |
+          node scripts/check-s36-boundaries.mjs
+          node scripts/check-s37-boundaries.mjs
+          node scripts/check-s40-runtime-boundary.mjs
+          node scripts/check-s41-recovery-boundary.mjs
+          node scripts/test-s40-runtime-boundary.mjs
+          node scripts/test-s41-recovery-boundary.mjs
+
+      - name: Verify deterministic generated schemas
+        run: |
+          pnpm schema:generate
+          git diff --exit-code -- schemas
+          pnpm schema:generate
+          git diff --exit-code -- schemas
+
+      - name: Scan the checked-out source for credentials
+        run: >-
+          node scripts/scan-secrets-s35.mjs
+          --allowlist scripts/secret-scan-allowlist-s35.json
+          --filenames-only
+          --exclude-env
+          --exclude-playwright
+          .
+
+      - name: Run the host filesystem durability gate
+        run: >-
+          pnpm exec vitest run
+          tests/unit/captured-file-s35.test.ts
+          tests/unit/io-helper-identity-s35.test.ts
+          tests/unit/output-capabilities-s35.test.ts
+          tests/unit/writer-durability-s35.test.ts
+          tests/unit/compile-store-s35.test.ts
+
+      - name: Validate frozen authoring examples through the built CLI
+        shell: bash
+        run: |
+          failure=0
+          for fixture in tests/fixtures/valid/specs/*.yaml examples/dogfood/*.yaml templates/*.yaml; do
+            if ! ./bin/run.js spec validate "$fixture" >/dev/null; then
+              echo "UNEXPECTED INVALID: $fixture"
+              failure=1
+            fi
+          done
+          for fixture in tests/fixtures/invalid/specs/*.yaml; do
+            if ./bin/run.js spec validate "$fixture" >/dev/null 2>&1; then
+              echo "UNEXPECTED VALID: $fixture"
+              failure=1
+            fi
+          done
+          exit "$failure"
+
+      - name: Pack exactly one product artifact
+        shell: bash
+        run: |
+          fixture_source="$GITHUB_WORKSPACE/tests/fixtures/compat/s35"
+          fixture_stage="$RUNNER_TEMP/s35-runtime-fixtures"
+          mkdir -p \
+            "$RUNNER_TEMP/loopeix-pack" \
+            "$RUNNER_TEMP/s35-build-artifacts" \
+            "$fixture_stage/v02/planned-run"
+          cp -R "$fixture_source/common" "$fixture_stage/common"
+          cp -R "$fixture_source/v01" "$fixture_stage/v01"
+          cp "$fixture_source/v02/authoring-valid.loop.yaml" "$fixture_stage/v02/authoring-valid.loop.yaml"
+          cp "$fixture_source/v02/authoring-invalid.loop.yaml" "$fixture_stage/v02/authoring-invalid.loop.yaml"
+          cp "$fixture_source/v02/planned-run/"* "$fixture_stage/v02/planned-run/"
+          test "$(find "$fixture_stage/v02/planned-run" -maxdepth 1 -type f | wc -l | tr -d ' ')" = "9"
+          node scripts/verify-v02-fixtures-s35.mjs --fixtures-root "$fixture_stage"
+          pnpm pack --pack-destination "$RUNNER_TEMP/loopeix-pack"
+          mapfile -t tarballs < <(find "$RUNNER_TEMP/loopeix-pack" -maxdepth 1 -type f -name 'loopeix-*.tgz' -print)
+          test "${#tarballs[@]}" -eq 1
+          node scripts/build-s35-runtime-smoke-harness.mjs \
+            --tarball "${tarballs[0]}" \
+            --fixtures-root "$fixture_stage" \
+            --output-dir "$RUNNER_TEMP/s35-build-artifacts"
+
+      - name: Authenticate the standalone verifier before upload
+        shell: bash
+        run: |
+          artifact_dir="$RUNNER_TEMP/s35-build-artifacts"
+          verifier="$artifact_dir/$S35_VERIFIER_FILE"
+          test -f "$verifier"
+          test "$(wc -c < "$verifier" | tr -d ' ')" = "$S35_VERIFIER_SIZE"
+          test "$(sha256sum "$verifier" | awk '{print $1}')" = "$S35_VERIFIER_SHA256"
+          test "$(find "$artifact_dir" -maxdepth 1 -type f | wc -l | tr -d ' ')" = "4"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: npm-tarball
-          path: /tmp/loopeix-pack/*.tgz
+          name: s35-build-artifacts
+          path: ${{ runner.temp }}/s35-build-artifacts/*
+          if-no-files-found: error
+          compression-level: 0
           retention-days: 7
 
-  artifact-floor:
-    # Prove the shipped artifact on every supported Node with plain npm — no pnpm, no dev deps.
-    # "22.12" is the declared engines floor, pinned exactly so the floor itself stays proven.
-    needs: build-test
-    runs-on: ubuntu-latest
+  s35_host_durability_macos:
+    name: S35 macOS filesystem durability
+    runs-on: macos-15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "26"
+          cache: pnpm
+
+      - name: Assert macOS durability host
+        shell: bash
+        run: |
+          test "$(uname -s)" = "Darwin"
+          test "$(uname -m)" = "arm64"
+
+      - name: Install exact development dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build filesystem helpers
+        run: pnpm build
+
+      - name: Run the host filesystem durability gate
+        run: >-
+          pnpm exec vitest run
+          tests/unit/captured-file-s35.test.ts
+          tests/unit/io-helper-identity-s35.test.ts
+          tests/unit/output-capabilities-s35.test.ts
+          tests/unit/writer-durability-s35.test.ts
+          tests/unit/compile-store-s35.test.ts
+
+  s35_full_artifact:
+    name: S35 full artifact, TypeScript, AJV, and shrinkwrap
+    needs: s35_build_artifacts
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "26"
+          cache: pnpm
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: s35-build-artifacts
+          path: ${{ runner.temp }}/s35-build-artifacts
+
+      - name: Install exact full-lane tooling
+        shell: bash
+        run: |
+          npm install --global npm@11.18.0
+          test "$(npm --version)" = "11.18.0"
+          pnpm install --frozen-lockfile
+
+      - name: Verify frozen npm shrinkwrap
+        shell: bash
+        run: |
+          test -f npm-shrinkwrap.json
+          # npm receives a clean staging directory: reconciling inside pnpm's symlinked
+          # node_modules is unsupported and can crash npm's dependency resolver.
+          lock_stage="$RUNNER_TEMP/npm-shrinkwrap-view"
+          mkdir -p "$lock_stage"
+          cp package.json "$lock_stage/package.json"
+          (
+            cd "$lock_stage"
+            npm install --force --package-lock-only --ignore-scripts
+            test -f package-lock.json
+            mv package-lock.json npm-shrinkwrap.json
+            npm audit --omit=dev --force --audit-level=high
+          )
+          cmp --silent npm-shrinkwrap.json "$lock_stage/npm-shrinkwrap.json"
+
+      - name: Run installed full smoke with pinned TypeScript and AJV
+        shell: bash
+        run: |
+          artifact_dir="$RUNNER_TEMP/s35-build-artifacts"
+          verifier="$artifact_dir/$S35_VERIFIER_FILE"
+          test -f "$verifier"
+          test "$(wc -c < "$verifier" | tr -d ' ')" = "$S35_VERIFIER_SIZE"
+          test "$(sha256sum "$verifier" | awk '{print $1}')" = "$S35_VERIFIER_SHA256"
+          node "$verifier" \
+            --artifact-dir "$artifact_dir" \
+            --expected-source-commit "${{ needs.s35_build_artifacts.outputs.source_commit }}"
+          mapfile -t tarballs < <(find "$RUNNER_TEMP/s35-build-artifacts" -maxdepth 1 -type f -name 'loopeix-*.tgz' -print)
+          test "${#tarballs[@]}" -eq 1
+          node scripts/smoke-packed-package-s35.mjs \
+            --mode full \
+            --tarball "${tarballs[0]}" \
+            --fixtures-root "$GITHUB_WORKSPACE/tests/fixtures/compat/s35"
+
+  s35_runtime_floor:
+    name: Installed artifact (${{ matrix.os }}, Node ${{ matrix.node-version }}, npm ${{ matrix.npm-version }})
+    needs: s35_build_artifacts
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-24.04, macos-15]
         node-version: ["22.12", "24", "26"]
+        npm-version: ["10.9.0", "11.18.0"]
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ matrix.node-version }}
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: npm-tarball
-          path: /tmp/loopeix-pack
+          name: s35-build-artifacts
+          path: ${{ runner.temp }}/s35-build-artifacts
 
-      - name: Install the artifact with npm (what users run)
-        run: npm install -g /tmp/loopeix-pack/*.tgz && loopeix --version && loopeix doctor
-
-      - name: Validate golden spec fixtures via the installed binary
+      - name: Select exact runtime npm client
+        shell: bash
         run: |
-          fail=0
-          for f in tests/fixtures/valid/specs/*.yaml examples/dogfood/*.yaml templates/*.yaml; do
-            if ! loopeix spec validate "$f" >/dev/null; then echo "UNEXPECTED INVALID: $f"; fail=1; fi
-          done
-          for f in tests/fixtures/invalid/specs/*.yaml; do
-            if loopeix spec validate "$f" >/dev/null 2>&1; then echo "UNEXPECTED VALID (should fail): $f"; fail=1; fi
-          done
-          exit $fail
+          npm install --global "npm@${{ matrix.npm-version }}"
+          test "$(npm --version)" = "${{ matrix.npm-version }}"
 
-      - name: Seal + verify smoke (the Snitch replay, offline)
+      - name: Authenticate verifier and verify installed-product smoke
+        shell: bash
         run: |
-          WS="$(mktemp -d)"
-          loopeix run start tests/fixtures/run-seal/seal-loop.yaml --engine codex \
-            --events-file tests/fixtures/run-seal/snitch-events.jsonl \
-            --seal tests/fixtures/run-seal/snitch-brief.yaml --workspace "$WS"
-          RD="$(echo "$WS"/.loopeix/runs/*)"
-          loopeix verify "$RD/receipt.json" --run-dir "$RD"
-          loopeix pr "$RD" --card /tmp/delta-card.svg
-          test -s /tmp/delta-card.svg
+          artifact_dir="$RUNNER_TEMP/s35-build-artifacts"
+          verifier="$artifact_dir/$S35_VERIFIER_FILE"
+          test -f "$verifier"
+          test "$(wc -c < "$verifier" | tr -d ' ')" = "$S35_VERIFIER_SIZE"
+          if test "$(uname -s)" = "Darwin"; then
+            actual_hash="$(shasum -a 256 "$verifier" | awk '{print $1}')"
+          else
+            actual_hash="$(sha256sum "$verifier" | awk '{print $1}')"
+          fi
+          test "$actual_hash" = "$S35_VERIFIER_SHA256"
+          node "$verifier" \
+            --artifact-dir "$artifact_dir" \
+            --expected-source-commit "${{ needs.s35_build_artifacts.outputs.source_commit }}"
+
+  s37_ephemeral_linux_synthetic_nonproduction:
+    name: S37 non-production Linux synthetic verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "26"
+          cache: pnpm
+
+      - name: Install exact development dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run non-production synthetic verification
+        run: scripts/run-s37-ephemeral-linux-synthetic.sh
+
+  release_gate:
+    name: CI / Release gate
+    if: ${{ always() }}
+    needs:
+      - s35_build_artifacts
+      - s35_host_durability_macos
+      - s35_full_artifact
+      - s35_runtime_floor
+      - s37_ephemeral_linux_synthetic_nonproduction
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - name: Require every CI lane to pass
+        shell: bash
+        run: |
+          test "${{ needs.s35_build_artifacts.result }}" = "success"
+          test "${{ needs.s35_host_durability_macos.result }}" = "success"
+          test "${{ needs.s35_full_artifact.result }}" = "success"
+          test "${{ needs.s35_runtime_floor.result }}" = "success"
+          test "${{ needs.s37_ephemeral_linux_synthetic_nonproduction.result }}" = "success"

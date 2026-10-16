@@ -1,0 +1,30 @@
+{
+  "run_id": "run_s35_large_report",
+  "integrity": {
+    "integrity_status": "valid",
+    "run_state": "completed",
+    "last_valid_sequence": 3,
+    "terminated": true,
+    "findings": []
+  },
+  "gate_report": {
+    "decisions": [
+      {
+        "gate_id": "no-t5",
+        "blocking": true,
+        "status": "PASS",
+        "reason": "No T5 behavior requested or executed.",
+        "missing_inputs": [],
+        "findings": []
+      }
+    ],
+    "summary": {
+      "pass": 1,
+      "hold": 0,
+      "fail": 0,
+      "waived": 0
+    },
+    "blocking_hold_or_fail": false
+  },
+  "evidence": []
+}

@@ -61,6 +61,27 @@ describe("writeRunDir + report build/open wiring", () => {
     expect(report.sections).toHaveLength(7);
     expect(readFileSync(join(dir, RUN_DIR_FILES.reportMd), "utf8")).toContain("## Verified claims");
     expect(readFileSync(join(dir, RUN_DIR_FILES.reportHtml), "utf8")).toContain("<!doctype html>");
+    expect(existsSync(join(dir, "ledger.lock"))).toBe(false);
+  });
+  it("refuses to rebuild reports while the run ledger lock is held", () => {
+    writeRunDir(dir, assembly);
+    writeFileSync(join(dir, RUN_DIR_FILES.reportMd), "old markdown\n");
+    writeFileSync(join(dir, RUN_DIR_FILES.reportHtml), "old html\n");
+    writeFileSync(join(dir, "ledger.lock"), `${JSON.stringify({ pid: process.pid, acquired_at: Date.now(), host: "test" })}\n`);
+
+    expect(() => buildReportFromRunDir(dir)).toThrow(/lock .* is held/);
+    expect(readFileSync(join(dir, RUN_DIR_FILES.reportMd), "utf8")).toBe("old markdown\n");
+    expect(readFileSync(join(dir, RUN_DIR_FILES.reportHtml), "utf8")).toBe("old html\n");
+  });
+  it("does not steal an older report-build lock while the holder pid is still alive", () => {
+    writeRunDir(dir, assembly);
+    writeFileSync(join(dir, RUN_DIR_FILES.reportMd), "old markdown\n");
+    writeFileSync(join(dir, RUN_DIR_FILES.reportHtml), "old html\n");
+    writeFileSync(join(dir, "ledger.lock"), `${JSON.stringify({ pid: process.pid, acquired_at: Date.now() - 60_000, host: "test" })}\n`);
+
+    expect(() => buildReportFromRunDir(dir)).toThrow(/lock .* is held/);
+    expect(readFileSync(join(dir, RUN_DIR_FILES.reportMd), "utf8")).toBe("old markdown\n");
+    expect(readFileSync(join(dir, RUN_DIR_FILES.reportHtml), "utf8")).toBe("old html\n");
   });
   it("reportHtmlPath points at the run dir's report.html", () => {
     writeRunDir(dir, assembly);

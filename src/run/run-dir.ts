@@ -1,6 +1,7 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseLedgerText, recoverLedger } from "../ledger.js";
+import { withLock } from "../lock.js";
 import { buildReport, type Report, type ReportInput } from "../report.js";
 import type { Receipt } from "../schema/receipt.js";
 import type { RunAssembly } from "./orchestrate.js";
@@ -16,6 +17,24 @@ export const RUN_DIR_FILES = {
   /** Signed receipt (sealed runs only — a briefless run dir simply has no receipt.json). */
   receipt: "receipt.json",
 } as const;
+
+export const RUN_LEDGER_LOCK = "ledger.lock";
+export const RUN_WRITE_LOCK_OPTIONS = { staleMs: Number.MAX_SAFE_INTEGER };
+
+function atomicWriteFile(path: string, contents: string): void {
+  const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmp, contents);
+  try {
+    renameSync(tmp, path);
+  } catch (err) {
+    try {
+      unlinkSync(tmp);
+    } catch {
+      /* best-effort temp cleanup */
+    }
+    throw err;
+  }
+}
 
 /** Persist a full run assembly to a run directory (created if needed). */
 export function writeRunDir(dir: string, a: RunAssembly, extras: { receipt?: Receipt } = {}): void {
@@ -44,36 +63,42 @@ export function writeRunDir(dir: string, a: RunAssembly, extras: { receipt?: Rec
  * they too must be re-derived here rather than trusted from the sidecar.)
  */
 export function buildReportFromRunDir(dir: string): Report {
-  const input = JSON.parse(readFileSync(join(dir, RUN_DIR_FILES.reportInput), "utf8")) as ReportInput;
-  const parsed = parseLedgerText(readFileSync(join(dir, RUN_DIR_FILES.ledger), "utf8"));
-  const recovery = recoverLedger(parsed.events, {
-    partialFinalLineDropped: parsed.partialFinalLineDropped,
-    corruptLines: parsed.corruptLines,
-  });
+  return withLock(
+    join(dir, RUN_LEDGER_LOCK),
+    () => {
+      const input = JSON.parse(readFileSync(join(dir, RUN_DIR_FILES.reportInput), "utf8")) as ReportInput;
+      const parsed = parseLedgerText(readFileSync(join(dir, RUN_DIR_FILES.ledger), "utf8"));
+      const recovery = recoverLedger(parsed.events, {
+        partialFinalLineDropped: parsed.partialFinalLineDropped,
+        corruptLines: parsed.corruptLines,
+      });
 
-  const limitations = [...(input.redaction?.limitations ?? [])];
-  if (input.run_state !== recovery.run_state || input.integrity_status !== recovery.integrity_status) {
-    limitations.push(
-      `report-input.json diverged from the sealed ledger (input: run_state=${input.run_state}/integrity=${input.integrity_status}; ledger: run_state=${recovery.run_state}/integrity=${recovery.integrity_status}); using the ledger's authoritative values.`,
-    );
-  }
+      const limitations = [...(input.redaction?.limitations ?? [])];
+      if (input.run_state !== recovery.run_state || input.integrity_status !== recovery.integrity_status) {
+        limitations.push(
+          `report-input.json diverged from the sealed ledger (input: run_state=${input.run_state}/integrity=${input.integrity_status}; ledger: run_state=${recovery.run_state}/integrity=${recovery.integrity_status}); using the ledger's authoritative values.`,
+        );
+      }
 
-  const anchored: ReportInput = {
-    ...input,
-    run_state: recovery.run_state,
-    integrity_status: recovery.integrity_status,
-    redaction: {
-      policy_version: input.redaction?.policy_version ?? "0.1",
-      quarantined: input.redaction?.quarantined ?? 0,
-      raw_excluded: input.redaction?.raw_excluded ?? false,
-      limitations,
+      const anchored: ReportInput = {
+        ...input,
+        run_state: recovery.run_state,
+        integrity_status: recovery.integrity_status,
+        redaction: {
+          policy_version: input.redaction?.policy_version ?? "0.1",
+          quarantined: input.redaction?.quarantined ?? 0,
+          raw_excluded: input.redaction?.raw_excluded ?? false,
+          limitations,
+        },
+      };
+
+      const report = buildReport(anchored);
+      atomicWriteFile(join(dir, RUN_DIR_FILES.reportMd), report.markdown);
+      atomicWriteFile(join(dir, RUN_DIR_FILES.reportHtml), report.html);
+      return report;
     },
-  };
-
-  const report = buildReport(anchored);
-  writeFileSync(join(dir, RUN_DIR_FILES.reportMd), report.markdown);
-  writeFileSync(join(dir, RUN_DIR_FILES.reportHtml), report.html);
-  return report;
+    RUN_WRITE_LOCK_OPTIONS,
+  );
 }
 
 /** Absolute-ish path to a run dir's HTML report (what `loopeix report open <run-dir>` opens). */

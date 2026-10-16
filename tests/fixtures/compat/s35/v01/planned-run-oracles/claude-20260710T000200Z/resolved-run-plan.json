@@ -1,0 +1,140 @@
+{
+  "schema_version": "0.1",
+  "run_id": "run_fix_the_failing_date_parser_test_and_prove_the_f",
+  "loop_family": "minimal-bugfix",
+  "loopeix_version": "v001",
+  "loopeix_version_hash": "sha256:965bd69f18044e826933efa82744de952210054787c823723112fbe758fa8073",
+  "work_item_id": "wi_fix_the_failing_date_parser_test_and_prove_the_f",
+  "intake_brief_id": "ib_fix_the_failing_date_parser_test_and_prove_the_f",
+  "created_at": "2026-07-10T00:02:00Z",
+  "assurance_profile": {
+    "id": "base",
+    "tightens": []
+  },
+  "context_snapshot": {
+    "required": [
+      "Project instructions",
+      "Approved user prompt"
+    ],
+    "forbidden": [
+      ".env contents unless explicitly approved",
+      "Unapproved connector write actions"
+    ],
+    "untrusted_sources": []
+  },
+  "role_assignments": [
+    {
+      "role": "fix-owner",
+      "actor_id": "actor_fix_owner",
+      "actor_type": "ai_agent"
+    }
+  ],
+  "task_plan": [
+    {
+      "task_id": "execute-loop",
+      "role": "fix-owner",
+      "depends_on": [],
+      "artifacts": [
+        "diagnosis",
+        "change-summary",
+        "validation-results"
+      ],
+      "acceptance_checks": [
+        "All required inputs are acknowledged before work starts.",
+        "Every strong claim is tied to evidence or marked unsupported."
+      ]
+    },
+    {
+      "task_id": "verify-loop",
+      "role": "fix-owner",
+      "depends_on": [
+        "execute-loop"
+      ],
+      "artifacts": [
+        "diagnosis",
+        "change-summary",
+        "validation-results"
+      ],
+      "acceptance_checks": [
+        "Required gates are evaluated before reporting completion."
+      ]
+    }
+  ],
+  "tool_grants": [
+    {
+      "id": "workspace-shell",
+      "tool": "shell",
+      "scope": "read and write inside the approved workspace only",
+      "risk_tier": "T2",
+      "requires_approval": false
+    }
+  ],
+  "workspace_boundary": {
+    "workspace_root": "/tmp/loopeix-s35-v01-plan-oracle",
+    "read": [
+      "."
+    ],
+    "write": [
+      "artifacts",
+      "evidence",
+      "evaluations",
+      "handoffs",
+      "findings"
+    ]
+  },
+  "adapter_plan": {
+    "engine": "claude_code_cli",
+    "command": "claude -p --output-format stream-json --include-hook-events",
+    "permission_mode": "default",
+    "known_gaps": [
+      "token and usage counts may be incomplete",
+      "raw transcript is not primary evidence"
+    ]
+  },
+  "gate_plan": [
+    {
+      "gate_id": "claim-support",
+      "blocking": true,
+      "inputs_required": [
+        "validation-results"
+      ],
+      "waiver_allowed": false
+    },
+    {
+      "gate_id": "workspace-boundary",
+      "blocking": true,
+      "inputs_required": [
+        "validation-results"
+      ],
+      "waiver_allowed": false
+    },
+    {
+      "gate_id": "evidence-integrity",
+      "blocking": true,
+      "inputs_required": [
+        "validation-results"
+      ],
+      "waiver_allowed": false
+    },
+    {
+      "gate_id": "no-t5",
+      "blocking": true,
+      "inputs_required": [
+        "validation-results"
+      ],
+      "waiver_allowed": false
+    }
+  ],
+  "evaluation_plan": [
+    {
+      "evaluation_id": "project-validation",
+      "type": "command",
+      "required": true,
+      "command": "project-specific"
+    }
+  ],
+  "risk_controls": {
+    "max_tier_without_approval": "T2",
+    "t5_allowed": false
+  }
+}

@@ -1,0 +1,177 @@
+{
+  "base_commit": "13a8906fdd32b005d29c1eb07ee54f55f80c7fc2",
+  "source_root": "/private/tmp/loopeix-s35-capture.QwUstp/source",
+  "execution_source_snapshot": {
+    "root": "/private/tmp/loopeix-s35-capture.c9xkxlh3/loopeix-s35-source.f9nQ1a",
+    "root_identity": {
+      "dev": 16777230,
+      "ino": 41413725
+    },
+    "tree_sha256": "7f966b8b545517bd23309c731eece3048db1b04af92a991b3da7be9aab6227a9",
+    "entry_count": 12456,
+    "byte_count": 112484327
+  },
+  "staging_root": "/private/tmp/loopeix-s35-capture.QwUstp/stage",
+  "tarball_path": "/private/tmp/loopeix-s35-capture.QwUstp/base-package/loopeix-0.1.0.tgz",
+  "toolchain": {
+    "node": "v26.0.0",
+    "pnpm": "11.9.0",
+    "typescript": "6.0.3"
+  },
+  "tarball_provenance": {
+    "method": "fresh-pack-normalized-content-equality-v1",
+    "fresh_pack_filename": "loopeix-0.1.0.tgz",
+    "supplied_sha256": "2f0f96e37b366ac922710285131caf5270aa3103dcf0e2e9f9d7434dd43ebc2b",
+    "supplied_size_bytes": 198603,
+    "fresh_sha256": "247387065f49ee3059ec5868f98c040548f7ed01c6bc26e07507bee5ff85fca7",
+    "fresh_size_bytes": 198604,
+    "member_listing_sha256": "fe05b7e60dedb68b4f943dc0a4ca577921a8bac3d00d4fde46fb3eb07f1f9591",
+    "metadata_listing_sha256": "210e8ebb0dab3b76cbef263205cb9adc300dc9e077153764bacd2091403ee875",
+    "normalized_manifest_sha256": "eeffdba60d5379cef791a92b0799c6402d1a49614f7c88e31a888045205190fe",
+    "normalized_package_sha256": "0ba292e08343e3b8b4d376befe659f7913152c7550545a6fa5c01db6aee1e7d4",
+    "member_count": 250,
+    "normalized_member": "oclif.manifest.json",
+    "nonsemantic_paths": [
+      "package/oclif.manifest.json"
+    ]
+  },
+  "source_hashes": {
+    "package.json": "3c6e7889cdaa58b4ecc30268c175825171dda948fae3ce5420c32ac7ef697f58",
+    "pnpm-lock.yaml": "7339169a4626b2e2af3d9e9bc0d13da340f09b7ee41314a235cc9c12b484453c",
+    "pnpm-workspace.yaml": "773be6ee3878cebde2f4c6cb04ba9f3b66d56cfbe069bd3326b397f8d7d01bbc",
+    "packed:dist/index.js": "b1c52e002b46c8c7fc8a966348468280eb5967ae0e8565c8d3b97b607eb6949c",
+    "packed:dist/index.d.ts": "806cb60ec165b86c47580b585fa9fb89c3be9efd4005830adea25d4213397802",
+    "installed:typescript/package.json": "9332e97c30d3e53ed54910b89207ed657fb444066484df6e5b6965bf130865e9",
+    "installed:typescript/lib/typescript.js": "569177652966bd528c319171c7dd22860dbf72bde116cbc4f644f1d02bb12e39",
+    "tarball": "2f0f96e37b366ac922710285131caf5270aa3103dcf0e2e9f9d7434dd43ebc2b"
+  },
+  "oracle_hashes": {
+    "package-root-runtime-exports.txt": "69433623bd631a9701bc01f67a8724591a57aebf43c8bf74ab586fc0dfaeaf89",
+    "package-root-type-exports.txt": "d0b390188a8b314c5c521402ec1bd0aaabe6aacb2eb177730be86ffe4b528a91",
+    "packed-paths.txt": "335fdce3e8884f7361d79d3f220f7b873cb0fd51e1014056b1a8e4dbbbca3831",
+    "baseline-command-snapshot.json": "91807611285e3597af9f59a0391b83b63c5bd1870c127c87e8bb1c79155d9db5",
+    "baseline-oclif-manifest.normalized.json": "eeffdba60d5379cef791a92b0799c6402d1a49614f7c88e31a888045205190fe"
+  },
+  "export_counts": {
+    "runtime_value": 176,
+    "type_namespace": 106,
+    "type_only": 93,
+    "dual_namespace": 13,
+    "distinct_root_symbols": 269
+  },
+  "dependency_probe": {
+    "runtime_mode": "production-only",
+    "type_mode": "complete-baseline",
+    "install": "offline frozen-lockfile frozen-store ignore-scripts ignore-pnpmfile no-hoist no-runtime package-import-method=copy verify-store-integrity",
+    "child_permissions": "read-probe-root-only; no network, write, child process, worker, addon, global search path, NODE_OPTIONS, NODE_PATH, or loader variables",
+    "pnpm_store_binding": {
+      "metadata_path": "/private/tmp/loopeix-s35-capture.c9xkxlh3/loopeix-s35-source.f9nQ1a/node_modules/.modules.yaml",
+      "metadata_sha256": "6e8fb44b5660a08f9f7d8bf45af0797bf9ec4bc2216825eaf365d2af4e5af732",
+      "metadata_identity": {
+        "dev": 16777230,
+        "ino": 41426014
+      },
+      "store_path": "/private/tmp/loopeix-s35-capture.QwUstp/store/v11",
+      "store_identity": {
+        "dev": 16777230,
+        "ino": 41367459
+      }
+    }
+  },
+  "stage_inventory": {
+    "provenance_cases": [
+      "compiled-explicit-destination",
+      "compiled-safe-bugfix",
+      "credential-shaped-replay-pack",
+      "hold-ambiguous",
+      "hold-no-item",
+      "hold-risk",
+      "large-compiled-pack",
+      "large-ledger",
+      "large-profileless-plan",
+      "large-receipt",
+      "large-report-input",
+      "planned-run-oracles/claude-20260710T000100Z",
+      "planned-run-oracles/claude-20260710T000200Z",
+      "planned-run-oracles/codex-20260710T000100Z",
+      "planned-run-oracles/codex-20260710T000200Z",
+      "planned-run-source-pack",
+      "run-recover-zero-complete-event/empty",
+      "run-recover-zero-complete-event/blank-only",
+      "run-recover-zero-complete-event/partial-only"
+    ],
+    "run_recover_zero_complete_event_oracles": {
+      "stage_subtree": "run-recover-zero-complete-event",
+      "case_order": [
+        "empty",
+        "blank-only",
+        "partial-only"
+      ],
+      "expected_exit_by_case": {
+        "empty": 0,
+        "blank-only": 0,
+        "partial-only": 4
+      },
+      "modes": [
+        "human",
+        "json"
+      ],
+      "raw_members_per_case": [
+        "human.exit",
+        "human.stderr",
+        "human.stdout",
+        "json.exit",
+        "json.stderr",
+        "json.stdout",
+        "ledger.jsonl"
+      ],
+      "raw_paths": [
+        "run-recover-zero-complete-event/empty/human.exit",
+        "run-recover-zero-complete-event/empty/human.stderr",
+        "run-recover-zero-complete-event/empty/human.stdout",
+        "run-recover-zero-complete-event/empty/json.exit",
+        "run-recover-zero-complete-event/empty/json.stderr",
+        "run-recover-zero-complete-event/empty/json.stdout",
+        "run-recover-zero-complete-event/empty/ledger.jsonl",
+        "run-recover-zero-complete-event/blank-only/human.exit",
+        "run-recover-zero-complete-event/blank-only/human.stderr",
+        "run-recover-zero-complete-event/blank-only/human.stdout",
+        "run-recover-zero-complete-event/blank-only/json.exit",
+        "run-recover-zero-complete-event/blank-only/json.stderr",
+        "run-recover-zero-complete-event/blank-only/json.stdout",
+        "run-recover-zero-complete-event/blank-only/ledger.jsonl",
+        "run-recover-zero-complete-event/partial-only/human.exit",
+        "run-recover-zero-complete-event/partial-only/human.stderr",
+        "run-recover-zero-complete-event/partial-only/human.stdout",
+        "run-recover-zero-complete-event/partial-only/json.exit",
+        "run-recover-zero-complete-event/partial-only/json.stderr",
+        "run-recover-zero-complete-event/partial-only/json.stdout",
+        "run-recover-zero-complete-event/partial-only/ledger.jsonl"
+      ],
+      "provenance_paths": [
+        "provenance/run-recover-zero-complete-event/empty/SHA256SUMS",
+        "provenance/run-recover-zero-complete-event/empty/capture-metadata.json",
+        "provenance/run-recover-zero-complete-event/blank-only/SHA256SUMS",
+        "provenance/run-recover-zero-complete-event/blank-only/capture-metadata.json",
+        "provenance/run-recover-zero-complete-event/partial-only/SHA256SUMS",
+        "provenance/run-recover-zero-complete-event/partial-only/capture-metadata.json"
+      ]
+    }
+  },
+  "commands": {
+    "invocation": "\"/Users/naviix/Work/Projects/loopeix/scripts/run-s35-capture-clean.sh\" node \"/Users/naviix/Work/Projects/loopeix/scripts/capture-s35-package-oracles.mjs\" --source-root \"/private/tmp/loopeix-s35-capture.QwUstp/source\" --tarball \"/private/tmp/loopeix-s35-capture.QwUstp/base-package/loopeix-0.1.0.tgz\" --out \"/private/tmp/loopeix-s35-capture.QwUstp/stage\" --assert-base-commit 13a8906fdd32b005d29c1eb07ee54f55f80c7fc2",
+    "fresh_pack_proof": "pnpm pack --pack-destination <private-empty-root>; equal ordered safe member and tar-metadata inventories; byte equality for every member except exact-format oclif.manifest.json recursive object-key ordering; retained fresh bytes drive listing, extraction, and import",
+    "runtime_exports": "install exact production dependencies in a private offline frozen root; extract retained verified archive as node_modules/loopeix; permission-restricted bare import resolving to packed dist/index.js; Object.keys(); UTF-8 sort",
+    "type_exports": "install exact complete dependencies in a disjoint private offline frozen root; extract retained verified archive as node_modules/loopeix; load exact TypeScript 6.0.3 under read-only permissions; resolve bare loopeix to packed dist/index.d.ts; require zero diagnostics; classify checker exports; UTF-8 sort",
+    "packed_paths": "pipe exact retained verified archive bytes to tar -tzf -; strip exactly one package/ prefix; UTF-8 sort",
+    "command_inventory": "extract retained verified oclif.manifest.json; replace only the exact canonical source-root default with <S35_BASELINE_SOURCE_ROOT>; recursively UTF-8-sort object keys; project the exact 15 command IDs with full args, flags, aliases, strictness, JSON capability, and relative module path"
+  },
+  "script_path": "/Users/naviix/Work/Projects/loopeix/scripts/capture-s35-package-oracles.mjs",
+  "script_sha256_before": "c9c525d24f343e37b230547c5ee8d31e49dbee60c30a09db259f708c251f5927",
+  "script_sha256_after": "c9c525d24f343e37b230547c5ee8d31e49dbee60c30a09db259f708c251f5927",
+  "clean_process_launcher": {
+    "path": "/Users/naviix/Work/Projects/loopeix/scripts/run-s35-capture-clean.sh",
+    "sha256_before": "c614851287f64f0e01cf8430645b57e2ac694caf9cfb8bb525e84fcde84759c6",
+    "sha256_after": "c614851287f64f0e01cf8430645b57e2ac694caf9cfb8bb525e84fcde84759c6"
+  }
+}

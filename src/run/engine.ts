@@ -1,13 +1,7 @@
-import { spawnSync } from "node:child_process";
 import type { EngineId } from "../adapters/index.js";
+import { prohibitS37GeneralAgentSpawnV02 } from "./pre-spawn-capability-broker-v02.js";
 
-/**
- * Engine invocation (the one part of the run-execution layer that shells out to a live CLI).
- * Loopeix uses the Codex/Claude CLIs' OWN auth — it never passes or holds an API key. Both are
- * invoked non-interactively with empty stdin (the `</dev/null` the captures required, or `codex exec`
- * hangs waiting on stdin), read-only/ephemeral/bounded-budget where the CLI supports it, and their
- * JSONL stdout is parsed into raw events for the adapter to normalize.
- */
+/** Engine event parsing plus the S37 non-spawning compatibility boundary. */
 
 export interface EngineRunResult {
   engine: EngineId;
@@ -15,6 +9,7 @@ export interface EngineRunResult {
   exit_code: number;
   timed_out: boolean;
   stderr: string;
+  blocked_reason?: "GENERAL_AGENT_PROHIBITED";
 }
 
 export interface EngineOptions {
@@ -35,33 +30,6 @@ export function parseJsonlEvents(text: string): unknown[] {
         return [];
       }
     });
-}
-
-function engineCommand(engine: EngineId, prompt: string, opts: EngineOptions): { bin: string; args: string[] } {
-  const budget = Number.isFinite(opts.maxBudgetUsd) && (opts.maxBudgetUsd as number) > 0 ? (opts.maxBudgetUsd as number) : 0.1;
-  if (engine === "codex_cli") {
-    // `--` forces `prompt` to be positional: a prompt beginning with `-` (e.g.
-    // `--sandbox danger-full-access`) CANNOT be reparsed as a flag that overrides `--sandbox read-only`.
-    return {
-      bin: "codex",
-      args: ["exec", "--json", "--ephemeral", "--sandbox", "read-only", "--skip-git-repo-check", "--", prompt],
-    };
-  }
-  // Claude: `prompt` is the value of `-p` (not reinterpretable as a flag); flags follow.
-  return {
-    bin: "claude",
-    args: [
-      "-p",
-      prompt,
-      "--output-format",
-      "stream-json",
-      "--verbose",
-      "--include-hook-events",
-      "--no-session-persistence",
-      "--max-budget-usd",
-      String(budget),
-    ],
-  };
 }
 
 /**
@@ -90,21 +58,19 @@ export function extractFinalMessageText(engine: EngineId, rawEvents: readonly un
   return final;
 }
 
-/** Invoke an engine CLI with empty stdin and capture its JSONL events. Never throws on non-zero exit. */
-export function runEngine(engine: EngineId, prompt: string, opts: EngineOptions = {}): EngineRunResult {
-  const { bin, args } = engineCommand(engine, prompt, opts);
-  const res = spawnSync(bin, args, {
-    input: "", // empty stdin = immediate EOF (the `</dev/null` the CLIs need to not hang)
-    encoding: "utf8",
-    timeout: opts.timeoutMs ?? 300_000,
-    cwd: opts.cwd,
-    maxBuffer: 64 * 1024 * 1024,
-  });
+/**
+ * S37 compatibility boundary. General engine execution is prohibited until a
+ * later sprint can route every effect through the common enforcement point.
+ * The function remains exported for API compatibility but never spawns.
+ */
+export function runEngine(engine: EngineId, _prompt: string, _opts: EngineOptions = {}): EngineRunResult {
+  const blocked = prohibitS37GeneralAgentSpawnV02(engine);
   return {
     engine,
-    rawEvents: parseJsonlEvents(res.stdout ?? ""),
-    exit_code: res.status ?? -1,
-    timed_out: (res.error as NodeJS.ErrnoException | undefined)?.code === "ETIMEDOUT" || res.signal === "SIGTERM",
-    stderr: res.stderr ?? "",
+    rawEvents: [],
+    exit_code: -1,
+    timed_out: false,
+    stderr: blocked.detail,
+    blocked_reason: "GENERAL_AGENT_PROHIBITED",
   };
 }

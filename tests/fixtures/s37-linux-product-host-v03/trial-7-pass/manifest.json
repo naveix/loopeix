@@ -1,0 +1,58 @@
+{
+  "schema_version": "s37-linux-phase-b-build-manifest-v1",
+  "created_at": "2026-08-22T10:34:53.765Z",
+  "sources": {
+    "supervisor": {
+      "path": "scripts/s37-linux-phase-b/supervisor.c",
+      "sha256": "sha256:515c7fa5e6ba937e25f75b025c4b7d67f8b9354f40955e4a601506881b7c2835"
+    },
+    "probe": {
+      "path": "scripts/s37-linux-phase-b/probe.c",
+      "sha256": "sha256:0cb0abe0b45ad54a46a93ef3adec76bdd3e60824ac97e8e08756e103f5d74405"
+    }
+  },
+  "compiler": {
+    "path": "/usr/bin/gcc",
+    "version": "14.2.0",
+    "target": "x86_64-linux-gnu",
+    "sha256": "sha256:a23ecab8ff08f09ad8c80602c2c5df7f49e09c25905cb8975902e101bf72635f",
+    "flags": [
+      "-std=c17",
+      "-D_FORTIFY_SOURCE=3",
+      "-fstack-protector-strong",
+      "-fPIE",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wconversion",
+      "-Wformat=2",
+      "-Wshadow",
+      "-Wstrict-prototypes",
+      "-static-pie"
+    ]
+  },
+  "artifacts": {
+    "supervisor": {
+      "path": "/opt/loopeix/s37.1/supervisor",
+      "sha256": "sha256:a098a5f32c71fc0f1014b64a2a5e86535690b5d973771bcda35a864d66e60046",
+      "mode": "0555",
+      "setuid": false
+    },
+    "probe": {
+      "path": "/opt/loopeix/s37.1/probe",
+      "sha256": "sha256:22de7539d222b8092240d17de27e9dbecffbc84684d6576454008030167f361a",
+      "mode": "0555",
+      "setuid": false
+    }
+  },
+  "bwrap": {
+    "path": "/opt/loopeix/s37.1/bwrap",
+    "version": "0.11.0",
+    "package_version": "0.11.0-2+deb13u1",
+    "sha256": "sha256:0dfa36b98ada69568aaaa741fe210d2150a1441433bd13c428137d6a972a959c",
+    "mode": "0555",
+    "setuid": false
+  },
+  "seccomp_policy_sha256": "sha256:dc318421e96d062286c0a625ceb3db6d7db1ccb6c83a6da17848335de77dbe2c",
+  "manifest_sha256": "68956764c05c2a22d560fe139d59d117be06ca04fa7913aca92e12a9ffb26588"
+}

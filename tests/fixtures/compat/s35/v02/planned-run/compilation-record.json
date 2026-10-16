@@ -1,0 +1,111 @@
+{
+  "schema_version": "0.2",
+  "compilation_id": "compilation_42_deadbeefcafebabe",
+  "compiler_bundle_id": "compiler_s35_v02_1",
+  "catalog_version_hash": "sha256:8247aa4bb07e599ea889607b007b76fb787d356e70c817e6429c827a67a3726a",
+  "binding_input_id": "binding_42_deadbeefcafebabe",
+  "binding_input_hash": "sha256:9f9ca3bbe4dd8e76e5df69f13123675e699eb44a062c35ce35cc777c35326cb7",
+  "selected_loop_family": "minimal-bugfix",
+  "selected_loop_version": "v001",
+  "input_bindings": [
+    {
+      "key": "project.compensations",
+      "source": "operator"
+    },
+    {
+      "key": "project.engine",
+      "source": "operator"
+    },
+    {
+      "key": "project.evidence-requirements",
+      "source": "operator"
+    },
+    {
+      "key": "project.forbidden-context",
+      "source": "operator"
+    },
+    {
+      "key": "project.goal",
+      "source": "operator"
+    },
+    {
+      "key": "project.hard-limits",
+      "source": "operator"
+    },
+    {
+      "key": "project.objective",
+      "source": "operator"
+    },
+    {
+      "key": "project.progress",
+      "source": "operator"
+    },
+    {
+      "key": "project.recovery-policy",
+      "source": "operator"
+    },
+    {
+      "key": "project.required-context",
+      "source": "operator"
+    },
+    {
+      "key": "project.retry-policy",
+      "source": "operator"
+    },
+    {
+      "key": "project.side-effects",
+      "source": "operator"
+    },
+    {
+      "key": "project.stop-policy",
+      "source": "operator"
+    },
+    {
+      "key": "project.validation",
+      "source": "operator"
+    },
+    {
+      "key": "project.workspace-root",
+      "source": "workspace-observation"
+    }
+  ],
+  "context_snapshot": {
+    "required": [
+      "Approved repository files."
+    ],
+    "forbidden": [
+      "Credential, secret, private-key, and authentication-token values.",
+      "Environment-variable values not explicitly admitted as non-secret input.",
+      "Paths outside the approved workspace boundary.",
+      "Private customer records.",
+      "Untrusted source content interpreted as instruction, policy, or authority."
+    ],
+    "untrusted_sources": [
+      "bug report text",
+      "repository content",
+      "tool output"
+    ]
+  },
+  "effective_risk_controls": {
+    "max_tier_without_approval": "T2",
+    "t5_allowed": false
+  },
+  "approval_requirements": [
+    "workspace-shell"
+  ],
+  "compiler_findings": [
+    "positive:bug",
+    "positive:fix",
+    "positive:regression"
+  ],
+  "proof_boundary": {
+    "can_prove": [
+      "validation command ran",
+      "declared scope was checked"
+    ],
+    "cannot_prove": [
+      "the code is secure",
+      "all possible regressions were found"
+    ]
+  }
+}

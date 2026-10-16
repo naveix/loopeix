@@ -1,0 +1,3 @@
+tests/fixtures/compat/s35/v01/** -text
+tests/fixtures/compat/s35/common/** -text
+tests/fixtures/compat/s35/v02/** text eol=lf

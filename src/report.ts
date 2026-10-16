@@ -35,16 +35,6 @@ export interface Report {
   sections: string[];
 }
 
-const REQUIRED_SECTIONS = [
-  "Verified claims",
-  "Unverified claims",
-  "Capture gaps",
-  "Waivers",
-  "Unresolved findings",
-  "Redaction and retention state",
-  "Known limitations",
-] as const;
-
 const esc = (s: string): string =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 

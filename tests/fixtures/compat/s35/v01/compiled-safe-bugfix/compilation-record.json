@@ -1,0 +1,30 @@
+{
+  "schema_version": "0.1",
+  "compilation_id": "compilation_fix_the_failing_date_parser_test_and_prove_the_f",
+  "selected_loop_family": "minimal-bugfix",
+  "selected_loop_version": "v001",
+  "input_bindings": {
+    "bug-statement": "Fix the failing date parser test and prove the fix."
+  },
+  "context_snapshot": [
+    "Approved user prompt"
+  ],
+  "effective_risk_controls": {
+    "max_tier_without_approval": "T2",
+    "t5_allowed": false
+  },
+  "approval_requirements": [],
+  "compiler_findings": [
+    "positive:fix"
+  ],
+  "proof_boundary": {
+    "can_prove": [
+      "validation command ran",
+      "declared scope was checked"
+    ],
+    "cannot_prove": [
+      "the code is secure",
+      "all possible regressions were found"
+    ]
+  }
+}

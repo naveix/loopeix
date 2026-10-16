@@ -1,0 +1,17 @@
+{
+  "schema_version": "0.1",
+  "resolution_id": "resolution_ambiguous",
+  "catalog_version_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "terminal_state": "compiled",
+  "ranked_candidates": [
+    {
+      "item_id": "safe-bugfix",
+      "score": 4,
+      "reasons": ["positive:fix"]
+    }
+  ],
+  "selected_item_id": null,
+  "selection_evidence": ["ambiguous"],
+  "rejected_candidates": [],
+  "needs_clarification": true
+}

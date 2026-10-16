@@ -1,0 +1,13 @@
+{
+  "schema_version": "0.1",
+  "intake_id": "intake_fix_the_failing_date_parser_test_and_prove_the_f",
+  "work_item_id": "wi_fix_the_failing_date_parser_test_and_prove_the_f",
+  "objective": "Fix the failing date parser test and prove the fix. Reference ck_S35SyntheticCaptureOnly00000000 as inert historical text.",
+  "requested_outcome": "Fix the failing date parser test and prove the fix. Reference ck_S35SyntheticCaptureOnly00000000 as inert historical text.",
+  "candidate_scope": [],
+  "forbidden_actions": [],
+  "required_inputs": [],
+  "risk_flags": [],
+  "ambiguities": [],
+  "untrusted_source_refs": []
+}

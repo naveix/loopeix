@@ -1,0 +1,13 @@
+{
+  "schema_version": "0.1",
+  "resolution_id": "resolution_log_into_stripe_if_needed_and_fix_billing_in_pro",
+  "catalog_version_hash": "sha256:4bba5fca6ce73a6d21598890001a45e03c349a3a1fa78148b802497a22eda823",
+  "terminal_state": "hold-risk",
+  "ranked_candidates": [],
+  "selected_item_id": null,
+  "selection_evidence": [
+    "risk flag requires approval before catalog selection"
+  ],
+  "rejected_candidates": [],
+  "needs_clarification": true
+}

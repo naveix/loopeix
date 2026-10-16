@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.2",
+  "compiler_bundle_id": "compiler_s35_v02_1",
+  "catalog_version_hash": "sha256:8247aa4bb07e599ea889607b007b76fb787d356e70c817e6429c827a67a3726a",
+  "pack_manifest_id": "pack_42_deadbeefcafebabe",
+  "terminal_state": "compiled",
+  "reason_code": null,
+  "work_item_id": "wi_42_deadbeefcafebabe",
+  "binding_input_id": "binding_42_deadbeefcafebabe",
+  "intake_id": "intake_42_deadbeefcafebabe",
+  "resolution_id": "resolution_42_deadbeefcafebabe",
+  "selected_item_id": "safe-bugfix",
+  "compilation_id": "compilation_42_deadbeefcafebabe",
+  "generated_loop_hash": "sha256:67fc0e76ca0ccb8d8a2a40cb76dd3b3e06ef3c3193aa1e1eec31627e851a8cf1",
+  "file_hashes": {
+    "work_item": "sha256:08f603f6b96ff80585880f8cb416a48c264359ae9a3f10fb3a884d58cf7788a5",
+    "binding_input": "sha256:9f9ca3bbe4dd8e76e5df69f13123675e699eb44a062c35ce35cc777c35326cb7",
+    "intake": "sha256:3a27fb3f2f92b2a6d9cbb3c7af9e59b7f73571a86a875d02117a518a59003c4f",
+    "catalog_resolution": "sha256:6cf7915375750013ce43e9b85c5d4472ff42101757b8ebcdaa3db9db50659614",
+    "report": "sha256:1ac8c966b5f2d779a2cb0fd6d89e54bceecb12a82d4676be3fe65ce9337d6dc5",
+    "compilation": "sha256:de60a9425dc7aba16aa48dc316398221974f81cc702469b1c857abd10d36094a",
+    "generated_loop": "sha256:67fc0e76ca0ccb8d8a2a40cb76dd3b3e06ef3c3193aa1e1eec31627e851a8cf1"
+  }
+}

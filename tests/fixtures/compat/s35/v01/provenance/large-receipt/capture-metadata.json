@@ -1,0 +1,147 @@
+{
+  "base_commit": "13a8906fdd32b005d29c1eb07ee54f55f80c7fc2",
+  "source_root": "/private/tmp/loopeix-s35-capture.QwUstp/source",
+  "execution_source_root": "/private/tmp/loopeix-s35-capture.4peb36j1/loopeix-s35-source.ekbR2k",
+  "source_snapshot_sha256": "b39c914846cc73a42ffe82dc89bc82fc3ef3186331c6f35efafd8dfcb628cd6a",
+  "driver_path": "/Users/naviix/Work/Projects/loopeix/scripts/capture-v01-oracles-s35.ts",
+  "driver_sha256_before": "ad1e7c54572469d8ae227337ec99dd44b66bb24d0635d66b50c8aa47ead33fb0",
+  "driver_sha256_after": "ad1e7c54572469d8ae227337ec99dd44b66bb24d0635d66b50c8aa47ead33fb0",
+  "toolchain": {
+    "node": "v26.0.0",
+    "pnpm": "11.9.0",
+    "yaml": "2.9.0"
+  },
+  "runtime_provenance": {
+    "node": {
+      "version": "v26.0.0",
+      "exec_path": "/opt/homebrew/Cellar/node/26.0.0/bin/node",
+      "argv": [
+        "/private/tmp/loopeix-s35-capture.4peb36j1/admitted/node/bin/node",
+        "/private/tmp/loopeix-s35-capture.4peb36j1/tools/capture-v01-oracles-s35.ts",
+        "--source-root",
+        "/private/tmp/loopeix-s35-capture.4peb36j1/loopeix-s35-source.ekbR2k",
+        "--reviewed-origin-root",
+        "/private/tmp/loopeix-s35-capture.QwUstp/source",
+        "--source-snapshot-sha256",
+        "b39c914846cc73a42ffe82dc89bc82fc3ef3186331c6f35efafd8dfcb628cd6a",
+        "--out",
+        "/private/tmp/loopeix-s35-capture.QwUstp/stage",
+        "--assert-base-commit",
+        "13a8906fdd32b005d29c1eb07ee54f55f80c7fc2",
+        "--tool-source-root",
+        "/Users/naviix/Work/Projects/loopeix/scripts"
+      ],
+      "exec_argv": [
+        "--require",
+        "/private/tmp/loopeix-s35-capture.4peb36j1/loopeix-s35-runtime.r7GdOM/node_modules/tsx/dist/preflight.cjs",
+        "--import",
+        "/private/tmp/loopeix-s35-capture.4peb36j1/loopeix-s35-runtime.r7GdOM/node_modules/tsx/dist/loader.mjs"
+      ]
+    },
+    "pnpm_lock": {
+      "requested_relative_path": "pnpm-lock.yaml",
+      "resolved_relative_path": "pnpm-lock.yaml",
+      "sha256": "7339169a4626b2e2af3d9e9bc0d13da340f09b7ee41314a235cc9c12b484453c"
+    },
+    "tsx": {
+      "version": "4.22.5",
+      "lock_integrity": "sha512-F7JnSfPl5ASt6LqwWyUQ3T8BwN3q0eQEbFMYa2iRWaVQmmudo0d7fRmwM4O002gsvW1bs0yBYioutsAjqLJMvQ==",
+      "package": {
+        "requested_relative_path": "node_modules/tsx/package.json",
+        "resolved_relative_path": "node_modules/.pnpm/tsx@4.22.5/node_modules/tsx/package.json",
+        "sha256": "7aa86133a2b573a814e45558c0317d2a94aec491960717f3d81f768dea6f9d43"
+      },
+      "preflight": {
+        "requested_relative_path": "node_modules/tsx/dist/preflight.cjs",
+        "resolved_relative_path": "node_modules/.pnpm/tsx@4.22.5/node_modules/tsx/dist/preflight.cjs",
+        "sha256": "5ef95c5c4b5875dbc270b9591676a2138e4df82bcebde945eebb1eadf721b192"
+      },
+      "loader": {
+        "requested_relative_path": "node_modules/tsx/dist/loader.mjs",
+        "resolved_relative_path": "node_modules/.pnpm/tsx@4.22.5/node_modules/tsx/dist/loader.mjs",
+        "sha256": "f377ce5933ad7ba16a54435ac143dddb2178ffcf9e380c54048a4cfadb8959fc"
+      },
+      "tree": {
+        "requested_relative_path": "node_modules/tsx",
+        "resolved_relative_path": "node_modules/.pnpm/tsx@4.22.5/node_modules/tsx",
+        "entry_count": 55,
+        "file_count": 50,
+        "byte_count": 518641,
+        "tree_sha256": "45eff75d45eb095d3c351557acd9fe622fc6d6d17995cd434bcc31f2dff5f25d"
+      }
+    },
+    "esbuild": {
+      "version": "0.28.1",
+      "lock_integrity": "sha512-HrJrvZv5ayxBzPfwphOoNzkzOIIlifzk0KJrGK2c8R4+LKpMtpYLQeUdjnwjWv/LZlkH2laZk+4w78pi99D4Vw==",
+      "package": {
+        "requested_relative_path": "node_modules/.pnpm/tsx@4.22.5/node_modules/esbuild/package.json",
+        "resolved_relative_path": "node_modules/.pnpm/esbuild@0.28.1/node_modules/esbuild/package.json",
+        "sha256": "d55d1d19fcc5b6079e4a71dd4111340c79c682bc36835ac7058a0c364c7db58a"
+      },
+      "main": {
+        "requested_relative_path": "node_modules/.pnpm/tsx@4.22.5/node_modules/esbuild/lib/main.js",
+        "resolved_relative_path": "node_modules/.pnpm/esbuild@0.28.1/node_modules/esbuild/lib/main.js",
+        "sha256": "8331fe1d8b3a07381f33cc425fcfaa94776e263113653f80ec3ba433e9657e73"
+      },
+      "tree": {
+        "requested_relative_path": "node_modules/.pnpm/tsx@4.22.5/node_modules/esbuild",
+        "resolved_relative_path": "node_modules/.pnpm/esbuild@0.28.1/node_modules/esbuild",
+        "entry_count": 9,
+        "file_count": 7,
+        "byte_count": 10711381,
+        "tree_sha256": "8197885e1a8a9e929e2913c4fecbbd02abbc6b2d9ddd3e085d397bc5f582ee84"
+      },
+      "platform": {
+        "package_name": "@esbuild/darwin-arm64",
+        "lock_integrity": "sha512-TZbWkQY7kvTAXbXUT7uVACR5cMHsDiSz9z7ZKAX/RTq/WJEk3QyRr0wZpNhBDX+/0CtdqUIJlOiodQcta6tY3Q==",
+        "package": {
+          "requested_relative_path": "node_modules/.pnpm/esbuild@0.28.1/node_modules/@esbuild/darwin-arm64/package.json",
+          "resolved_relative_path": "node_modules/.pnpm/@esbuild+darwin-arm64@0.28.1/node_modules/@esbuild/darwin-arm64/package.json",
+          "sha256": "4741fe8d75953474f275402d367368cf49c242b2bc04b85e25bad14bfd26eaad"
+        },
+        "binary": {
+          "requested_relative_path": "node_modules/.pnpm/esbuild@0.28.1/node_modules/@esbuild/darwin-arm64/bin/esbuild",
+          "resolved_relative_path": "node_modules/.pnpm/@esbuild+darwin-arm64@0.28.1/node_modules/@esbuild/darwin-arm64/bin/esbuild",
+          "sha256": "e2dc9a52440a2a34f09434a2f4843cb1e30f84e40dcf238976ec61ef8cd7f36a"
+        },
+        "tree": {
+          "requested_relative_path": "node_modules/.pnpm/esbuild@0.28.1/node_modules/@esbuild/darwin-arm64",
+          "resolved_relative_path": "node_modules/.pnpm/@esbuild+darwin-arm64@0.28.1/node_modules/@esbuild/darwin-arm64",
+          "entry_count": 4,
+          "file_count": 3,
+          "byte_count": 10574305,
+          "tree_sha256": "4086a7846003b85046a13bbcbdf7e3140e62c5c177422c02b12c8cf568a99059"
+        }
+      }
+    }
+  },
+  "case": "large-receipt",
+  "target_member": "receipt.json",
+  "target_byte_length": 4196413,
+  "padding_location": "/capture_gaps/0/note",
+  "paired_ledger_byte_length": 1294,
+  "signing_key_policy": "fixed non-secret capture-only P-256 scalar 1 reused for the bounded search; private key never persisted",
+  "key_derivation_node_api": [
+    "createECDH",
+    "createPrivateKey"
+  ],
+  "max_signing_attempts": 512,
+  "verification_checks": [
+    "parse",
+    "schema",
+    "invariants",
+    "doctrine",
+    "signature",
+    "ledger_hash",
+    "ledger_head",
+    "ledger_chain"
+  ],
+  "api_entrypoints": [
+    "appendToLedger",
+    "serializeLedger",
+    "parseLedgerText",
+    "recoverLedger",
+    "buildReceipt",
+    "verifyReceipt"
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "name": "loopeix",
-  "version": "0.1.0",
+  "version": "0.2.0-alpha.0",
   "description": "Design, run, and verify repeatable AI work loops locally, with tamper-evident evidence and truthful reports. Flagship add-on: the Claims Check, a lie detector for agent pull requests with signed, offline-verifiable receipts.",
   "keywords": [
     "ai-agents",
@@ -28,13 +28,13 @@
   "type": "module",
   "license": "Apache-2.0",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.12.0 <23 || >=24 <25 || >=26 <27"
   },
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.11.0",
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "11.9.0"
+      "version": "11.11.0"
     }
   },
   "bin": {
@@ -47,6 +47,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./schemas/loopeix": "./schemas/loopeix.schema.json",
+    "./schemas/loopeix-0.1": "./schemas/loopeix-0.1.schema.json",
+    "./schemas/loopeix-0.2": "./schemas/loopeix-0.2.schema.json",
+    "./schemas/receipt": "./schemas/receipt.schema.json",
     "./schemas/*": "./schemas/*"
   },
   "files": [
@@ -54,7 +58,10 @@
     "dist",
     "schemas",
     "oclif.manifest.json",
+    "npm-shrinkwrap.json",
     "NOTICE",
+    "README.md",
+    "LICENSE",
     "CHANGELOG.md"
   ],
   "oclif": {
@@ -76,7 +83,7 @@
   },
   "scripts": {
     "prebuild": "node scripts/prebuild-clean.mjs",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/generate-plan-renderer-bundle-s35.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -97,6 +104,6 @@
     "oclif": "4.23.24",
     "tsx": "4.22.5",
     "typescript": "6.0.3",
-    "vitest": "4.1.9"
+    "vitest": "4.1.11"
   }
 }

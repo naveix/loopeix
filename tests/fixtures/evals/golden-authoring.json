@@ -1,0 +1,43 @@
+[
+  {
+    "case_id": "g1-minimal-bugfix",
+    "prompt": "Fix the failing date parser test without touching docs or package files.",
+    "expected": "safe-bugfix"
+  },
+  {
+    "case_id": "g2-refactor-trace",
+    "prompt": "Replace lodash debounce with native code, no behavior change.",
+    "expected": "hold-no-item"
+  },
+  {
+    "case_id": "g3-browser-smoke",
+    "prompt": "Find why checkout does nothing in Safari and prove the fix.",
+    "expected": "safe-bugfix"
+  },
+  {
+    "case_id": "g4-docs-freshness",
+    "prompt": "Update README install instructions to the current Node requirement.",
+    "expected": "hold-no-item"
+  },
+  {
+    "case_id": "g5-approval-sensitive",
+    "prompt": "Patch auth callback handling; inspect env/config if needed.",
+    "risk_flags": ["secret"],
+    "expected": "hold-risk"
+  },
+  {
+    "case_id": "g6-research-only",
+    "prompt": "Compare agent receipt tools and summarize the gaps.",
+    "expected": "research-need-cluster"
+  },
+  {
+    "case_id": "g7-held-run-recovery",
+    "prompt": "Resolve this held run with missing evidence honestly.",
+    "expected": "hold-no-item"
+  },
+  {
+    "case_id": "g8-multi-specialist-feature",
+    "prompt": "Add a receipt summary step to the PR workflow and have one role review another.",
+    "expected": "claims-check-pr"
+  }
+]

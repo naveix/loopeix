@@ -2,10 +2,11 @@
 
 Three levels, each self-contained. Level 1 verifies a receipt someone sent you (5 minutes,
 nothing but the CLI). Level 2 replays a captured run offline and inspects everything it
-produces (15 minutes, still no network). Level 3 covers what changes on a live engine run,
-what the signature does and does not prove, and how to read capture gaps honestly.
+produces (15 minutes, still no network). Level 3 demonstrates the current live-execution HOLD,
+then covers what the signature does and does not prove and how to read capture gaps honestly.
 
-Every command and output excerpt below was run against the real CLI. Three things will differ
+Every executable command and output excerpt below was run against the real CLI at source checkpoint
+`bd5c146`. Three things will differ
 on your machine: paths under a temporary directory (shown as `$WORK`), run IDs (e.g.
 `run_mr635fba`), and signing-key fingerprints (`sha256:6e54…` — a fresh key is generated per
 workspace). Everything else is verbatim, and any elided output lines are marked explicitly.
@@ -14,8 +15,8 @@ workspace). Everything else is verbatim, and any elided output lines are marked 
 [Getting started](getting-started.md) §1–2 for install. This walkthrough does not repeat the
 `init` / `spec validate` / `spec inspect` material covered there. All commands are given from
 the repo root using `node bin/run.js`; if you ran `npm link`, `loopeix` works identically.
-Loopeix is not yet on npm — the `loopeix` package name currently holds a placeholder, so do
-not `npm install` it.
+The public npm release is `0.1.0`, but this walkthrough targets the newer unreleased source contract;
+use the built clone below rather than assuming the npm release behaves identically.
 
 ```bash
 cd loopeix            # your clone
@@ -165,7 +166,7 @@ are three independent ledger checks rather than one: they catch different edits.
 Level 1 verified records other people made. Now produce the whole chain yourself — ledger,
 verdicts, receipt, report, PR table — from a **captured event stream**, entirely offline.
 `loopeix run start --events-file` replays a pre-recorded engine JSONL stream through the real
-pipeline: same sealing, same adjudication, same signing as a live run. No engine is invoked
+pipeline: sealing, adjudication, signing, and reporting over the supplied capture. No engine is invoked
 and nothing touches the network.
 
 The committed fixtures live in `tests/fixtures/run-seal/`:
@@ -267,24 +268,15 @@ wc -l "$RUN_DIR/ledger.jsonl"
       24 ledger.jsonl
 ```
 
-`run status` recovers the ledger and reports integrity (exit `0` only when `valid`);
-`run recover` gives the recovery-oriented verdict for an interrupted run:
-
-```bash
-node bin/run.js run status "$RUN_DIR"
-```
-
-```
-run_state:     completed
-integrity:     valid
-last sequence: 24
-terminated:    true
-```
-
 `report.md` is the truthful run report — all sections always present, including the capture
 gaps (kept for Level 3). `receipt.json` is the only artifact designed to travel: it embeds
 the brief, the verdicts, the evidence references, the ledger binding (bytes hash, head hash,
 event count) and the signature with its public key.
+
+This fixture exercises the raw-compatibility replay path and therefore has no
+`resolved-run-plan.json`. The newer `run status` and `run recover` commands deliberately reject
+that layout with `INVALID_RESOLVED_RUN_PLAN_DOCUMENT`; the ledger-bound receipt verification in the
+next step is the supported integrity check for this flow.
 
 ### 2.3 Verify your own run
 
@@ -326,9 +318,9 @@ node bin/run.js pr "$RUN_DIR" --card "$WORKSPACE/delta-card.svg"
 Wrote $WORKSPACE/delta-card.svg
 ```
 
-(The `npx loopeix verify` footer assumes the published npm package. Until the real CLI ships to
-npm — today the name only holds a placeholder — receipt receivers verify with
-`node bin/run.js verify receipt.json` from a clone.)
+(The generated `npx loopeix verify` footer targets the published package. To reproduce this
+walkthrough's unreleased source behavior exactly, use
+`node bin/run.js verify receipt.json` from the same source checkpoint.)
 
 The Markdown is plain text you paste into a PR body; the Delta Card is a static SVG (no
 scripts, no network). `pr` verifies the receipt *first* and refuses to render an unverified
@@ -382,38 +374,35 @@ deliberate, and it is the subject of the next level.
 
 ---
 
-## Level 3 — Pro: live runs, keys, and honest limits
+## Level 3 — Pro: execution HOLD, keys, and honest limits
 
-### 3.1 A live engine run
+### 3.1 The current live-execution boundary
 
-Everything in Level 2 used a replay. A live run swaps `--events-file` for `--prompt` and lets
-the engine actually execute — which means real engine usage on your Codex or Claude account.
-Loopeix holds no API keys; it drives the engine CLI you are already logged into.
+Everything in Level 2 used an operator-supplied replay. The current source deliberately refuses
+the corresponding `--prompt` path before creating a Codex or Claude process. This is a safety
+boundary, not a temporary success message: production execution remains unavailable until its
+host, authority, and custody contracts are completed and verified.
 
-This is the one command in this walkthrough you run live (this document's outputs were all
-produced from the committed replay fixtures — no paid engine calls were made writing it):
+You can verify the boundary without spending provider usage:
 
 ```bash
-# LIVE — calls your engine and spends real usage
-node bin/run.js run start my-loop.yaml --engine codex \
-  --prompt "fix the failing test in tests/unit/payments.test.ts" \
-  --seal my-brief.yaml
+node bin/run.js run start tests/fixtures/run-seal/seal-loop.yaml --engine codex \
+  --prompt "must not reach the provider"
 ```
 
-Notes, verified against `run start --help`:
+The command exits non-zero after reporting:
 
-- `--prompt` is required for a live run; `--engine` takes `codex` or `claude`.
-- `--engine claude` respects `--max-budget-usd` (default `0.10`) as a spend cap.
-- `--seal` is optional but is the whole point: without a sealed brief there are no clause
-  verdicts and no receipt, just a ledger and report.
-- `--workspace` defaults to `.` — the run lands in `./.loopeix/runs/<id>`.
+```text
+terminal: held
+reason: GENERAL_AGENT_PROHIBITED
+message: S37 prohibits general-agent execution. The separate inert-probe enforcement interface has no verified host backend; no process was started.
+```
 
-The pipeline downstream of capture is byte-for-byte the machinery you already exercised:
-sealing, adjudication, signing, `verify`, `pr`. What changes is only where the events come
-from — and therefore what the record can and cannot see (§3.3).
+`--prompt` and `--max-budget-usd` remain legacy inputs but do not enable provider execution.
+The executable path is still `--events-file`, whose evidence limits are covered in §3.3.
 
 There is no unattended mode. T5 (scheduled/unattended) behaviour is forbidden in V1 and the
-`no-t5` gate is injected and cannot be weakened; a live run is something you start and watch.
+`no-t5` gate is injected and cannot be weakened.
 
 ### 3.2 Keys: what the signature proves, and what it does not
 

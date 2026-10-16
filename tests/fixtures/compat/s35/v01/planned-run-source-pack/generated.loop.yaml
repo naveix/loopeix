@@ -1,0 +1,155 @@
+schema_version: "0.1"
+loop_family: minimal-bugfix
+version: v001
+outcome:
+  summary: Diagnose, fix, and validate a scoped bug without laundering unsupported
+    claims.
+  success_criteria:
+    - Records evidence that validation command ran.
+    - Records evidence that declared scope was checked.
+    - Does not claim that the code is secure.
+    - Does not claim that all possible regressions were found.
+inputs:
+  - id: bug-statement
+    description: "Bound from approved prompt: Fix the failing date parser test and
+      prove the fix."
+    required: true
+  - id: validation-command
+    description: Optional context for Safe Bugfix.
+    required: false
+  - id: suspected-files
+    description: Optional context for Safe Bugfix.
+    required: false
+context_contract:
+  required:
+    - Project instructions
+    - Approved user prompt
+  forbidden:
+    - .env contents unless explicitly approved
+    - Unapproved connector write actions
+  untrusted_sources: []
+workflow_pattern:
+  type: evaluator-optimizer
+  phases:
+    - inspect
+    - diagnose
+    - fix
+    - verify
+    - report
+roles:
+  - id: fix-owner
+    owns:
+      - Diagnose, fix, and validate a scoped bug without laundering unsupported
+        claims.
+      - evidence capture
+      - truthful final report
+    must_not:
+      - the task requires production credentials
+      - the user asks to delete tests to make CI green
+      - weaken proof boundaries
+      - perform T5 actions
+    allowed_tools:
+      - workspace-shell
+    handoff: Report completed checks, evidence refs, unsupported claims, and
+      remaining risks.
+tasks:
+  - id: execute-loop
+    role: fix-owner
+    artifacts:
+      - diagnosis
+      - change-summary
+      - validation-results
+    depends_on: []
+    acceptance_checks:
+      - All required inputs are acknowledged before work starts.
+      - Every strong claim is tied to evidence or marked unsupported.
+  - id: verify-loop
+    role: fix-owner
+    artifacts:
+      - diagnosis
+      - change-summary
+      - validation-results
+    depends_on:
+      - execute-loop
+    acceptance_checks:
+      - Required gates are evaluated before reporting completion.
+tool_grants:
+  - id: workspace-shell
+    tool: shell
+    scope: read and write inside the approved workspace only
+    risk_tier: T2
+    requires_approval: false
+artifacts:
+  - id: diagnosis
+    path: artifacts/diagnosis.md
+    type: markdown
+    required: true
+    producer_task: execute-loop
+    acceptance_checks:
+      - diagnosis records evidence, limitations, and unresolved risks.
+  - id: change-summary
+    path: artifacts/change-summary.md
+    type: markdown
+    required: true
+    producer_task: execute-loop
+    acceptance_checks:
+      - change-summary records evidence, limitations, and unresolved risks.
+  - id: validation-results
+    path: artifacts/validation-results.md
+    type: markdown
+    required: true
+    producer_task: execute-loop
+    acceptance_checks:
+      - validation-results records evidence, limitations, and unresolved risks.
+gates:
+  - id: claim-support
+    inputs_required:
+      - validation-results
+    blocking: true
+    evidence_rule: Strong claims require command, file, citation, browser, or
+      manual-review evidence.
+    pass_condition: All strong claims are supported by recorded evidence.
+    hold_condition: Any strong claim lacks evidence.
+    fail_condition: A claim is contradicted by evidence.
+    waiver_allowed: false
+  - id: workspace-boundary
+    inputs_required:
+      - validation-results
+    blocking: true
+    evidence_rule: All reads and writes must stay within the approved workspace and brief.
+    pass_condition: No out-of-scope file or authority use is recorded.
+    hold_condition: Scope or file ownership is unclear.
+    fail_condition: The loop uses undeclared authority or forbidden context.
+    waiver_allowed: false
+  - id: evidence-integrity
+    inputs_required:
+      - validation-results
+    blocking: true
+    evidence_rule: Evidence references must name their source and cannot be silently
+      fabricated.
+    pass_condition: Every final claim cites recorded evidence or a limitation.
+    hold_condition: Evidence is incomplete or unverifiable.
+    fail_condition: Evidence contradicts the reported result.
+    waiver_allowed: false
+  - id: no-t5
+    inputs_required:
+      - validation-results
+    blocking: true
+    evidence_rule: No unattended, background, recurring, destructive, deployment, or
+      unbounded authority is used.
+    pass_condition: No T5 action is requested or performed.
+    hold_condition: A possible T5 action needs explicit human approval.
+    fail_condition: A T5 action is attempted.
+    waiver_allowed: false
+evaluations:
+  - id: project-validation
+    type: command
+    required: true
+    command: project-specific
+    success_condition: The selected project validation command exits successfully or
+      a limitation is recorded.
+risk_controls:
+  max_tier_without_approval: T2
+  t5_allowed: false
+retro:
+  creates: SpecChangeProposal

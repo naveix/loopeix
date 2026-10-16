@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.1",
+  "pack_manifest_id": "pack_fix_the_failing_date_parser_test_and_prove_the_f",
+  "terminal_state": "compiled",
+  "work_item_id": "wi_fix_the_failing_date_parser_test_and_prove_the_f",
+  "intake_id": "intake_fix_the_failing_date_parser_test_and_prove_the_f",
+  "resolution_id": "resolution_fix_the_failing_date_parser_test_and_prove_the_f",
+  "selected_item_id": "safe-bugfix",
+  "compilation_id": "compilation_fix_the_failing_date_parser_test_and_prove_the_f",
+  "generated_loop_hash": "sha256:965bd69f18044e826933efa82744de952210054787c823723112fbe758fa8073",
+  "file_hashes": {
+    "work_item": "sha256:44661d0c56e96726b911feeec0edfb6af81ec9c944dd8fa9ca7e31f996430ec9",
+    "intake": "sha256:28d8fa2030d535d2b4dcb2de668c2af2ccd62b27251d0bbfe81afd58ad3a2bd1",
+    "catalog_resolution": "sha256:db37fcc4cb33e5ecf11869c9fdc0f3b4396bbc84ab6a588eadb38fd5356bee80",
+    "report": "sha256:e5a3fd50dceb2e42896b36bceb0ababa717be25da059d0b56ae2697a4858f881",
+    "compilation": "sha256:f83b68de0f6cff9d1080651db623c37efe979d0ceed7c79d403754138002f38c",
+    "generated_loop": "sha256:965bd69f18044e826933efa82744de952210054787c823723112fbe758fa8073"
+  }
+}

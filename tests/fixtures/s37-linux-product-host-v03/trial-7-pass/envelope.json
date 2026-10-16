@@ -1,0 +1,76 @@
+{
+  "schema_version": "s37-linux-phase-b-readiness-envelope-v1",
+  "approved_at": "2026-08-22T11:27:42.000Z",
+  "approved_by": "human-operator-authorized-via-codex",
+  "valid_from": "2026-08-22T11:27:42.000Z",
+  "valid_to": "2026-08-22T11:38:42.000Z",
+  "measurement_window_seconds": 60,
+  "sample_interval_seconds": 15,
+  "min_sample_count": 5,
+  "concurrency": 1,
+  "task_ceiling": 32,
+  "host_requirements": {
+    "platform": "linux",
+    "architecture": "x86_64",
+    "distro_id": "debian",
+    "distro_version_id": "13",
+    "kernel_release": "6.12.101+deb13-amd64",
+    "systemd_version": "257 (257.13-1~deb13u1)",
+    "cgroup_version": 2,
+    "required_cgroup_controllers": [
+      "cpu",
+      "io",
+      "memory",
+      "pids"
+    ],
+    "unprivileged_userns_clone": true,
+    "user_manager_status": "running-delegated"
+  },
+  "package_requirements": {
+    "candidate_version": "0.11.0-2+deb13u1",
+    "package_file_list_sha256": "11ac73f64de094eb155d28cc1eeaf87280b279f0b7518dc0a2dd050ba5b0c627",
+    "selected_artifact_path": "/opt/loopeix/s37.1/bwrap",
+    "selected_artifact_sha256": "0dfa36b98ada69568aaaa741fe210d2150a1441433bd13c428137d6a972a959c"
+  },
+  "thresholds": {
+    "min_cpu_cores": 4,
+    "min_memory_available_bytes": 12000000000,
+    "max_swap_used_bytes": 0,
+    "max_swap_growth_bytes": 0,
+    "max_load1": 2,
+    "max_load5": 1.5,
+    "max_cpu_psi_some_avg10": 3,
+    "max_memory_psi_some_avg10": 0.5,
+    "max_io_psi_some_avg10": 0.5
+  },
+  "threshold_reasons": {
+    "min_cpu_cores": "Preserves the reviewed four-core host topology.",
+    "min_memory_available_bytes": "Reserves at least twelve GB for incumbent workloads.",
+    "max_swap_used_bytes": "Disallows execution when swap is in use.",
+    "max_swap_growth_bytes": "Stops execution if the host begins swapping.",
+    "max_load1": "Bounds short-term scheduler demand on the shared host.",
+    "max_load5": "Bounds sustained scheduler demand on the shared host.",
+    "max_cpu_psi_some_avg10": "Prevents execution during material CPU pressure.",
+    "max_memory_psi_some_avg10": "Prevents execution during memory pressure.",
+    "max_io_psi_some_avg10": "Prevents execution during IO pressure."
+  },
+  "resource_limits": {
+    "cpu_quota_percent": 25,
+    "memory_max_bytes": 64000000,
+    "tasks_max": 8,
+    "io_weight": 10,
+    "timeout_ms": 1000,
+    "stdout_bytes": 1024,
+    "stderr_bytes": 1024
+  },
+  "resource_limit_reasons": {
+    "cpu_quota_percent": "Caps the inert probe to one quarter of one CPU.",
+    "memory_max_bytes": "Caps memory far below the incumbent reserve.",
+    "tasks_max": "Allows only the bounded launcher process tree.",
+    "io_weight": "Assigns the lowest practical relative IO priority.",
+    "timeout_ms": "Matches the frozen supervisor deadline.",
+    "stdout_bytes": "Matches the frozen stdout custody cap.",
+    "stderr_bytes": "Matches the frozen stderr custody cap."
+  },
+  "envelope_sha256": "df4cc66534ea99c80501ad115b82bdbe54b40b5adc456fad67fdb5f72bd3d5d4"
+}

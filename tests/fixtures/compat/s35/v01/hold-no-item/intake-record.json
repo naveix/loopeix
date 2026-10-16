@@ -1,0 +1,16 @@
+{
+  "schema_version": "0.1",
+  "intake_id": "intake_polish_this_thing_and_make_it_nicer",
+  "work_item_id": "wi_polish_this_thing_and_make_it_nicer",
+  "objective": "Polish this thing and make it nicer.",
+  "requested_outcome": "Polish this thing and make it nicer.",
+  "candidate_scope": [],
+  "forbidden_actions": [],
+  "required_inputs": [],
+  "risk_flags": [],
+  "ambiguities": [
+    "make it nicer",
+    "polish"
+  ],
+  "untrusted_source_refs": []
+}

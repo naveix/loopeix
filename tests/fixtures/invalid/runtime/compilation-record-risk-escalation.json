@@ -1,0 +1,20 @@
+{
+  "schema_version": "0.1",
+  "compilation_id": "compilation_risk_escalation",
+  "selected_loop_family": "minimal-bugfix",
+  "selected_loop_version": "v001",
+  "input_bindings": {
+    "bug-statement": "Fix billing in production."
+  },
+  "context_snapshot": ["Production credentials"],
+  "effective_risk_controls": {
+    "max_tier_without_approval": "T5",
+    "t5_allowed": false
+  },
+  "approval_requirements": ["production approval"],
+  "compiler_findings": ["Risk escalation requested."],
+  "proof_boundary": {
+    "can_prove": ["approval was requested"],
+    "cannot_prove": ["production write was safe"]
+  }
+}

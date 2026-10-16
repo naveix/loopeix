@@ -39,10 +39,13 @@ never a silent `valid`.
 
 Codex (`codex exec --json`) and Claude (`--output-format stream-json`) emit different events.
 Adapters normalize both into one taxonomy — but they **preserve the difference in what each engine
-can observe**. Codex reports command/file/MCP activity as first-class items (full capture); Claude
-only infers them from tool-use blocks and hooks (partial capture). Loopeix records that as a
-**capture gap** and never presents Claude's inferred command evidence as if it were as direct as
-Codex's. Unknown event types are recorded, never dropped.
+can observe**. Codex reports shell-command execution and MCP activity as first-class items with full
+capture in the current adapter. Its file-change stream is only partial: a bare shell `rm` or `mv`
+can appear as a command without a corresponding file-change item. Codex approvals, browser actions,
+and subagent lifecycle are also partial. Claude infers command and file activity from tool-use blocks
+and hooks, so those capabilities remain partial too. Loopeix records each limitation as a
+**capture gap** and never upgrades partial evidence to full. Unknown event types are recorded, never
+dropped.
 
 ### The gate engine (fail-closed safety)
 
@@ -88,11 +91,11 @@ before a new version is written.
 
 ### Redaction (privacy, with an honest backstop)
 
-Before any evidence leaves your machine, redaction scrubs secret-like keys and known secret patterns,
-and an **independent** leak-scan re-checks the result — not by replaying the redactor's patterns, but
-by walking the structure, flagging any value left under a sensitive key, and catching high-entropy
-token-shaped strings the pattern list doesn't recognize. A support bundle is `safe_to_share` only if
-that independent scan is clean.
+The `buildSupportBundle` library function redacts secret-like keys and known secret patterns in its
+input, then an **independent** leak-scan re-checks that bundle — not by replaying the redactor's
+patterns, but by walking the structure, flagging any value left under a sensitive key, and catching
+high-entropy token-shaped strings the pattern list does not recognize. Its result is `safe_to_share`
+only when that scan is clean. Loopeix does not currently provide or intercept a general export path.
 
 ## What Loopeix does NOT guarantee
 
@@ -105,8 +108,9 @@ Being honest about limits is part of the trust model:
   against an external log, which would make wholesale re-sealing detectable) is a post-V1 item.
   See [security-model](../security-model.md).
 - **Redaction is conservative, not complete.** It catches known secret shapes and high-entropy
-  tokens; it cannot promise to catch every unknown secret under an innocuous key. Every export is
-  scanned and every report states redaction limitations.
+  tokens; it cannot promise to catch every unknown secret under an innocuous key. The
+  `buildSupportBundle` library path independently scans the bundle it creates, and reports state
+  redaction limitations.
 - **Local-first concurrency.** The advisory lock that serializes ledger appends targets a single
   machine.
 - **Alpha.** Shapes may change before V1.
