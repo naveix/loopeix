@@ -6,5 +6,7 @@ export default defineConfig({
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     allowOnly: false,
     passWithNoTests: false,
+    // CLI boundary tests exercise process.exitCode; parallel files can race on that process-global state.
+    fileParallelism: false,
   },
 });
