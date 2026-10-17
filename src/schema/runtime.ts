@@ -452,7 +452,6 @@ export const ResolvedRunPlanV02 = strictObject({
   if (new Set(sideEffectTaskIds).size !== taskIds.size || sideEffectTaskIds.some((taskId) => !taskIds.has(taskId))) {
     ctx.addIssue({ code: "custom", path: ["side_effects"], message: "exactly one side-effect container is required per task" });
   }
-  const artifactTaskIds = new Set(plan.artifacts.map((artifact) => artifact.producer_task));
   const successCriteria = plan.goal.success_criteria.length;
   const gateCount = plan.gates.length;
   const evaluationCount = plan.evaluations.length;

@@ -50,7 +50,7 @@ const S37ParsedAnchorBindingFieldsV03 = z.object({
   generation: safeGeneration,
   predecessor_anchor_hash: Hash.nullable(),
   anchor_hash: Hash,
-}).passthrough();
+}).loose();
 
 const S37AnchorAuthorizationInputV03 = z.object({
   trust_context: z.custom<CapturedAuthorityTrustContextForS36V02>(isCapturedAuthorityTrustContextV02),

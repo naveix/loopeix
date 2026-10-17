@@ -82,7 +82,7 @@ const RuntimeActionAdmissionContext = z.object({
   authority_trust_context: z.custom<CapturedAuthorityTrustContextForS36V02>(isCapturedAuthorityTrustContextV02),
   repository_pre_state_hash: Hash,
   normalized_dispatch_hash: Hash,
-  observed_at: z.string().datetime(),
+  observed_at: z.string().check(z.iso.datetime()),
   elapsed_ms: z.number().int().nonnegative().refine(Number.isSafeInteger),
   reviewer_view_hash: Hash,
   enforcement: z.object({
@@ -145,10 +145,6 @@ function eventRef(event: { sequence: number; event_hash: string }): LedgerRef {
 
 function eventAtRef(events: readonly RuntimeEventV02Value[], ref: LedgerRef): RuntimeEventV02Value | undefined {
   return events.find((event) => event.sequence === ref.ledger_sequence && event.event_hash === ref.event_hash);
-}
-
-function sameRef(left: LedgerRef, right: LedgerRef): boolean {
-  return left.ledger_sequence === right.ledger_sequence && left.event_hash === right.event_hash;
 }
 
 function recordAtPath(records: ReadonlyMap<string, unknown>, path: unknown): RecordValue | null {

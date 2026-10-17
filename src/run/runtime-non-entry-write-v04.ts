@@ -5,8 +5,7 @@ import { z } from "zod";
 import { hashCanonical } from "../hash.js";
 import { RuntimeEventV04, type RuntimeEventV04Value } from "../schema/runtime-v04.js";
 import { LedgerRefV02 } from "../schema/runtime.js";
-import { Hash } from "../schema/scalars.js";
-import { HumanIdV02, MachineIdV02 } from "../schema/scalars-v02.js";
+import { MachineIdV02 } from "../schema/scalars-v02.js";
 import {
   buildRunManifestV04,
   inspectRunManifestV04,
@@ -84,36 +83,6 @@ export type CapturedRuntimeNonEntryAcknowledgementV04 = Readonly<{
 export type CapturedRuntimeTerminationEvidenceV04 = Readonly<{
   [runtimeTerminationEvidenceBrandV04]: never;
 }>;
-
-const NonEntryAcknowledgementEvidenceV04 = z.object({
-  observation: z.custom<CapturedRuntimeClockObservationV04>(),
-  action_admission_event_ref: LedgerRefV02,
-  action_id: MachineIdV02,
-  task_ref: HumanIdV02,
-  attempt_event_ref: LedgerRefV02,
-  adapter_invocation_id: MachineIdV02,
-  adapter_ref: HumanIdV02,
-  adapter_version_hash: Hash,
-  fence_epoch: z.number().int().nonnegative().refine(Number.isSafeInteger),
-  host_identity_hash: Hash,
-  boot_id_hash: Hash,
-  unit_name_hash: Hash,
-  cgroup_path_hash: Hash,
-  acknowledgement_observation_hash: Hash,
-}).strict();
-
-const TerminationEvidenceV04 = z.object({
-  observation: z.custom<CapturedRuntimeClockObservationV04>(),
-  action_admission_event_ref: LedgerRefV02,
-  adapter_invocation_id: MachineIdV02,
-  host_identity_hash: Hash,
-  boot_id_hash: Hash,
-  unit_name_hash: Hash,
-  cgroup_path_hash: Hash,
-  termination_request_hash: Hash,
-  termination_observation_hash: Hash,
-  observed_outcome: z.enum(["terminated", "not-terminated", "unknown"]),
-}).strict();
 
 const WriteRuntimeNonEntryInputV04 = z.object({
   action_admission_event_ref: LedgerRefV02,

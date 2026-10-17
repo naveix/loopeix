@@ -183,14 +183,14 @@ const canonicalDecisionList = <T extends string>(
 ) => z.array(decisionSchema).min(1).superRefine((decisions, context) => {
   if (new Set(decisions).size !== decisions.length) {
     context.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: "custom",
       message: "compatible_decisions must be unique",
     });
   }
   const positions = decisions.map((decision) => canonicalOrder.indexOf(decision));
   if (positions.some((position, index) => index > 0 && position <= positions[index - 1]!)) {
     context.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: "custom",
       message: "compatible_decisions must follow the record union's canonical order",
     });
   }
@@ -720,7 +720,7 @@ const DecisionRecommendationV02 = strictObject({
   evaluator_role_ref: HumanIdV02, evaluator_stable_identity_hash: Hash,
   decision: z.enum(["allow", "allow_with_conditions", "deny", "escalate", "abort"]),
   conditions: z.array(z.unknown()), evidence_refs: z.array(DecisionLedgerRefV02).min(1),
-  evidence_independence_keys: z.array(Hash).min(1), issued_at: z.string().datetime(), expires_at: z.string().datetime(),
+  evidence_independence_keys: z.array(Hash).min(1), issued_at: z.string().check(z.iso.datetime()), expires_at: z.string().check(z.iso.datetime()),
 });
 const AuthorityDecisionSimulationInputV02 = strictObject({
   proposal: DecisionProposalV02,
@@ -730,7 +730,7 @@ const AuthorityDecisionSimulationInputV02 = strictObject({
   authority: strictObject({ envelope_verified: z.boolean(), contained: z.boolean(), proof_fresh: z.boolean(), revocation_epoch_current: z.boolean() }),
   enforcement: strictObject({ available: z.boolean(), information_flow_allowed: z.boolean(), gates_passed: z.boolean(), immediate_revalidation_passed: z.boolean() }),
   condition_results: z.array(strictObject({ condition_hash: Hash, satisfied: z.boolean() })),
-  issued_at: z.string().datetime(), expires_at: z.string().datetime(), fence_epoch: z.number().int().nonnegative(),
+  issued_at: z.string().check(z.iso.datetime()), expires_at: z.string().check(z.iso.datetime()), fence_epoch: z.number().int().nonnegative(),
 });
 type AuthorityDecisionSimulationInputV02Value = z.infer<typeof AuthorityDecisionSimulationInputV02>;
 export type SimulatedAuthorityLeaseV02 = Readonly<{

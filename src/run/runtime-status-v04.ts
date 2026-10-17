@@ -37,8 +37,6 @@ import {
   type SummaryInvalidationReasonV04,
 } from "./runtime-summary-v04.js";
 
-const nonNegativeSafeInteger = z.number().int().nonnegative().refine(Number.isSafeInteger);
-
 const OwnerStatusV04 = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("absent"),
