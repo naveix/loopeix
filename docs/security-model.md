@@ -52,12 +52,23 @@ write-capable actor who also controls the signing key from re-sealing and re-sig
 - ECDSA P-256 receipts bind the exact ledger-byte SHA-256, head event hash, and event count. Deep
   `loopeix verify <receipt> --run-dir <run-dir>` verification checks those bindings plus the full
   chain and content hashes.
+- Claims Check receipts are signed (ECDSA P-256 over the RFC 8785 canonical bytes, `src/sign.ts`)
+  and `loopeix verify` checks the signature offline. The check uses the public key embedded in
+  the receipt, so it proves the receipt was not changed after signing. It does not prove who
+  signed: an altered receipt re-signed with a freshly generated key passes. Signer identity
+  requires out-of-band key pinning: compare the fingerprint of the embedded public key
+  (`loopeix run start` prints it when the key is created) with one obtained from the sender by
+  another channel; a `--expected-key` option is planned.
 
 ## Remaining work for externally anchored history
 
-Protect signing authority outside the writable workspace and/or notarize receipt or ledger-head
-digests to an independently trusted append-only transparency service. Until that exists, describe
-the ledger and receipts as tamper-evident and signed—not tamper-proof or externally anchored.
+Sign the head hash (or each event) with a key the writer holds and the verifier trusts (HMAC
+or asymmetric signature), or notarize the head hash to an external append-only sink.
+Canonicalization is already RFC 8785 (JCS): `src/hash.ts` delegates to the `canonicalize`
+package (keys sorted by Unicode code point, array order preserved, ES6 number serialisation),
+and the same canonical bytes are used for ledger event hashes and receipt signature preimages,
+so cross-runtime recomputation is possible today. The remaining gap is key trust, not byte form.
+Track as an ADR before any "tamper-proof" claim is made in user-facing docs.
 
 ## Privacy boundary (unchanged from planning)
 
