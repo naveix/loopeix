@@ -103,10 +103,16 @@ Being honest about limits is part of the trust model:
 
 - **Tamper-evident, not tamper-proof.** The ledger detects corruption and naive edits. A
   write-capable actor who knows the (public) sealing algorithm can re-seal a forged or truncated
-  chain. Per-claim receipts are already signed (ECDSA P-256, verified offline by `loopeix verify`),
-  which pins the sealed record to a key holder — but ledger **anchoring** (countersigning the chain
-  against an external log, which would make wholesale re-sealing detectable) is a post-V1 item.
-  See [security-model](../security-model.md).
+  chain. Per-claim receipts are signed (ECDSA P-256, verified offline by `loopeix verify`). The
+  signature binds the receipt bytes to the public key embedded in the receipt, so any change made
+  after signing is detected. It does not establish who signed: `verify` takes the public key from
+  the receipt itself, so a receipt that is altered and then re-signed with a freshly generated key
+  passes every check. Signer identity requires pinning the key out of band: compare the
+  fingerprint of the embedded public key (`loopeix run start` prints it when the key is created)
+  with one obtained from the sender by another channel; a `--expected-key` option is planned.
+  Ledger **anchoring** (countersigning the chain against an external log, which would
+  make wholesale re-sealing detectable) is a post-V1 item. See
+  [security-model](../security-model.md).
 - **Redaction is conservative, not complete.** It catches known secret shapes and high-entropy
   tokens; it cannot promise to catch every unknown secret under an innocuous key. The
   `buildSupportBundle` library path independently scans the bundle it creates, and reports state
