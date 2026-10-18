@@ -996,15 +996,22 @@ async function directoryUnchanged(directory: DirectoryCapture, io: S37ProductHos
 
 async function readHandleExact(handle: FileHandle, size: number): Promise<Uint8Array | null> {
   const bytes = new Uint8Array(size);
-  let offset = 0;
-  while (offset < bytes.byteLength) {
-    const { bytesRead } = await handle.read(bytes, offset, bytes.byteLength - offset, offset);
-    if (bytesRead <= 0) return null;
-    offset += bytesRead;
-  }
   const probe = new Uint8Array(1);
-  if ((await handle.read(probe, 0, 1, size)).bytesRead !== 0) return null;
-  return bytes;
+  let complete = false;
+  try {
+    let offset = 0;
+    while (offset < bytes.byteLength) {
+      const { bytesRead } = await handle.read(bytes, offset, bytes.byteLength - offset, offset);
+      if (bytesRead <= 0) return null;
+      offset += bytesRead;
+    }
+    if ((await handle.read(probe, 0, 1, size)).bytesRead !== 0) return null;
+    complete = true;
+    return bytes;
+  } finally {
+    probe.fill(0);
+    if (!complete) bytes.fill(0);
+  }
 }
 
 async function readStrictFile(
@@ -1019,6 +1026,8 @@ async function readStrictFile(
   if (descriptorCloseAmbiguities.has(io)) return null;
   const path = join(directory.path, fileName);
   let handle: FileHandle | undefined;
+  let bytes: Uint8Array | null = null;
+  let capture: FileCapture | null = null;
   try {
     const before = await io.lstat(path);
     if (!before.isFile() || before.isSymbolicLink() || before.uid !== ownerUid || before.gid !== ownerGid
@@ -1026,18 +1035,20 @@ async function readStrictFile(
     handle = await io.open(path, constants.O_RDONLY | constants.O_NOFOLLOW | O_CLOEXEC);
     const opened = await handle.stat({ bigint: true });
     if (!opened.isFile() || !sameIdentity(opened, identityOf(before))) return null;
-    const bytes = await readHandleExact(handle, Number(opened.size));
+    bytes = await readHandleExact(handle, Number(opened.size));
     if (bytes === null) return null;
     const afterHandle = await handle.stat({ bigint: true });
     const afterPath = await io.lstat(path);
     if (!sameIdentity(afterHandle, identityOf(opened)) || !sameIdentity(afterPath, identityOf(opened))
       || !await directoryUnchanged(directory, io)) return null;
-    return Object.freeze({ path, bytes, identity: identityOf(opened) });
+    capture = Object.freeze({ path, bytes, identity: identityOf(opened) });
   } catch {
     return null;
   } finally {
-    if (handle !== undefined && !await closeHandleOnce(handle, io)) return null;
+    if (handle !== undefined && !await closeHandleOnce(handle, io)) capture = null;
+    if (capture === null) bytes?.fill(0);
   }
+  return capture;
 }
 
 async function readOptionalStrictFile(

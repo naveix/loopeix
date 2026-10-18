@@ -113,6 +113,84 @@ function ioWithCloseFailure(failPath: (path: string) => boolean): Readonly<{
   };
 }
 
+const SIGNER_READ_FAILURES = [
+  "partial-eof", "read-throw", "growth-probe", "probe-throw", "post-handle-stat",
+  "post-handle-identity", "post-path-stat", "post-path-identity", "post-directory-identity",
+  "post-directory-stat", "post-directory-realpath", "close-ambiguity",
+] as const;
+type SignerReadFailure = typeof SIGNER_READ_FAILURES[number];
+
+function ioWithRetainedSignerReads(target: string, failure: SignerReadFailure | null) {
+  const mainBuffers: Uint8Array[] = [];
+  const probeBuffers: Uint8Array[] = [];
+  const intactAtClose: boolean[] = [];
+  let readFinished = false;
+  let closeAttempts = 0;
+  const fault = (): Error => Object.assign(new Error("injected signer read failure"), { code: "EIO" });
+  const io: S37ProductHostActivationStoreIoV01 = {
+    lstat: async (path) => {
+      if (readFinished && ((failure === "post-path-stat" && path === target)
+        || (failure === "post-directory-stat" && path === join(target, "..")))) throw fault();
+      const stats = await lstat(path, { bigint: true });
+      if (readFinished && ((failure === "post-path-identity" && path === target)
+        || (failure === "post-directory-identity" && path === join(target, "..")))) {
+        stats.ino += 1n;
+      }
+      return stats;
+    },
+    realpath: async (path) => readFinished && failure === "post-directory-realpath" && path === join(target, "..")
+      ? `${path}.changed` : realpath(path),
+    rename, unlink, random_bytes: (size) => randomBytes(size),
+    open: async (path, flags, mode) => {
+      const handle = await open(path, flags, mode);
+      if (path !== target) return handle;
+      const read = handle.read.bind(handle);
+      const stat = handle.stat.bind(handle);
+      const close = handle.close.bind(handle);
+      let dataReads = 0;
+      // Wrap real descriptor I/O: retain exactly the memory the product fills.
+      Object.defineProperty(handle, "read", { value: async (
+        buffer: Uint8Array, offset: number, length: number, position: number,
+      ) => {
+        if (buffer.byteLength === 1) {
+          probeBuffers.push(buffer);
+          const result = await read(buffer, offset, length, position);
+          readFinished = true;
+          // EOF does not normally populate the probe. A sentinel also proves
+          // unconditional probe cleanup on success and a throwing probe read.
+          buffer[0] = 0x61;
+          if (failure === "probe-throw") throw fault();
+          return failure === "growth-probe" ? { buffer, bytesRead: 1 } : result;
+        }
+        if (!mainBuffers.includes(buffer)) mainBuffers.push(buffer);
+        dataReads += 1;
+        if (failure === "partial-eof" && dataReads > 1) return { buffer, bytesRead: 0 };
+        const result = await read(buffer, offset, failure === "partial-eof" ? Math.min(length, 8) : length, position);
+        if (failure === "read-throw") throw fault();
+        return result;
+      } });
+      Object.defineProperty(handle, "stat", { value: async () => {
+        if (readFinished && failure === "post-handle-stat") throw fault();
+        const stats = await stat({ bigint: true });
+        if (readFinished && failure === "post-handle-identity") stats.ino += 1n;
+        return stats;
+      } });
+      handle.close = async () => {
+        closeAttempts += 1;
+        intactAtClose.push(mainBuffers.at(-1)?.some((byte) => byte !== 0) ?? false);
+        if (failure === "close-ambiguity") {
+          descriptorFaultCleanups.push(close);
+          throw fault();
+        }
+        await close();
+      };
+      return handle;
+    },
+  };
+  return { io, main_buffers: mainBuffers, probe_buffers: probeBuffers, intact_at_close: intactAtClose,
+    close_attempts: (): number => closeAttempts };
+}
+
 async function captured(root: string, io?: S37ProductHostActivationStoreIoV01) {
   const { uid, gid } = owner();
   const result = await createS37ProductHostActivationStoreForTestV01({ root_path: root, owner_uid: uid, owner_gid: gid, io });
@@ -419,6 +497,39 @@ afterEach(async () => {
 });
 
 describe("S37.1-G2 durable activation store", () => {
+  describe.each(["authority-ed25519.pem", "qualification-ed25519.pem"])("owned %s read buffers", (signer) => {
+    it.each(SIGNER_READ_FAILURES)("zeroizes discarded buffers after %s without retrying close", async (failure) => {
+      const root = fixtureRoot();
+      installAuthorityFixture(root);
+      const observed = ioWithRetainedSignerReads(join(root, "authority", signer), failure);
+      const { session } = await opened(root, observed.io);
+      await expect(captureS37ProductHostAuthorityCustodyV01(session)).resolves.toEqual({
+        ok: false, error: "AUTHORITY_CUSTODY_INVALID",
+      });
+      expect(observed.main_buffers.length).toBeGreaterThan(0);
+      expect(observed.main_buffers.every((buffer) => buffer.every((byte) => byte === 0))).toBe(true);
+      expect(observed.probe_buffers.every((buffer) => buffer.every((byte) => byte === 0))).toBe(true);
+      expect(observed.close_attempts()).toBe(1);
+    });
+
+    it("preserves successful bytes through close and zeroizes them after custody consumption and recapture", async () => {
+      const root = fixtureRoot();
+      installAuthorityFixture(root);
+      const observed = ioWithRetainedSignerReads(join(root, "authority", signer), null);
+      const { session } = await opened(root, observed.io);
+      await expect(captureS37ProductHostAuthorityCustodyV01(session)).resolves.toMatchObject({ ok: true });
+      expect(observed.intact_at_close).toEqual([true]);
+      expect(observed.main_buffers).toHaveLength(1);
+      expect(observed.main_buffers.every((buffer) => buffer.every((byte) => byte === 0))).toBe(true);
+      expect(observed.probe_buffers.every((buffer) => buffer.every((byte) => byte === 0))).toBe(true);
+      await expect(recaptureS37ProductHostAuthorityTrustV01(session)).resolves.toMatchObject({ ok: true });
+      expect(observed.intact_at_close).toEqual([true, true]);
+      expect(observed.main_buffers).toHaveLength(2);
+      expect(observed.main_buffers.every((buffer) => buffer.every((byte) => byte === 0))).toBe(true);
+      expect(observed.probe_buffers.every((buffer) => buffer.every((byte) => byte === 0))).toBe(true);
+    });
+  });
+
   it("rejects capture when a temporary ledger descriptor cannot be proven closed", async () => {
     const root = fixtureRoot();
     const target = join(root, "activation", "activation-ledger.jsonl");
