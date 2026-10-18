@@ -4,6 +4,17 @@ All notable changes to Loopeix. Format loosely follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+### Known limitation
+
+- **`loopeix verify` does not pin the signer.** The signature check uses the public key embedded
+  in the receipt, so a passing check proves the receipt was not changed after signing, not who
+  signed it. A receipt altered and re-signed with a freshly generated key passes all checks and
+  exits 0. Pin the signer by comparing the key fingerprint with one obtained out of band; a
+  `--expected-key` option is planned. README, `docs/explanation/trust-model.md` and
+  `docs/security-model.md` were corrected to stop implying identity binding, the security model
+  now states that canonicalization is RFC 8785 (JCS) via `canonicalize`, matching `src/hash.ts`,
+  and the stale "0.0.0 publish in flight" install note was removed (`0.1.0` is published).
+
 ### S35–S41 foundations and release truth
 
 - Established the S35–S41 contract, authority, pre-spawn enforcement, product-host conformance,

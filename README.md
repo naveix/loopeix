@@ -82,7 +82,11 @@ And anyone — a reviewer, a stranger, you in six months — re-checks it offlin
 ```bash
 npx loopeix verify receipt.json --run-dir <run-dir>
 # PASS  parse · schema · invariants · doctrine · signature · ledger_hash · ledger_head · ledger_chain
-# VERIFIED   (exit 0; a forged receipt fails invariants + signature and exits 1)
+# VERIFIED   (exit 0; an altered receipt fails the signature or invariants and exits 1.
+#             Verification checks the signature against the public key embedded in the
+#             receipt, so it proves the receipt was not changed after signing, not who
+#             signed it. Pin the signer by comparing the key fingerprint with one obtained
+#             out of band; a --expected-key option is planned.)
 ```
 
 Reproduce the case above, offline, in 60 seconds: [`examples/snitch-demo/`](examples/snitch-demo/).
@@ -97,6 +101,9 @@ release, use:
 npm install -g loopeix@0.1.0     # Node >= 22.12
 loopeix doctor
 ```
+
+`0.1.0` is the current published release (`npm view loopeix version`). To install from source
+instead: `pnpm install && pnpm build && npm link`.
 
 See [docs/INSTALL-UNINSTALL.md](docs/INSTALL-UNINSTALL.md) for exactly what install/uninstall
 touches — it never deletes your run data.
@@ -160,8 +167,11 @@ unverified; capture gaps are disclosed, never laundered into a clean bill of hea
 - At implementation checkpoint **`bd5c146`**, the source suite passed **2,588 tests across 214
   files**; this is a checkpoint-bound verification result, not a timeless test-count claim.
 - A **240-persona shadow fleet** exercised the packed npm artifact (not just source) across Node
-  22.12/24/26 containers: 240/240 oracle-decided PASS. Abuse lane: every forgery class rejected,
-  zero of thousands of seeded receipt mutations ever verified.
+  22.12/24/26 containers: 240/240 oracle-decided PASS. Abuse lane: every tested alteration class
+  (edited receipt body, edited ledger, truncated JSON, flipped verdict, none re-signed) rejected,
+  zero of thousands of seeded receipt mutations ever verified. A receipt altered and re-signed
+  with a new key is not detected without out-of-band key pinning (see
+  [trust-model](docs/explanation/trust-model.md#what-loopeix-does-not-guarantee)).
 - The fleet's own oracles are **fault-injection tested** — they provably fail when checks are
   mis-staged, so a green wave means the checks ran.
 - CI proves the **shipped artifact** on every supported Node, including the exact 22.12 floor:
