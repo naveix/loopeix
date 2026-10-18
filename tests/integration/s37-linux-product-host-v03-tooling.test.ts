@@ -95,9 +95,19 @@ describe("S37.1-F3 host-neutral product tooling", () => {
 
   it.each(inertCommands)("keeps $file free of duplicated authority and host effects", ({ file }) => {
     const source = readFileSync(resolve(process.cwd(), "scripts/s37-linux-product-host-v03", file), "utf8");
+    const approvedReconcileApi = "reconcileS37ProductHostActivationV01";
+    if (file === "reconcile-anchor.mjs") {
+      expect(source.match(new RegExp(approvedReconcileApi, "gu"))).toHaveLength(2);
+      expect(source).toContain(
+        `import { ${approvedReconcileApi} } from "../../dist/run/s37-product-host-activation-v01.js";`,
+      );
+    }
+    const inspectedSource = file === "reconcile-anchor.mjs"
+      ? source.replaceAll(approvedReconcileApi, "")
+      : source;
     expect(source).not.toMatch(/node:(?:crypto|fs|child_process|net|http|https)/u);
-    expect(source).not.toMatch(/(?:sign|verify|canonical|schema_version|parseS37|applyS37|reconcileS37|issueS37)/u);
-    expect(source).not.toMatch(/(?:ssh|scp|https?:\/\/|vps|retry)/iu);
+    expect(inspectedSource).not.toMatch(/(?:sign|verify|canonical|schema_version|parseS37|applyS37|reconcileS37|issueS37)/u);
+    expect(inspectedSource).not.toMatch(/(?:ssh|scp|https?:\/\/|vps|retry)/iu);
   });
 
   it("fails clearly when the built V03 contract is unavailable", async () => {
