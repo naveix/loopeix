@@ -69,6 +69,12 @@ export const REQUIRED_TEST_PATHS = Object.freeze([
   "tests/integration/s35-schema-package.test.ts",
   "tests/integration/s35-cross-lane-projection.test.ts",
   "tests/integration/s35-secret-scan.test.ts",
+  "tests/unit/s37-product-host-activation-contract-v01.test.ts",
+  "tests/unit/s37-product-host-activation-store-v01.test.ts",
+  "tests/unit/s37-product-host-activation-v01.test.ts",
+  "tests/unit/s37-product-host-launch-broker-v01.test.ts",
+  "tests/integration/s37-product-host-activation-process.test.ts",
+  "tests/integration/s37-linux-product-host-v03-tooling.test.ts",
 ]);
 
 function fail(reason, details) {
