@@ -1,5 +1,5 @@
 import { generateKeyPairSync, randomBytes } from "node:crypto";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, constants, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { lstat, open, realpath, rename, rm, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +8,10 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { canonicalize, hashCanonical, hashRawBytes } from "../../src/hash.js";
 import { S35_BUILT_IN_ACTION_APPROVAL_POLICY_DIGEST_V02 } from "../../src/run/action-classifier-policy-v02.js";
+import {
+  buildS37ProductHostActivationManifestV01,
+  hashS37ProductHostActivationEventV01,
+} from "../../src/run/s37-product-host-activation-contract-v01.js";
 import {
   beginS37ProductHostAuthoritySessionForTestV01,
   captureS37ProductHostAuthorityCustodyV01,
@@ -266,6 +270,148 @@ function remainingEvents() {
   ] as const;
 }
 
+// These semantic fixtures persist genuine nonce records in ADR order. The older
+// remainingEvents fixture alone intentionally exercises only ledger transport.
+async function receiptPrefix(root: string, stage: number, io: S37ProductHostActivationStoreIoV01,
+  ahead: "none" | "authorization" | "launch" | "qualification" = "none") {
+  if (stage < 0) return { store: await captured(root, io), session: null, manifests: [] as Uint8Array[] };
+  const { store, session } = await opened(root, io);
+  const manifests: Uint8Array[] = [];
+  const commit = async (event: unknown): Promise<void> => {
+    const result = await commitS37ProductHostActivationEventV01(session, event);
+    if (!result.ok) throw new Error(result.error);
+    manifests.push(readFileSync(join(root, "activation", "activation-manifest.json")));
+  };
+  if (stage === 0 && ahead === "none") return { store, session, manifests };
+  const authorization = await commitS37ProductHostAuthorizationNonceV01(session, {
+    authenticated_principal_ref: "operator_1", approval_nonce: H("7"), domain: "primary-v02", run_id: "run_1",
+    authorization_id: "authorization_1", authorization_statement_hash: H("8"),
+  });
+  if (!authorization.ok) throw new Error(authorization.status);
+  if (stage === 0) return { store, session, manifests };
+  await commit(requestedEvent());
+  if (stage === 1 && ahead !== "launch") return { store, session, manifests };
+  const launch = await commitS37ProductHostQualificationNonceV01(session, {
+    operation: "install-and-launch", reservation_kind: "launch-nonce", reserved_hash: H("5"),
+    anchor_generation: 1, anchor_hash: null, qualification_intent_hash: H("4"), qualification_request_hash: null,
+  });
+  if (!launch.ok) throw new Error(launch.status);
+  if (stage === 1) return { store, session, manifests };
+  const events = remainingEvents();
+  await commit({ ...events[0], payload: { ...events[0].payload,
+    authorization_nonce_record_hash: authorization.record_hash, launch_nonce_record_hash: launch.record_hash } });
+  if (stage === 2) return { store, session, manifests };
+  await commit(events[1]);
+  if (stage === 3 && ahead !== "qualification") return { store, session, manifests };
+  const qualification = await commitS37ProductHostQualificationNonceV01(session, {
+    operation: "install-and-launch", reservation_kind: "qualification-hash", reserved_hash: H("3"),
+    anchor_generation: 1, anchor_hash: H("a"), qualification_intent_hash: H("4"), qualification_request_hash: H("2"),
+  });
+  if (!qualification.ok) throw new Error(qualification.status);
+  if (stage === 3) return { store, session, manifests };
+  await commit({ ...events[2], payload: { ...events[2].payload, qualification_nonce_record_hash: qualification.record_hash } });
+  for (let next = 5; next <= stage; next += 1) await commit(events[next - 2]);
+  return { store, session, manifests };
+}
+
+function readOnlyPreflightIo(root: string) {
+  let armed = false;
+  const effects: string[] = [];
+  const opens: string[] = [];
+  const forbidden = (effect: string): never => {
+    effects.push(effect);
+    throw new Error(`read-only preflight attempted ${effect}`);
+  };
+  const io: S37ProductHostActivationStoreIoV01 = {
+    lstat: (path) => lstat(path, { bigint: true }), realpath,
+    rename: async (source, destination) => armed ? forbidden("rename") : rename(source, destination),
+    unlink: async (path) => armed ? forbidden("unlink") : unlink(path),
+    random_bytes: (size) => armed ? forbidden("entropy") : randomBytes(size),
+    open: async (path, flags, mode) => {
+      if (armed) {
+        opens.push(path);
+        if ((flags & (constants.O_WRONLY | constants.O_RDWR | constants.O_CREAT | constants.O_TRUNC | constants.O_APPEND)) !== 0) {
+          forbidden("writable open");
+        }
+        if (path.startsWith(join(root, "authority") + "/")
+          && path !== join(root, "authority", "system-manager-conformance-receipt.json")) forbidden("authority capture");
+      }
+      const handle = await open(path, flags, mode);
+      for (const method of ["write", "writeFile", "writev", "appendFile", "truncate", "chmod", "chown", "utimes", "sync", "datasync"]) {
+        const original: unknown = Reflect.get(handle, method);
+        if (typeof original !== "function") throw new Error(`missing file handle method ${method}`);
+        Object.defineProperty(handle, method, { value: async (...args: unknown[]) => armed
+          ? forbidden(method) : Reflect.apply(original, handle, args) });
+      }
+      return handle;
+    },
+  };
+  return { io, effects, opens, arm: (): void => { armed = true; }, armed: (): boolean => armed };
+}
+
+function preflightDurableSnapshot(root: string): unknown {
+  const activation = join(root, "activation");
+  return readdirSync(activation).sort().map((name) => {
+    const path = join(activation, name);
+    const stats = statSync(path, { bigint: true });
+    return { name, bytes: readFileSync(path).toString("base64"), device: stats.dev.toString(), inode: stats.ino.toString(),
+      mode: stats.mode.toString(), links: stats.nlink.toString(), uid: stats.uid.toString(), gid: stats.gid.toString() };
+  });
+}
+
+function rejectedReceipt(root: string): void {
+  installAuthorityFixture(root);
+  const path = join(root, "authority", "system-manager-conformance-receipt.json");
+  chmodSync(path, 0o600);
+  writeFileSync(path, "{}\n");
+  chmodSync(path, 0o400);
+}
+
+function rewriteNonce(root: string, name: "authorization-nonces.jsonl" | "qualification-nonces.jsonl",
+  mutate: (rows: Record<string, unknown>[]) => void): void {
+  const path = join(root, "activation", name);
+  const rows = readFileSync(path, "utf8").trim().split("\n").filter(Boolean)
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+  mutate(rows);
+  let previous: string | null = null;
+  for (const [index, row] of rows.entries()) {
+    row.sequence = index + 1;
+    row.previous_record_hash = previous;
+    const { record_hash: _hash, ...body } = row;
+    row.record_hash = hashCanonical({ purpose: row.schema_version, record: body });
+    previous = String(row.record_hash);
+  }
+  writeFileSync(path, rows.map((row) => `${canonicalize(row)}\n`).join(""));
+}
+
+function rewriteLock(root: string, mutate: (body: Record<string, unknown>) => void): void {
+  const path = join(root, "activation", "activation.lock");
+  const { lock_hash: _hash, ...body } = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+  mutate(body);
+  chmodSync(path, 0o600);
+  writeFileSync(path, `${canonicalize({ ...body,
+    lock_hash: hashCanonical({ purpose: "s37-product-host-activation-lock-v01", lock: body }) })}\n`);
+  chmodSync(path, 0o400);
+}
+
+function rewriteLedger(root: string, mutate: (rows: Record<string, unknown>[]) => void): void {
+  const path = join(root, "activation", "activation-ledger.jsonl");
+  const rows = readFileSync(path, "utf8").trim().split("\n").map((line) => JSON.parse(line) as Record<string, unknown>);
+  mutate(rows);
+  let previous: string | null = null;
+  for (const row of rows) {
+    row.previous_event_hash = previous;
+    const { event_hash: _hash, ...body } = row;
+    row.event_hash = hashS37ProductHostActivationEventV01(body);
+    previous = String(row.event_hash);
+  }
+  const bytes = new TextEncoder().encode(rows.map((row) => `${canonicalize(row)}\n`).join(""));
+  const manifest = buildS37ProductHostActivationManifestV01({ ledger_bytes: bytes });
+  if (!manifest.ok) throw new Error(manifest.reason);
+  writeFileSync(path, bytes);
+  writeFileSync(join(root, "activation", "activation-manifest.json"), manifest.bytes);
+}
+
 const iso = (epoch: number): string => new Date(epoch).toISOString().replace(".000Z", "Z");
 const hashWith = (purpose: string, wrapper: string, value: Record<string, unknown>): string => hashCanonical({
   purpose, [wrapper]: value,
@@ -497,6 +643,355 @@ afterEach(async () => {
 });
 
 describe("S37.1-G2 durable activation store", () => {
+  describe("rejected-receipt durable classification", () => {
+    const assertRejected = async (root: string, store: CapturedS37ProductHostActivationStoreV01,
+      observed: ReturnType<typeof readOnlyPreflightIo>, outcome: "NOT_STARTED" | "RECOVERY_REQUIRED" | "OUTCOME_UNKNOWN") => {
+      const before = preflightDurableSnapshot(root);
+      observed.arm();
+      await expect(beginS37ProductHostAuthoritySessionForTestV01({
+        store, activation_id: ACTIVATION_ID, activation_request_hash: REQUEST,
+      })).resolves.toEqual({ ok: false, outcome, error: "AUTHORITY_CUSTODY_INVALID" });
+      expect(observed.effects).toEqual([]);
+      expect(preflightDurableSnapshot(root)).toEqual(before);
+    };
+
+    it.each([
+      ["pristine", -1, "none", "NOT_STARTED"],
+      ["genesis lock", 0, "none", "RECOVERY_REQUIRED"],
+      ["authorization residue", 0, "authorization", "RECOVERY_REQUIRED"],
+      ["event one", 1, "none", "RECOVERY_REQUIRED"],
+      ["launch reservation ahead of event two", 1, "launch", "RECOVERY_REQUIRED"],
+      ["event two", 2, "none", "RECOVERY_REQUIRED"],
+      ["event three", 3, "none", "RECOVERY_REQUIRED"],
+      ["qualification reservation ahead of event four", 3, "qualification", "RECOVERY_REQUIRED"],
+      ["event four", 4, "none", "RECOVERY_REQUIRED"],
+      ["event five", 5, "none", "OUTCOME_UNKNOWN"],
+      ["event six", 6, "none", "OUTCOME_UNKNOWN"],
+      ["event seven with retained completed lock", 7, "none", "OUTCOME_UNKNOWN"],
+    ] as const)("classifies %s without mutation or authority capture", async (_name, stage, ahead, outcome) => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      const { store } = await receiptPrefix(root, stage, observed.io, ahead);
+      await assertRejected(root, store, observed, outcome);
+    });
+
+    it.each([1, 2, 3, 4])("retains a valid stage-%i prefix with a missing manifest", async (stage) => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      const { store } = await receiptPrefix(root, stage, observed.io);
+      await unlink(join(root, "activation", "activation-manifest.json"));
+      await assertRejected(root, store, observed, "RECOVERY_REQUIRED");
+    });
+
+    it.each([2, 3, 4])("retains a valid stage-%i prefix with an older exact manifest", async (stage) => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      const { store, manifests } = await receiptPrefix(root, stage, observed.io);
+      writeFileSync(join(root, "activation", "activation-manifest.json"), manifests[0]!);
+      await assertRejected(root, store, observed, "RECOVERY_REQUIRED");
+    });
+
+    it.each([5, 6, 7])("never weakens stage-%i uncertainty for an older valid manifest", async (stage) => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      const { store, manifests } = await receiptPrefix(root, stage, observed.io);
+      writeFileSync(join(root, "activation", "activation-manifest.json"), manifests[0]!);
+      await assertRejected(root, store, observed, "OUTCOME_UNKNOWN");
+    });
+
+    it("does not mistake a different caller request for pristine existing quarantine", async () => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      const { store } = await receiptPrefix(root, 1, observed.io);
+      const before = preflightDurableSnapshot(root);
+      observed.arm();
+      await expect(beginS37ProductHostAuthoritySessionForTestV01({
+        store, activation_id: `activation_${H("2").slice(7)}`, activation_request_hash: H("2"),
+      })).resolves.toEqual({ ok: false, outcome: "RECOVERY_REQUIRED", error: "AUTHORITY_CUSTODY_INVALID" });
+      expect(observed.effects).toEqual([]);
+      expect(preflightDurableSnapshot(root)).toEqual(before);
+    });
+
+    it.each([false, true])("returns unknown for completed history with a new prefix: %s", async (newPrefix) => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      const { store, session } = await receiptPrefix(root, 7, observed.io);
+      if (session === null) throw new Error("missing fixture session");
+      await expect(closeS37ProductHostActivationStoreSessionV01(session)).resolves.toEqual({ released: true, outcome: "COMPLETED" });
+      if (newPrefix) {
+        const request = H("2");
+        const next = await openS37ProductHostActivationStoreSessionV01(store, {
+          activation_id: `activation_${request.slice(7)}`, activation_request_hash: request, boot_id_hash: H("b"),
+        });
+        if (!next.ok) throw new Error(next.error);
+        await expect(commitS37ProductHostAuthorizationNonceV01(next.session, {
+          authenticated_principal_ref: "operator_1", approval_nonce: H("9"), domain: "primary-v02", run_id: "run_2",
+          authorization_id: "authorization_2", authorization_statement_hash: H("8"),
+        })).resolves.toMatchObject({ ok: true });
+        await expect(commitS37ProductHostActivationEventV01(next.session, {
+          ...requestedEvent(), payload: { ...requestedEvent().payload, request_hash: request },
+        })).resolves.toMatchObject({ ok: true });
+      }
+      await assertRejected(root, store, observed, "OUTCOME_UNKNOWN");
+    });
+
+    type Contradiction = Readonly<{ name: string; stage: number;
+      ahead?: "none" | "authorization" | "launch" | "qualification"; change(root: string): void | Promise<void> }>;
+    const contradictions: readonly Contradiction[] = [
+      { name: "missing lock", stage: 1, change: (root) => unlink(join(root, "activation", "activation.lock")) },
+      { name: "authorization residue without lock", stage: 0, ahead: "authorization",
+        change: (root) => unlink(join(root, "activation", "activation.lock")) },
+      { name: "malformed lock", stage: 0, change: (root) => {
+        const path = join(root, "activation", "activation.lock");
+        chmodSync(path, 0o600); writeFileSync(path, "{}\n"); chmodSync(path, 0o400);
+      } },
+      ...["predecessor_ledger_bytes_hash", "predecessor_ledger_head_hash", "boot_id_hash"].map((field) => ({
+        name: `wrong lock ${field}`, stage: 1, change: (root: string) => rewriteLock(root, (body) => { body[field] = H("e"); }),
+      })),
+      ...["predecessor_ledger_sequence", "fence_epoch"].map((field) => ({
+        name: `wrong lock ${field}`, stage: 1, change: (root: string) => rewriteLock(root, (body) => { body[field] = 2; }),
+      })),
+      { name: "self-consistent unrelated lock request", stage: 1, change: (root) => rewriteLock(root, (body) => {
+        body.activation_request_hash = H("e"); body.activation_id = `activation_${H("e").slice(7)}`;
+      }) },
+      { name: "event one without authorization predecessor", stage: 1,
+        change: (root) => rewriteNonce(root, "authorization-nonces.jsonl", (rows) => { rows.length = 0; }) },
+      ...["activation_id", "activation_request_hash", "fence_epoch"].map((field) => ({
+        name: `wrong authorization ${field}`, stage: 1,
+        change: (root: string) => rewriteNonce(root, "authorization-nonces.jsonl", (rows) => {
+          rows[0]![field] = field === "fence_epoch" ? 2 : field === "activation_id" ? "activation_other" : H("e");
+        }),
+      })),
+      { name: "second authorization row for one activation", stage: 1,
+        change: (root) => rewriteNonce(root, "authorization-nonces.jsonl", (rows) => {
+          rows.push({ ...rows[0], approval_nonce: H("e") });
+        }) },
+      { name: "event two without launch reservation", stage: 2,
+        change: (root) => rewriteNonce(root, "qualification-nonces.jsonl", (rows) => { rows.length = 0; }) },
+      ...["activation_id", "fence_epoch", "operation", "anchor_generation", "qualification_intent_hash"].map((field) => ({
+        name: `wrong launch ${field}`, stage: 1, ahead: "launch" as const,
+        change: (root: string) => rewriteNonce(root, "qualification-nonces.jsonl", (rows) => {
+          rows[0]![field] = field === "activation_id" ? "activation_other" : field === "operation" ? "transition-and-launch"
+            : field === "fence_epoch" || field === "anchor_generation" ? 2 : H("e");
+        }),
+      })),
+      { name: "qualification reservation before event one", stage: 1, ahead: "launch", change: async (root) => {
+        writeFileSync(join(root, "activation", "activation-ledger.jsonl"), "");
+        await unlink(join(root, "activation", "activation-manifest.json"));
+      } },
+      { name: "qualification-hash reservation before event three", stage: 3, ahead: "qualification", change: (root) => {
+        rewriteLedger(root, (rows) => { rows.splice(1); });
+      } },
+      { name: "wrong qualification anchor after event three", stage: 3, ahead: "qualification",
+        change: (root) => rewriteNonce(root, "qualification-nonces.jsonl", (rows) => { rows[1]!.anchor_hash = H("e"); }) },
+      ...["authorization_nonce_record_hash", "launch_nonce_record_hash"].map((field) => ({
+        name: `wrong event-two ${field}`, stage: 2,
+        change: (root: string) => rewriteLedger(root, (rows) => {
+          (rows[1]!.payload as Record<string, unknown>)[field] = H("e");
+        }),
+      })),
+      { name: "event four without qualification reservation", stage: 4,
+        change: (root) => rewriteNonce(root, "qualification-nonces.jsonl", (rows) => { rows.splice(1); }) },
+      ...["qualification_nonce_record_hash", "qualification_request_hash", "qualification_hash"].map((field) => ({
+        name: `wrong event-four ${field}`, stage: 4,
+        change: (root: string) => rewriteLedger(root, (rows) => {
+          (rows[3]!.payload as Record<string, unknown>)[field] = H("e");
+        }),
+      })),
+      { name: "invalid manifest", stage: 2,
+        change: (root) => { writeFileSync(join(root, "activation", "activation-manifest.json"), "{}\n"); } },
+      { name: "partial authorization JSONL", stage: 1,
+        change: (root) => { writeFileSync(join(root, "activation", "authorization-nonces.jsonl"), "{"); } },
+      { name: "partial qualification JSONL", stage: 2,
+        change: (root) => { writeFileSync(join(root, "activation", "qualification-nonces.jsonl"), "{"); } },
+    ];
+    it.each(contradictions)("refuses contradictory $name without changing evidence", async ({ stage, ahead, change }) => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      const { store } = await receiptPrefix(root, stage, observed.io, ahead);
+      await change(root);
+      await assertRejected(root, store, observed, "OUTCOME_UNKNOWN");
+    });
+
+    const capturedFiles = ["activation-ledger.jsonl", "authorization-nonces.jsonl", "qualification-nonces.jsonl",
+      "activation-manifest.json", "activation.lock"] as const;
+    it.each(capturedFiles)("returns unknown when %s cannot be read", async (name) => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      const target = join(root, "activation", name);
+      const io: S37ProductHostActivationStoreIoV01 = { ...observed.io, open: async (path, flags, mode) => {
+        if (observed.armed() && path === target) throw Object.assign(new Error("injected read refusal"), { code: "EACCES" });
+        return observed.io.open(path, flags, mode);
+      } };
+      const { store } = await receiptPrefix(root, 4, io);
+      await assertRejected(root, store, observed, "OUTCOME_UNKNOWN");
+    });
+
+    it.each(capturedFiles)("does not retry an ambiguous %s descriptor close", async (name) => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      const target = join(root, "activation", name);
+      let attempts = 0;
+      const io: S37ProductHostActivationStoreIoV01 = { ...observed.io, open: async (path, flags, mode) => {
+        const handle = await observed.io.open(path, flags, mode);
+        if (observed.armed() && path === target) {
+          const close = handle.close.bind(handle);
+          handle.close = async () => {
+            attempts += 1;
+            descriptorFaultCleanups.push(close);
+            throw Object.assign(new Error("injected ambiguous close"), { code: "EIO" });
+          };
+        }
+        return handle;
+      } };
+      const { store } = await receiptPrefix(root, 4, io);
+      await assertRejected(root, store, observed, "OUTCOME_UNKNOWN");
+      expect(attempts).toBe(1);
+    });
+
+    it.each(capturedFiles)("rejects raw %s drift during exact revalidation without retry", async (name) => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      const target = join(root, "activation", name);
+      let reads = 0;
+      const io: S37ProductHostActivationStoreIoV01 = { ...observed.io, open: async (path, flags, mode) => {
+        const handle = await observed.io.open(path, flags, mode);
+        if (observed.armed() && path === target && ++reads === 2) {
+          const read = handle.read.bind(handle);
+          Object.defineProperty(handle, "read", { value: async (
+            buffer: Uint8Array, offset: number, length: number, position: number,
+          ) => {
+            const result = await read(buffer, offset, length, position);
+            if (position === 0 && result.bytesRead > 0) buffer[offset] = buffer[offset]! ^ 1;
+            return result;
+          } });
+        }
+        return handle;
+      } };
+      const { store } = await receiptPrefix(root, 4, io);
+      await assertRejected(root, store, observed, "OUTCOME_UNKNOWN");
+      expect(reads).toBe(2);
+    });
+
+    it.each(["activation.lock", "activation-manifest.json"])("rechecks absent %s before proving no start", async (name) => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      let probes = 0;
+      const io: S37ProductHostActivationStoreIoV01 = { ...observed.io, lstat: async (path) => {
+        if (observed.armed() && path === join(root, "activation", name) && ++probes === 2) {
+          throw Object.assign(new Error("absence no longer provable"), { code: "EACCES" });
+        }
+        return observed.io.lstat(path);
+      } };
+      const { store } = await receiptPrefix(root, -1, io);
+      await assertRejected(root, store, observed, "OUTCOME_UNKNOWN");
+      expect(probes).toBe(2);
+    });
+
+    it("rejects second-pass replacement identity even when all file bytes are identical", async () => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      const target = join(root, "activation", "activation-ledger.jsonl");
+      let replaced = false;
+      let reads = 0;
+      const io: S37ProductHostActivationStoreIoV01 = {
+        ...observed.io,
+        lstat: async (path) => {
+          const stats = await observed.io.lstat(path);
+          if (observed.armed() && replaced && path === target) stats.ino += 1n;
+          return stats;
+        },
+        open: async (path, flags, mode) => {
+          const handle = await observed.io.open(path, flags, mode);
+          if (observed.armed() && path === target) {
+            reads += 1;
+            if (replaced) {
+              const stat = handle.stat.bind(handle);
+              Object.defineProperty(handle, "stat", { value: async () => {
+                const stats = await stat({ bigint: true }); stats.ino += 1n; return stats;
+              } });
+            } else {
+              const close = handle.close.bind(handle);
+              handle.close = async () => { await close(); replaced = true; };
+            }
+          }
+          return handle;
+        },
+      };
+      const { store } = await receiptPrefix(root, 1, io);
+      await assertRejected(root, store, observed, "OUTCOME_UNKNOWN");
+      expect(reads).toBe(2);
+    });
+
+    it.each(["root", "activation"])("rejects final held-%s directory identity drift", async (directory) => {
+      const root = fixtureRoot();
+      rejectedReceipt(root);
+      const observed = readOnlyPreflightIo(root);
+      const target = directory === "root" ? root : join(root, "activation");
+      let lockReads = 0;
+      let revalidated = false;
+      let finalProbes = 0;
+      const io: S37ProductHostActivationStoreIoV01 = {
+        ...observed.io,
+        lstat: async (path) => {
+          const stats = await observed.io.lstat(path);
+          if (observed.armed() && revalidated && path === target) { stats.ino += 1n; finalProbes += 1; }
+          return stats;
+        },
+        open: async (path, flags, mode) => {
+          const handle = await observed.io.open(path, flags, mode);
+          if (observed.armed() && path === join(root, "activation", "activation.lock") && ++lockReads === 2) {
+            const close = handle.close.bind(handle);
+            handle.close = async () => { await close(); revalidated = true; };
+          }
+          return handle;
+        },
+      };
+      const { store } = await receiptPrefix(root, 1, io);
+      await assertRejected(root, store, observed, "OUTCOME_UNKNOWN");
+      expect(finalProbes).toBe(1);
+    });
+
+    it("does not certify a forged store token as pristine", async () => {
+      await expect(beginS37ProductHostAuthoritySessionForTestV01({
+        store: Object.freeze({}) as CapturedS37ProductHostActivationStoreV01,
+        activation_id: ACTIVATION_ID, activation_request_hash: REQUEST,
+      })).resolves.toEqual({ ok: false, outcome: "OUTCOME_UNKNOWN", error: "ACTIVATION_STORE_INVALID" });
+    });
+
+    it("does not certify a disposed store token as pristine", async () => {
+      const root = fixtureRoot();
+      const store = await captured(root);
+      await expect(disposeS37ProductHostActivationStoreV01(store)).resolves.toBe(true);
+      await expect(beginS37ProductHostAuthoritySessionForTestV01({ store,
+        activation_id: ACTIVATION_ID, activation_request_hash: REQUEST,
+      })).resolves.toEqual({ ok: false, outcome: "OUTCOME_UNKNOWN", error: "ACTIVATION_STORE_INVALID" });
+    });
+
+    it("does not certify a poisoned store token as pristine", async () => {
+      const root = fixtureRoot();
+      const { store, session } = await opened(root, ioWithRenameFailure());
+      await expect(commitS37ProductHostActivationEventV01(session, requestedEvent())).resolves.toMatchObject({
+        ok: false, outcome: "OUTCOME_UNKNOWN",
+      });
+      await expect(beginS37ProductHostAuthoritySessionForTestV01({ store,
+        activation_id: ACTIVATION_ID, activation_request_hash: REQUEST,
+      })).resolves.toEqual({ ok: false, outcome: "OUTCOME_UNKNOWN", error: "ACTIVATION_STORE_INVALID" });
+    });
+  });
+
   describe.each(["authority-ed25519.pem", "qualification-ed25519.pem"])("owned %s read buffers", (signer) => {
     it.each(SIGNER_READ_FAILURES)("zeroizes discarded buffers after %s without retrying close", async (failure) => {
       const root = fixtureRoot();

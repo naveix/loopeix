@@ -1709,6 +1709,103 @@ async function receiptBootForStore(store: StoreState): Promise<string | null> {
   }
 }
 
+type ReceiptFailureOutcome = "NOT_STARTED" | "RECOVERY_REQUIRED" | "OUTCOME_UNKNOWN";
+type ReceiptFailureSnapshot = NonNullable<Awaited<ReturnType<typeof currentStoreBytes>>>;
+
+function receiptFailureDurableOutcome(current: ReceiptFailureSnapshot, lock: FileCapture | null): ReceiptFailureOutcome {
+  const stage = current.events.length;
+  // Completion and predecessor history cannot certify a new failed begin.
+  if (stage > 4) return "OUTCOME_UNKNOWN";
+  if (lock === null) return stage === 0 && current.authorization_rows.length === 0
+    && current.qualification_rows.length === 0 && current.manifest === null ? "NOT_STARTED" : "OUTCOME_UNKNOWN";
+  const parsedLock = parseLock(lock.bytes);
+  if (parsedLock === null || parsedLock.predecessor_ledger_sequence !== 0
+    || parsedLock.predecessor_ledger_head_hash !== null
+    || parsedLock.predecessor_ledger_bytes_hash !== hashActivationLedger(EMPTY)
+    || parsedLock.fence_epoch !== 1 || current.authorization_rows.length > 1) return "OUTCOME_UNKNOWN";
+  const authorization = current.authorization_rows[0];
+  if (authorization !== undefined && (authorization.activation_id !== parsedLock.activation_id
+    || authorization.activation_request_hash !== parsedLock.activation_request_hash
+    || authorization.fence_epoch !== parsedLock.fence_epoch)) return "OUTCOME_UNKNOWN";
+  if (stage === 0) return current.qualification_rows.length === 0 ? "RECOVERY_REQUIRED" : "OUTCOME_UNKNOWN";
+  const requested = current.events[0];
+  if (requested?.event_type !== "activation.requested" || !isRecord(requested.payload) || authorization === undefined
+    || requested.activation_id !== parsedLock.activation_id
+    || requested.payload.request_hash !== parsedLock.activation_request_hash
+    || requested.fence_epoch !== parsedLock.fence_epoch || requested.boot_id_hash !== parsedLock.boot_id_hash) {
+    return "OUTCOME_UNKNOWN";
+  }
+  const minimumQualificationRows = stage === 4 ? 2 : stage >= 2 ? 1 : 0;
+  const maximumQualificationRows = stage >= 3 ? 2 : 1;
+  if (current.qualification_rows.length < minimumQualificationRows
+    || current.qualification_rows.length > maximumQualificationRows) return "OUTCOME_UNKNOWN";
+  const launch = current.qualification_rows[0];
+  if (launch !== undefined && (launch.reservation_kind !== "launch-nonce"
+    || launch.activation_id !== requested.activation_id || launch.fence_epoch !== requested.fence_epoch
+    || launch.operation !== requested.operation || launch.anchor_generation !== requested.anchor_generation
+    || launch.qualification_intent_hash !== requested.payload.qualification_intent_hash)) return "OUTCOME_UNKNOWN";
+  if (stage >= 2) {
+    const reserved = current.events[1];
+    if (reserved?.event_type !== "activation.nonces-reserved" || !isRecord(reserved.payload) || launch === undefined
+      || reserved.payload.authorization_nonce_record_hash !== authorization.record_hash
+      || reserved.payload.launch_nonce_record_hash !== launch.record_hash) return "OUTCOME_UNKNOWN";
+  }
+  const qualification = current.qualification_rows[1];
+  if (qualification !== undefined) {
+    const anchor = current.events[2];
+    if (anchor?.event_type !== "activation.anchor-stable" || qualification.reservation_kind !== "qualification-hash"
+      || qualification.anchor_hash !== anchor.anchor_hash) return "OUTCOME_UNKNOWN";
+    // The parser already requires the immediately preceding matching launch
+    // row; only event three/four bindings remain to be checked here.
+    if (stage === 4) {
+      const issued = current.events[3];
+      if (issued?.event_type !== "activation.qualification-issued" || !isRecord(issued.payload)
+        || issued.payload.qualification_nonce_record_hash !== qualification.record_hash
+        || issued.payload.qualification_request_hash !== qualification.qualification_request_hash
+        || issued.payload.qualification_hash !== qualification.reserved_hash) return "OUTCOME_UNKNOWN";
+    }
+  }
+  return "RECOVERY_REQUIRED";
+}
+
+async function receiptFailureCaptureStillExact(
+  store: StoreState, capture: FileCapture | null, fileName: string, mode: bigint, maximum: number,
+): Promise<boolean> {
+  const current = await readOptionalStrictFile(store.activation, fileName, mode, maximum,
+    store.owner_uid, store.owner_gid, store.io);
+  return current !== "invalid" && (capture === null ? current === null
+    : current !== null && captureMatches(capture, current));
+}
+
+async function classifyReceiptFailure(store: StoreState): Promise<ReceiptFailureOutcome> {
+  try {
+    if (store.poisoned || descriptorCloseAmbiguities.has(store.io)) return "OUTCOME_UNKNOWN";
+    const current = await currentStoreBytes(store);
+    if (current === null) return "OUTCOME_UNKNOWN";
+    const lock = await readOptionalStrictFile(store.activation, LOCK_FILE, 0o400n, MAX_LOCK_BYTES,
+      store.owner_uid, store.owner_gid, store.io);
+    if (lock === "invalid") return "OUTCOME_UNKNOWN";
+    const outcome = receiptFailureDurableOutcome(current, lock);
+    if (outcome === "OUTCOME_UNKNOWN") return outcome;
+    // Revalidate raw captures sequentially, not a second parsed store snapshot.
+    // Absence and identity matter as well as bytes. Drift never authorizes retry.
+    for (const [capture, name, mode, maximum] of [
+      [current.ledger, LEDGER_FILE, 0o600n, MAX_LEDGER_BYTES],
+      [current.authorization, AUTHORIZATION_NONCE_FILE, 0o600n, MAX_NONCE_LOG_BYTES],
+      [current.qualification, QUALIFICATION_NONCE_FILE, 0o600n, MAX_NONCE_LOG_BYTES],
+      [current.manifest, MANIFEST_FILE, 0o600n, MAX_MANIFEST_BYTES],
+      [lock, LOCK_FILE, 0o400n, MAX_LOCK_BYTES],
+    ] as const) {
+      if (!await receiptFailureCaptureStillExact(store, capture, name, mode, maximum)) return "OUTCOME_UNKNOWN";
+    }
+    return !store.poisoned && !descriptorCloseAmbiguities.has(store.io)
+      && await directoryUnchanged(store.root, store.io) && await directoryUnchanged(store.activation, store.io)
+      ? outcome : "OUTCOME_UNKNOWN";
+  } catch {
+    return "OUTCOME_UNKNOWN";
+  }
+}
+
 async function beginAuthoritySessionFromCaptured(
   captured: CapturedS37ProductHostActivationStoreV01,
   input: Readonly<{ activation_id: string; activation_request_hash: string }>,
@@ -1716,12 +1813,11 @@ async function beginAuthoritySessionFromCaptured(
   | Readonly<{ ok: false; outcome: AuthoritySessionBeginOutcome; error: string }>> {
   const store = stores.get(captured);
   if (store === undefined || store.poisoned) {
-    return Object.freeze({ ok: false, outcome: "NOT_STARTED", error: "ACTIVATION_STORE_INVALID" });
+    return Object.freeze({ ok: false, outcome: "OUTCOME_UNKNOWN", error: "ACTIVATION_STORE_INVALID" });
   }
   const bootIdHash = await receiptBootForStore(store);
   if (bootIdHash === null) {
-    return Object.freeze({ ok: false, outcome: descriptorCloseAmbiguities.has(store.io)
-      ? "OUTCOME_UNKNOWN" : "NOT_STARTED", error: "AUTHORITY_CUSTODY_INVALID" });
+    return Object.freeze({ ok: false, outcome: await classifyReceiptFailure(store), error: "AUTHORITY_CUSTODY_INVALID" });
   }
   const opened = await openS37ProductHostActivationStoreSessionV01(captured, {
     activation_id: input.activation_id,
