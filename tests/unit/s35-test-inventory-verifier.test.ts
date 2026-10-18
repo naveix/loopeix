@@ -32,6 +32,33 @@ function passingReport() {
 }
 
 describe("S35 test inventory report verification", () => {
+  it.each([
+    "tests/unit/s37-product-host-activation-contract-v01.test.ts",
+    "tests/unit/s37-product-host-activation-store-v01.test.ts",
+    "tests/unit/s37-product-host-activation-v01.test.ts",
+    "tests/unit/s37-product-host-launch-broker-v01.test.ts",
+    "tests/integration/s37-product-host-activation-process.test.ts",
+    "tests/integration/s37-linux-product-host-v03-tooling.test.ts",
+  ])("requires nonempty passing activation evidence for %s", (path) => {
+    const report = passingReport();
+    report.testResults = report.testResults.filter((result) => result.name !== join(process.cwd(), path));
+    expect(inventoryEvidenceFailures(report)).toContain(`${path} (absent from Vitest JSON)`);
+
+    const result: {
+      name: string;
+      status: string;
+      assertionResults: Array<{ status: string; failureMessages: string[] }>;
+    } = { name: join(process.cwd(), path), status: "passed", assertionResults: [] };
+    report.testResults.push(result);
+    expect(inventoryEvidenceFailures(report)).toContain(`${path} (no executed assertions)`);
+
+    result.assertionResults = [{ status: "skipped", failureMessages: [] }];
+    expect(inventoryEvidenceFailures(report)).toContain(`${path} (non-passing assertion status)`);
+
+    result.assertionResults = [{ status: "passed", failureMessages: [] }];
+    expect(inventoryEvidenceFailures(report)).toEqual([]);
+  });
+
   it("accepts complete passing full-suite evidence", () => {
     expect(inventoryEvidenceFailures(passingReport())).toEqual([]);
   });

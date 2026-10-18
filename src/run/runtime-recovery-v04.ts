@@ -26,9 +26,6 @@ import {
   type ValidatedSummaryArtifactV01,
 } from "./runtime-summary-v04.js";
 
-const nonNegativeSafeInteger = z.number().int().nonnegative().refine(Number.isSafeInteger);
-const positiveSafeInteger = nonNegativeSafeInteger.positive();
-
 const OwnerStatusV04 = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("absent"),
@@ -346,7 +343,6 @@ function limitRefusal(projection: RuntimeLimitAccountingValueV04): RuntimeRecove
 
 function buildEligibleDecision(
   ledger: ValidatedRuntimeLedgerV04,
-  manifest: ValidatedRunManifestV04,
   requestProjection: RuntimeRecoveryRequestProjectionV04,
   counters: RuntimeLimitCountersV04Value,
   projection: RuntimeLimitAccountingValueV04,
@@ -545,7 +541,6 @@ function decideRecovery(
   }
   const eligible = buildEligibleDecision(
     ledger,
-    manifest,
     requestProjection,
     limits.counters,
     limits.projection,

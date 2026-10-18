@@ -192,10 +192,10 @@ const ProgressObservationV02 = strictObject({
   value_type: z.enum(["number", "string", "boolean"]),
   improves_when: z.union([
     strictObject({ operator: z.enum(["increases", "decreases"]) }),
-    strictObject({ operator: z.literal("equals"), target: z.union([z.number().finite(), UnicodeScalarString, z.boolean()]) }),
+    strictObject({ operator: z.literal("equals"), target: z.union([z.number(), UnicodeScalarString, z.boolean()]) }),
   ]),
   target: z.union([
-    strictObject({ operator: z.enum(["gte", "lte", "equals"]), value: z.union([z.number().finite(), UnicodeScalarString, z.boolean()]) }),
+    strictObject({ operator: z.enum(["gte", "lte", "equals"]), value: z.union([z.number(), UnicodeScalarString, z.boolean()]) }),
     z.null(),
   ]),
 });

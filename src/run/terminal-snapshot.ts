@@ -11,7 +11,6 @@ import {
   type LedgerRefV02Value,
   type ProgressObservationEvaluationV02Value,
   type RuntimeProjectionErrorV02,
-  type RuntimeProjectionInputV02,
   type RuntimeResult,
   type TerminalObservationSnapshotV02,
   type TerminalSnapshotInvalidReasonV02,
@@ -470,7 +469,6 @@ export function buildTerminalObservationSnapshotCoreV02(
   if (input.events[0]?.event_type !== "run.initialized") {
     return { ok: false, error: "APPLICABILITY_OR_DUE_INVALID" };
   }
-  const initializedRef = eventRef(input.events[0]);
   const freezeEvents = input.events.filter((event) => event.event_type === "run.terminal-freeze-entered" || event.event_type === "run.terminal-freeze-revised");
   const freezeEvent = freezeEvents.at(-1);
   const initialFreezeEvent = input.events.find((event) => event.event_type === "run.terminal-freeze-entered");

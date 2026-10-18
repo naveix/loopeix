@@ -48,7 +48,7 @@ const AnchorFieldsV03 = z.object({
   host: z.unknown(),
   artifacts: z.unknown(),
   qualification_issuer: QualificationIssuerV03,
-}).passthrough();
+}).loose();
 
 const QualificationRequestFieldsV01 = z.object({
   anchor_hash: Hash,
@@ -62,7 +62,7 @@ const QualificationRequestFieldsV01 = z.object({
   requested_at: exactUtcSecond,
   expires_at: exactUtcSecond,
   request_hash: Hash,
-}).passthrough();
+}).loose();
 
 const PhaseBRootsV03 = z.object({
   manifest_sha256: Hash,
@@ -88,8 +88,8 @@ const QualificationObservationV03 = z.object({
 }).strict();
 
 const DecisionInputFieldsV02 = z.object({
-  proposal: z.object({ action_proposal_hash: Hash }).passthrough(),
-}).passthrough();
+  proposal: z.object({ action_proposal_hash: Hash }).loose(),
+}).loose();
 
 const SimulatedLeaseFieldsV02 = z.object({
   durable: z.literal(false),
@@ -118,7 +118,7 @@ const QualificationFieldsV03 = z.object({
   issued_at: exactUtcSecond,
   expires_at: exactUtcSecond,
   qualification_hash: Hash,
-}).passthrough();
+}).loose();
 
 const IssueInputV03 = z.object({
   anchor: z.unknown(),

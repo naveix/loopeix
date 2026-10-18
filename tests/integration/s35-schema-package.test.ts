@@ -10,11 +10,13 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
+// Load the pinned Node compiler natively; Vite need not transform its own build tool.
+const ts: typeof import("typescript") = createRequire(import.meta.url)("typescript");
 const repositoryRoot = join(import.meta.dirname, "../..");
 const fixtureRoot = join(repositoryRoot, "tests/fixtures/compat/s35/v01");
 const commonFixtureRoot = join(repositoryRoot, "tests/fixtures/compat/s35/common");
@@ -220,8 +222,10 @@ describe("S35 schema and package contract", () => {
 
   it("ships the self-contained dispatcher and both literal family schemas with stable IDs", () => {
     const packageJson = JSON.parse(readFileSync(join(repositoryRoot, "package.json"), "utf8")) as {
+      devEngines: { packageManager: { name: string; version: string } };
       exports: Record<string, unknown>;
       files: string[];
+      packageManager: string;
     };
     const dispatcher = JSON.parse(readFileSync(join(repositoryRoot, "schemas/loopeix.schema.json"), "utf8")) as {
       $id: string;
@@ -243,6 +247,10 @@ describe("S35 schema and package contract", () => {
       "bin", "dist", "schemas", "oclif.manifest.json", "npm-shrinkwrap.json",
       "NOTICE", "README.md", "LICENSE", "CHANGELOG.md",
     ]);
+    expect(packageJson.packageManager).toBe("pnpm@11.11.0");
+    expect(packageJson.devEngines).toEqual({
+      packageManager: { name: "pnpm", version: "11.11.0" },
+    });
   });
 
   it("packages the reviewed private runtime artifacts without publishing any private module subpath", () => {

@@ -1,5 +1,9 @@
 # dependencies
 node_modules/
+.pnpm-store/
+
+# local agent permissions and state
+.claude/
 
 # build output
 dist/

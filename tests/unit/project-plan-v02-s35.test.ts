@@ -57,7 +57,7 @@ afterEach(() => {
 function git(root: string, ...args: string[]): string {
   return execFileSync("/usr/bin/git", ["-C", root, ...args], {
     encoding: "utf8",
-    env: { LANG: "C", LC_ALL: "C", PATH: "/usr/bin:/bin" },
+    env: { LANG: "C", LC_ALL: "C", PATH: "/usr/bin:/bin", TMPDIR: tmpdir() },
   }).trim();
 }
 

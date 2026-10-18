@@ -24,7 +24,6 @@ import {
 import {
   BindingInputRecordV02,
   validateBindingsForCatalogEntryV02,
-  type BindingInputRecordV02 as BindingInputRecordV02Value,
   type JsonValueV02,
 } from "./binding-input-v02.js";
 
