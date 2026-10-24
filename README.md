@@ -5,13 +5,17 @@
   </picture>
 </p>
 
-<p align="center"><strong>Design, run, and verify repeatable AI work loops — locally, honestly.</strong><br>
+<p align="center"><strong>Design, run, and verify repeatable AI work loops on your own machine.</strong><br>
 Describe a piece of AI-assisted work once, in plain YAML. Loopeix validates the contract and can
 turn a captured agent-event stream into tamper-evident local evidence without claiming more than
 it can prove.<br>
-Its flagship add-on, the <strong>Claims Check</strong>, turns that evidence into a lie detector for agent pull requests.</p>
+Its flagship add-on, the <strong>Claims Check</strong>, checks what an agent says it did in a pull request against the events recorded for the run.</p>
 
 ---
+
+> **Status (October 2026).** v0.1.0 on npm runs live through the Codex or Claude CLI.
+> Main is the 0.2.0-alpha.0 development line: captured-event replay works today, and
+> live agent runs are being rebuilt. See [Limitations](#limitations-honest-by-design).
 
 ## The core: work loops you can trust
 
